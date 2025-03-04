@@ -1,6 +1,6 @@
 # Nginx Analytics
 
-An extremely simple analytics solution for Nginx log files.
+An extremely flexible privacy-focused analytics solution for Nginx.
 
 # Getting Started
 
@@ -10,7 +10,7 @@ There are three options to get up and running:
 
 #### Recommended
 
-Deploy our lightweight agent to your server to expose your log files to the web-app, and stream log file content and changes in real-time.
+Deploy the lightweight agent to your server to securely expose your log files to the dashboard, and stream log file content and changes in real-time.
 
 ```bash
 go build -o log_agent agent.go
@@ -19,13 +19,47 @@ ssh user@yourserver
 chmod +x /usr/local/bin/log_agent
 ```
 
-Run manually:
+Run it and confirm it's publically accessible.
 
-```bash
+```
 /usr/local/bin/log_agent
 ```
 
-Then, host the web-app on your favourite platform, ensuring environment variables are set pointing to these endpoints.
+```bash
+curl http://yourserver.com/logs/status
+
+> {"status": "ok"}
+```
+
+All log data transferred by the agent is encrypted end-to-end, so HTTPS is optional.
+
+Setup a systemd service `/etc/systemd/system/log_agent.service` to run the agent in the background.
+
+```toml
+[Unit]
+Description=Nginx Log Agent
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/log_agent
+Restart=always
+User=nobody
+Group=nogroup
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start: 
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable log_agent
+sudo systemctl start log_agent
+```
+
+
+Then, host the dashboard on your favourite platform, ensuring environment variables are set pointing to these endpoints.
 
 ```env
 NGINX_ACCESS_URL=http://yourserver.com/logs/access
@@ -55,7 +89,7 @@ server {
 }
 ```
 
-Then, host the web-app on your favourite platform, ensuring environment variables are set pointing to these endpoints.
+Then, host the dashboard on your favourite platform, ensuring environment variables are set pointing to these endpoints.
 
 ```env
 NGINX_ACCESS_URL=http://yourserver.com/logs/access
@@ -64,7 +98,7 @@ NGINX_ERROR_URL=http://yourserver.com/logs/error
 
 ## Local Setup
 
-Host this app on the same server, providing the path to your log files in a `.env` file.
+Host the dashboard on the same server, providing the path to your log files in a `.env` file.
 
 ```
 NGINX_ACCESS_PATH=/var/log/nginx/access.log
@@ -86,4 +120,4 @@ location /analytics {
 
 ## File Upload
 
-Drag-and-drop your `access.log` and `error.log` directly into the app. Get started straight away on <a href="">our deployment</a>.
+Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="">our deployment</a>.

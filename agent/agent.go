@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,45 +17,47 @@ import (
 )
 
 const defaultPort string = "8080"
+const defaultNginxAccessPath string = "/var/log/nginx/access.log"
+const defaultNginxErrorPath string = "/var/log/nginx/error.log"
 
-var authToken string // Declare variable to hold the passphrase
+var startTime = time.Now()
+
+var authToken string // Declare variable to hold the authentication token
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	args := getArguments()
 
-	// Read the passphrase from environment variable
-	authToken = os.Getenv("AUTH_TOKEN")
-	if authToken == "" {
-		log.Fatal("AUTH_TOKEN not set in the environment")
-	}
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = defaultPort
-	}
-
-	http.HandleFunc("/access", func(w http.ResponseWriter, r *http.Request) {
-		if !isAuthenticated(r) {
-            http.Error(w, "Forbidden: Invalid Auth Token", http.StatusForbidden)
-            return
-        }
-		streamLog(w, "/var/log/nginx/access.log")
+	// Define HTTP routes
+	http.HandleFunc("/logs/access", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Accessing access.log")
+		if authToken != "" && !isAuthenticated(r) {
+			log.Println("Forbidden: Invalid auth token")
+			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
+			return
+		}
+		streamFullLog(w, args.nginxAccessPath)
 	})
 
-	http.HandleFunc("/error", func(w http.ResponseWriter, r *http.Request) {
-		if !isAuthenticated(r) {
-            http.Error(w, "Forbidden: Invalid Auth Token", http.StatusForbidden)
-            return
-        }
-		streamLog(w, "/var/log/nginx/error.log")
+	http.HandleFunc("/logs/errors", func(w http.ResponseWriter, r *http.Request) {
+		if authToken != "" && !isAuthenticated(r) {
+			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
+			return
+		}
+		streamFullLog(w, args.nginxErrorPath)
+	})
+
+	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		if authToken != "" && !isAuthenticated(r) {
+			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
+			return
+		}
+		checkServerStatus(w, args.nginxAccessPath, args.nginxErrorPath)
 	})
 
 	// Handle graceful shutdown
 	go func() {
-		fmt.Printf("Log agent running on :%s...\n", port)
-		if err := http.ListenAndServe(":" + port, nil); err != nil {
+		log.Printf("Agent running on port %s...\n", args.port)
+		if err := http.ListenAndServe(":"+args.port, nil); err != nil {
 			log.Fatalf("Server failed: %v", err)
 		}
 	}()
@@ -63,11 +67,70 @@ func main() {
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigchan
 
-	fmt.Println("Shutting down...")
+	log.Println("Shutting down...")
+}
+
+type Arguments struct {
+	port            string
+	nginxAccessPath string
+	nginxErrorPath  string
+}
+
+func getArguments() Arguments {
+	// Define command-line flags
+	cmdAuthToken := flag.String("auth-token", "", "Authentication token (recommended)")
+	cmdPort := flag.String("port", "", fmt.Sprintf("Port to run the server on (default %s)", defaultPort))
+	cmdNginxAccessPath := flag.String("nginx-access-path", "", fmt.Sprintf("Path to the Nginx access.log file (default %s)", defaultNginxAccessPath))
+	cmdNginxErrorPath := flag.String("nginx-error-path", "", fmt.Sprintf("Path to the Nginx error.log file (default %s)", defaultNginxErrorPath))
+	flag.Parse()
+
+	// Load environment variables from .env file
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: Error loading .env file")
+	}
+
+	// Determine auth token
+	authToken = *cmdAuthToken
+	if authToken == "" {
+		authToken = os.Getenv("AUTH_TOKEN")
+	}
+	if authToken == "" {
+		log.Println("Auth token not set in environment or command line argument. Connection will be insecure.")
+	}
+
+	// Determine port
+	port := *cmdPort
+	if port == "" {
+		port = os.Getenv("PORT")
+		if port == "" {
+			port = defaultPort
+		}
+	}
+
+	// Determine access log path
+	nginxAccessPath := *cmdNginxAccessPath
+	if nginxAccessPath == "" {
+		nginxAccessPath = os.Getenv("NGINX_ACCESS_PATH")
+		if nginxAccessPath == "" {
+			nginxAccessPath = defaultNginxAccessPath
+		}
+	}
+	log.Println("Nginx access.log path: " + nginxAccessPath)
+
+	// Determine error log path
+	nginxErrorPath := *cmdNginxErrorPath
+	if nginxErrorPath == "" {
+		nginxErrorPath = os.Getenv("NGINX_ERROR_PATH")
+		if nginxErrorPath == "" {
+			nginxErrorPath = defaultNginxErrorPath
+		}
+	}
+	log.Println("Nginx error.log path: " + nginxErrorPath)
+
+	return Arguments{port, nginxAccessPath, nginxErrorPath}
 }
 
 func isAuthenticated(r *http.Request) bool {
-	// Extract the passphrase from the Authorization header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		return false
@@ -77,16 +140,17 @@ func isAuthenticated(r *http.Request) bool {
 		return false
 	}
 
-	// Compare the passphrase from the header with the expected passphrase
-	providedPassphrase := strings.TrimPrefix(authHeader, "Bearer ")
-	return providedPassphrase == authToken
+	providedAuthToken := strings.TrimPrefix(authHeader, "Bearer ")
+	return providedAuthToken == authToken
 }
 
-func streamLog(w http.ResponseWriter, filePath string) {
+func streamFullLog(w http.ResponseWriter, filePath string) {
+	// Set headers for SSE (Server-Sent Events)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
+	// Open the log file
 	file, err := os.Open(filePath)
 	if err != nil {
 		http.Error(w, "Failed to open log file", http.StatusInternalServerError)
@@ -94,27 +158,65 @@ func streamLog(w http.ResponseWriter, filePath string) {
 	}
 	defer file.Close()
 
-	// Move to the end of the file to stream the new logs.
-	reader := bufio.NewReader(file)
-	file.Seek(0, 2) // Skip the file's current content and start at the end
+	// Stream the full content first (sending existing log entries)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		// Send each log line as SSE data
+		fmt.Fprintf(w, "data: %s\n\n", scanner.Text())
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	}
 
-	// Keep reading new log lines
+	if err := scanner.Err(); err != nil {
+		http.Error(w, fmt.Sprintf("Error reading log file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Stream new log lines in real-time (tail -f equivalent)
+	reader := bufio.NewReader(file)
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			// Handle errors gracefully
+			// EOF reached, wait and retry
 			if err.Error() == "EOF" {
-				time.Sleep(500 * time.Millisecond) // Wait and retry
+				time.Sleep(500 * time.Millisecond) // Retry after waiting
 				continue
 			}
 			http.Error(w, fmt.Sprintf("Error reading log file: %v", err), http.StatusInternalServerError)
 			return
 		}
-		// Stream the log line to the client using SSE
+
+		// Send each new log line as SSE data
 		fmt.Fprintf(w, "data: %s\n\n", line)
-		// Flush the response to the client
 		if flusher, ok := w.(http.Flusher); ok {
 			flusher.Flush()
 		}
 	}
+}
+
+func checkServerStatus(w http.ResponseWriter, nginxAccessPath string, nginxErrorPath string) {
+	status := map[string]interface{}{
+		"status":    "ok",
+		"uptime":    time.Since(startTime).String(),
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"version":   "1.0.0",
+	}
+
+	if _, err := os.Stat(nginxAccessPath); err != nil {
+		status["accessLogStatus"] = "not found"
+	} else {
+		status["accessLogStatus"] = "ok"
+	}
+
+	if _, err := os.Stat(nginxErrorPath); err != nil {
+		status["errorLogStatus"] = "not found"
+	} else {
+		status["errorLogStatus"] = "ok"
+	}
+
+	// Send status as JSON response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(status)
 }

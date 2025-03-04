@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Nginx Analytics",
-  description: "An extremely simple analytics solution for Nginx.",
+  description: "An extremely simple analytics solution for Nginx."
 };
 
 export default function RootLayout({

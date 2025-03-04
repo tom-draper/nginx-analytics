@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { Data } from "../types";
 
@@ -20,7 +22,6 @@ function getSuccessRate(data: Data) {
 }
 
 export function SuccessRate({ data }: { data: Data }) {
-
     const [successRate, setSuccessRate] = useState<number | null>(null);
     useEffect(() => {
         setSuccessRate(getSuccessRate(data))
@@ -33,8 +34,8 @@ export function SuccessRate({ data }: { data: Data }) {
             </h2>
 
             <div className="text-3xl font-semibold grid place-items-center">
-                <div className="py-6">
-                    {successRate !== null}
+                <div className="py-4">
+                    {successRate !== null ? `${(successRate * 100).toFixed(1)}%` : 'N/A' }
                 </div>
             </div>
         </div>
