@@ -18,7 +18,7 @@ export function Requests({ data }: { data: Data }) {
 
             <div className="text-3xl font-semibold grid place-items-center">
                 <div className="py-4">
-                    {count}
+                    {count.toLocaleString()}
                 </div>
             </div>
         </div>

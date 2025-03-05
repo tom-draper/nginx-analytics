@@ -11,7 +11,7 @@
     --background: #0a0a0a;
     --foreground: #ededed;
     --nginx-green: #009400;
-    --other-green: #2ECC71;
+    --other-green: rgb(46, 204, 113);
 }
 
 @media (prefers-color-scheme: dark) {

@@ -12,11 +12,11 @@ import { Location } from "@/lib/components/location";
 import { parseLogs } from "@/lib/parse";
 import { useEffect, useState } from "react";
 import { Data } from "@/lib/types";
+import { Device } from "@/lib/components/device";
 
 export default function Home() {
 	const [data, setData] = useState<Data>([]);
 	const [accessLogs, setAccessLogs] = useState<string[]>([]);
-	// const [errorLogs, setErrorLogs] = useState<string[]>([]);
 
 	useEffect(() => {
         const fetchLogs = async () => {
@@ -28,7 +28,7 @@ export default function Home() {
 				}
                 const data = await res.json();
 
-				console.log(data);
+				console.log('data', data);
 				if (data.logs) {
 					setAccessLogs((prevLogs) => [...prevLogs, ...data.logs]);
 					position = parseInt(data.position);
@@ -83,8 +83,7 @@ export default function Home() {
 
 						<div className="w-full flex">
 							<Location data={data} />
-
-
+							<Device data={data} />
 						</div>
 
 						<div className="border rounded border-gray-300 flex-1 px-4 py-3 m-2">

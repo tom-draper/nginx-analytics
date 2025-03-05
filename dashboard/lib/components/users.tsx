@@ -29,7 +29,7 @@ export default function Users({ data }: {data: Data}) {
 
             <div className="text-3xl font-semibold grid place-items-center">
                 <div className="py-4">
-                    {users ? users.size : ''}
+                    {users ? users.size.toLocaleString() : ''}
                 </div>
             </div>
         </div>

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -35,7 +36,7 @@ func main() {
 			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
 			return
 		}
-		streamFullLog(w, args.nginxAccessPath)
+		serveLog(w, r, args.nginxAccessPath)
 	})
 
 	http.HandleFunc("/logs/errors", func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +44,7 @@ func main() {
 			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
 			return
 		}
-		streamFullLog(w, args.nginxErrorPath)
+		serveLog(w, r, args.nginxErrorPath)
 	})
 
 	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
@@ -144,7 +145,7 @@ func isAuthenticated(r *http.Request) bool {
 	return providedAuthToken == authToken
 }
 
-func streamFullLog(w http.ResponseWriter, filePath string) {
+func streamLog(w http.ResponseWriter, filePath string) {
 	// Set headers for SSE (Server-Sent Events)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -193,6 +194,101 @@ func streamFullLog(w http.ResponseWriter, filePath string) {
 			flusher.Flush()
 		}
 	}
+}
+
+func serveLog(w http.ResponseWriter, r *http.Request, filePath string) {
+	// Get 'position' from the query parameters
+	positionStr := r.URL.Query().Get("position")
+	var position int64 = 0
+
+	if positionStr != "" {
+		value, err := strconv.ParseInt(positionStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid position value", http.StatusBadRequest)
+			return
+		}
+		position = value
+	}
+
+	// Open the log file
+	file, err := os.Open(filePath)
+	if err != nil {
+		http.Error(w, "Failed to open log file", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	// Move the file pointer to the last position
+	_, err = file.Seek(position, 0)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error seeking file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Use a buffer to efficiently read the file
+	buffer := make([]byte, 4096) // Read in 4KB chunks
+	var logs []string
+	var totalRead int64
+	var incompleteLine string
+
+	// Read the file in chunks
+	for {
+		n, err := file.Read(buffer)
+		if n == 0 {
+			// End of file or nothing more to read
+			if err != nil {
+				if err.Error() != "EOF" {
+					http.Error(w, fmt.Sprintf("Error reading file: %v", err), http.StatusInternalServerError)
+				}
+			}
+			break
+		}
+
+		// Process the chunk into log lines
+		totalRead += int64(n)
+		content := string(buffer[:n])
+
+		// If there's an incomplete line from the previous chunk, prepend it
+		if incompleteLine != "" {
+			content = incompleteLine + content
+		}
+
+		lines := strings.Split(content, "\n")
+		incompleteLine = lines[len(lines)-1] // The last line may be incomplete
+		lines = lines[:len(lines)-1]         // Exclude the incomplete line
+
+		// Add the complete lines to the logs
+		for _, line := range lines {
+			if line != "" {
+				logs = append(logs, line)
+			}
+		}
+
+		// If we've reached the end of the file, break
+		if n < len(buffer) {
+			break
+		}
+	}
+
+	// Adjust the position if we had an incomplete line
+	newPosition := position + totalRead - int64(len(incompleteLine))
+
+	if newPosition == position {
+		log.Println("No new logs.")
+	} else {
+		log.Printf("Returning %d lines.\n", len(logs))
+	}
+
+	// Set the response as JSON
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
+		"logs":     logs,
+		"position": newPosition,
+	}
+
+	// Send the response
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func checkServerStatus(w http.ResponseWriter, nginxAccessPath string, nginxErrorPath string) {

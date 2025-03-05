@@ -21,33 +21,33 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Log type required." }, { status: 400 });
     }
 
-    const lastPosition = parseInt(searchParams.get('position') || '') || 0;
+    const position = parseInt(searchParams.get('position') || '') || 0;
 
     if (logType === 'access') {
         if (nginxAccessPath) {
-            return await serveLocalLogs(nginxAccessPath, lastPosition);
+            return await serveLocalLogs(nginxAccessPath, position);
         } else if (nginxAccessUrl) {
-            return await serveRemoteLogs(nginxAccessUrl, authToken);
+            return await serveRemoteLogs(nginxAccessUrl, position, authToken);
         } else {
             console.log('No access logs.');
-            return new NextResponse(null, {status: 400});
+            return new NextResponse(null, { status: 400 });
         }
     } else if (logType === 'error') {
         if (nginxErrorPath) {
-            return await serveLocalLogs(nginxErrorPath, lastPosition);
+            return await serveLocalLogs(nginxErrorPath, position);
         } else if (nginxErrorUrl) {
-            return await serveRemoteLogs(nginxErrorUrl, authToken);
+            return await serveRemoteLogs(nginxErrorUrl, position, authToken);
         } else {
             console.log('No error logs.');
-            return new NextResponse(null, {status: 400});
+            return new NextResponse(null, { status: 400 });
         }
     } else {
-        return new NextResponse(null, {status: 400});
+        return new NextResponse(null, { status: 400 });
     }
 
 }
 
-async function serveLocalLogs(filePath: string, lastPosition: number) {
+async function serveLocalLogs(filePath: string, position: number) {
     const resolvedPath = path.resolve(process.cwd(), filePath);
 
     if (!fs.existsSync(resolvedPath)) {
@@ -57,10 +57,6 @@ async function serveLocalLogs(filePath: string, lastPosition: number) {
 
     return new Promise<NextResponse>((resolve, reject) => {
         try {
-            const position = Number(lastPosition);
-
-            console.log('Last position', position);
-
             fs.stat(resolvedPath, (err, stats) => {
                 if (err) {
                     reject(NextResponse.json({ error: "Internal server error." }, { status: 500 }));
@@ -82,7 +78,6 @@ async function serveLocalLogs(filePath: string, lastPosition: number) {
 
                 // Read in chunks and process logs line by line
                 stream.on('data', (chunk) => {
-                    console.log('Chunk', chunk)
                     data += chunk;
                     const lines = data.split('\n');
                     // Keep everything up to the last complete line
@@ -92,15 +87,11 @@ async function serveLocalLogs(filePath: string, lastPosition: number) {
 
                 // When the stream ends, send the response
                 stream.on('end', () => {
-                    console.log('New logs', newLogs);
                     const newPosition = data.length === 0 ? fileSize : fileSize - data.length;
                     console.log('New position', data, newPosition, data.length, fileSize);
 
-                    resolve(new NextResponse(
-                        JSON.stringify({
-                            logs: newLogs,
-                            position: newPosition
-                        }),
+                    resolve(NextResponse.json(
+                        { logs: newLogs, position: newPosition },
                         { status: 200 }
                     ));
                 });
@@ -118,7 +109,21 @@ async function serveLocalLogs(filePath: string, lastPosition: number) {
     });
 }
 
-async function serveRemoteLogs(url: string, authToken: string | undefined) {
-    //todo
-    return new NextResponse(null, {status: 200});
+async function serveRemoteLogs(url: string, position: number, authToken?: string) {
+    try {
+        const response = await fetch(`${url}?position=${position}`, {
+            method: "GET",
+            headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        });
+
+        if (!response.ok) {
+            return new NextResponse(`Error: ${response.statusText}`, { status: response.status });
+        }
+
+        const data = await response.json(); // or response.json() if JSON response
+        return NextResponse.json(data, { status: 200 });
+    } catch (error) {
+        console.error(error);
+        return new NextResponse("Failed to fetch logs", { status: 500 });
+    }
 }
