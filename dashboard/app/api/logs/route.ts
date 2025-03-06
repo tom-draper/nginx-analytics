@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { defaultNginxAccessPath, defaultNginxErrorPath } from "@/lib/consts";
 
-const nginxAccessPath = process.env.NGINX_ACCESS_PATH;
-const nginxErrorPath = process.env.NGINX_ERROR_PATH;
+const nginxAccessPath = process.env.NGINX_ACCESS_PATH || defaultNginxAccessPath;
+const nginxErrorPath = process.env.NGINX_ERROR_PATH || defaultNginxErrorPath;
 
 const nginxAccessUrl = process.env.NGINX_ACCESS_URL;
 const nginxErrorUrl = process.env.NGINX_ERROR_URL;
@@ -20,35 +21,26 @@ export async function GET(request: NextRequest) {
 
     const position = parseInt(searchParams.get('position') || '') || 0;
 
-    if (logType === 'access') {
-        if (nginxAccessPath) {
-            return await serveLocalLogs(nginxAccessPath, position);
-        } else if (nginxAccessUrl) {
-            return await serveRemoteLogs(nginxAccessUrl, position, authToken);
-        } else {
-            console.log('No access logs.');
-            return new NextResponse(null, { status: 400 });
-        }
-    } else if (logType === 'error') {
-        if (nginxErrorPath) {
-            return await serveLocalLogs(nginxErrorPath, position);
-        } else if (nginxErrorUrl) {
+    if (logType === 'error') {
+        if (nginxErrorUrl) {
             return await serveRemoteLogs(nginxErrorUrl, position, authToken);
         } else {
-            console.log('No error logs.');
-            return new NextResponse(null, { status: 400 });
+            return await serveLocalLogs(nginxErrorPath, position);
         }
     } else {
-        return new NextResponse(null, { status: 400 });
+        if (nginxAccessUrl) {
+            return await serveRemoteLogs(nginxAccessUrl, position, authToken);
+        } else {
+            return await serveLocalLogs(nginxAccessPath, position);
+        }
     }
-
 }
 
 async function serveLocalLogs(filePath: string, position: number) {
     const resolvedPath = path.resolve(process.cwd(), filePath);
 
     if (!fs.existsSync(resolvedPath)) {
-        console.error('File not found.');
+        console.error(`File not found at path ${filePath}.`);
         return NextResponse.json({ error: "File not found." }, { status: 404 });
     }
 

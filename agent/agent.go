@@ -244,7 +244,7 @@ func serveLog(w http.ResponseWriter, r *http.Request, filePath string) {
 			break
 		}
 
-		// Process the chunk into log lines
+		// Process he chunk into log lines
 		totalRead += int64(n)
 		content := string(buffer[:n])
 
