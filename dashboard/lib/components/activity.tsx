@@ -2,6 +2,7 @@
 
 import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend } from "chart.js";
 import { useEffect, useState } from "react";
+//@ts-expect-error tee
 import { Bar } from "react-chartjs-2";
 import { Data } from "../types";
 import 'chartjs-adapter-date-fns';
@@ -49,8 +50,8 @@ function getMinuteId(date: Date) {
 }
 
 export default function Activity({ data }: { data: Data }) {
-    const [requestsPlotData, setRequestsPlotData] = useState<any>(null)
-    const [requestsPlotOptions, setRequestsPlotOptions] = useState<any>(null)
+    const [requestsPlotData, setRequestsPlotData] = useState<object | null>(null)
+    const [requestsPlotOptions, setRequestsPlotOptions] = useState<object | null>(null)
     const [successRates, setSuccessRates] = useState<number[] | null>(null)
 
     useEffect(() => {

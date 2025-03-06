@@ -2,7 +2,6 @@ export const createLogStream = (endpoint: string, authToken: string | undefined,
     const eventSource = new EventSource(`${endpoint}?token=${authToken}`);
 
     eventSource.onmessage = (event) => {
-        console.log(event.data);
         onMessage(event.data);
     };
 

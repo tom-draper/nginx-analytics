@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-// import { promisify } from "util";
-
-// const statFile = promisify(fs.stat);
 
 const nginxAccessPath = process.env.NGINX_ACCESS_PATH;
 const nginxErrorPath = process.env.NGINX_ERROR_PATH;
