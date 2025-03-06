@@ -43,4 +43,6 @@ location /analytics {
 }
 ```
 
-To password protect your analytics, set a password 
+### Password Protection
+
+To enable password protection to access the dashboard, set a password against `NGINX_ANALYTICS_PASSWORD` in `.env`.

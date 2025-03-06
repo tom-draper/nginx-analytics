@@ -49,3 +49,16 @@ sudo systemctl daemon-reload
 sudo systemctl enable log_agent
 sudo systemctl start log_agent
 ```
+
+### Dashboard
+
+If you are using the dashboard, host the dashboard on your favourite platform, ensuring environment variables are set pointing to these public endpoints.
+
+```env
+NGINX_ACCESS_URL=http://yourserver.com/logs/access
+NGINX_ERROR_URL=http://yourserver.com/logs/error
+```
+
+### CLI
+
+Run the CLI

@@ -1,6 +1,6 @@
 # Nginx Analytics
 
-A highly flexible and privacy-focused analytics solution for Nginx.
+An extremely flexible and privacy-focused analytics solution for Nginx.
 
 ## Getting Started
 
@@ -17,14 +17,6 @@ Deploy the lightweight agent to your server to securely expose your log files to
 Best when server resources are tight, or log files are large.
 
 Follow the <a href="./dashboard/README.md">agent deployment guide</a>.
-
-Then, host the dashboard on your favourite platform, ensuring environment variables are set pointing to these public endpoints.
-
-```env
-NGINX_ACCESS_URL=http://yourserver.com/logs/access
-NGINX_ERROR_URL=http://yourserver.com/logs/error
-```
-
 ### Option 3: Dashboard + Nginx
 
 Update your Nginx configuration to serve your log files over HTTP as restricted static files.
