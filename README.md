@@ -6,7 +6,7 @@ An extremely flexible and privacy-focused analytics solution for Nginx.
 
 ### Option 1: Dashboard
 
-Deploy the dashboard on the same server as Nginx.
+Deploy the dashboard to the same server as Nginx.
 
 Follow the <a href="./dashboard/README.md">dashboard deployment guide</a>.
 
@@ -16,38 +16,15 @@ Deploy the lightweight agent to your server to securely expose your log files to
 
 Best when server resources are tight, or log files are large.
 
-Follow the <a href="./dashboard/README.md">agent deployment guide</a>.
+Follow the <a href="./agent/README.md">agent deployment guide</a>.
+
 ### Option 3: Dashboard + Nginx
 
 Update your Nginx configuration to serve your log files over HTTP as restricted static files.
 
-Best when deployment to the server is restricted or access is limited.
+Limited functionality; but best if you want to avoid further deployments to your server.
 
-```nginx
-server {
-    listen 80;
-    server_name yourserver.com;
-
-    location /logs/access {
-        alias /var/log/nginx/access.log;
-        allow your.ip.address;  # Restrict IP access
-        deny all;
-    }
-
-    location /logs/error {
-        alias /var/log/nginx/error.log;
-        allow your.ip.address;  # Restrict IP access
-        deny all;
-    }
-}
-```
-
-Then, host the dashboard on your favourite platform, ensuring environment variables are set pointing to these endpoints.
-
-```env
-NGINX_ACCESS_URL=http://yourserver.com/logs/access
-NGINX_ERROR_URL=http://yourserver.com/logs/error
-```
+Follow the <a href="./nginx/README.md">Nginx configuration guide</a>.
 
 ### Options 4: File Upload
 
@@ -58,6 +35,10 @@ Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get
 Deploy the CLI to the server, and access via SSH.
 
 ### Option 6: CLI + Agent 
+
+Deploy the agent to the server, and run the CLI from anywhere.
+
+Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
 ## Contributions
 
@@ -71,7 +52,7 @@ Contributions, issues and feature requests are welcome.
 
 ---
 
-If you find value in my work consider supporting me.
+If you find value in my work, consider supporting me.
 
 Buy Me a Coffee: https://www.buymeacoffee.com/tomdraper<br>
 PayPal: https://www.paypal.com/paypalme/tomdraper

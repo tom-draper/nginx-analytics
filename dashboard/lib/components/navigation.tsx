@@ -1,5 +1,6 @@
+import { Period } from "../period";
 
-export function Navigation() {
+export function Navigation({ period, setPeriod }: { period: Period, setPeriod: (period: Period) => void }) {
     return (
         <nav className="mb-1">
             <div className="mx-2 flex flex-end justify-end">
@@ -15,19 +16,19 @@ export function Navigation() {
                     </button>
                 </div>
                 <div className="border rounded border-gray-300 text-[0.9em]">
-                    <button className="px-3 py-1 hover:bg-[var(--other-green)] bg-opacity-10 cursor-pointer">
+                    <button className={`px-3 py-1 hover:bg-[var(--other-green)] cursor-pointer ${period === '24 hours' ? 'bg-[var(--other-green)]': ''}`} onClick={() => setPeriod('24 hours')}>
                         24 hours
                     </button>
-                    <button className="px-3 py-1 hover:bg-[var(--other-green)] bg-opacity-10 cursor-pointer">
+                    <button className={`px-3 py-1 hover:bg-[var(--other-green)] cursor-pointer ${period === 'week' ? 'bg-[var(--other-green)]': ''}`} onClick={() => setPeriod('week')}>
                         Week
                     </button>
-                    <button className="px-3 py-1 hover:bg-[var(--other-green)] bg-opacity-10 cursor-pointer">
+                    <button className={`px-3 py-1 hover:bg-[var(--other-green)] cursor-pointer ${period === 'month' ? 'bg-[var(--other-green)]': ''}`} onClick={() => setPeriod('month')}>
                         Month
                     </button>
-                    <button className="px-3 py-1 hover:bg-[var(--other-green)] bg-opacity-10 cursor-pointer">
+                    <button className={`px-3 py-1 hover:bg-[var(--other-green)] cursor-pointer ${period === '6 months' ? 'bg-[var(--other-green)]': ''}`}onClick={() => setPeriod('6 months')}>
                         6 months
                     </button>
-                    <button className="px-3 py-1 hover:bg-[var(--other-green)] bg-opacity-10 cursor-pointer">
+                    <button className={`px-3 py-1 hover:bg-[var(--other-green)] cursor-pointer ${period === 'all time' ? 'bg-[var(--other-green)]': ''}`} onClick={() => setPeriod('all time')}>
                         All time
                     </button>
                 </div>

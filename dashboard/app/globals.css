@@ -28,3 +28,7 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.level {
+  background: var(--other-green)
+}

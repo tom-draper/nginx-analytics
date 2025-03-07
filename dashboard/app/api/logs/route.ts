@@ -77,7 +77,8 @@ async function serveLocalLogs(filePath: string, position: number) {
                 // When the stream ends, send the response
                 stream.on('end', () => {
                     const newPosition = data.length === 0 ? fileSize : fileSize - data.length;
-                    console.log('New position', data, newPosition, data.length, fileSize);
+                    console.log(`New position: ${newPosition}/${fileSize}`)
+                    console.log('Logs returned', newLogs.length)
 
                     resolve(NextResponse.json(
                         { logs: newLogs, position: newPosition },

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import { Data } from "../types";
 import 'chartjs-adapter-date-fns';
+import { Period, periodStart } from "../period";
 
 ChartJS.register(
     BarElement,
@@ -49,13 +50,25 @@ function getMinuteId(date: Date) {
     return date.setSeconds(0, 0); // Changed to use setSeconds instead
 }
 
-export default function Activity({ data }: { data: Data }) {
+const getStepSize = (period: Period) => {
+    switch (period) {
+        case '24 hours':
+            return 300000; // 5 minutes
+        case 'week':
+            return 3600000; // hour
+        default:
+            return 8.64e+7; // day
+    }
+}
+
+export default function Activity({ data, period }: { data: Data, period: Period }) {
     const [requestsPlotData, setRequestsPlotData] = useState<object | null>(null)
     const [requestsPlotOptions, setRequestsPlotOptions] = useState<object | null>(null)
     const [successRates, setSuccessRates] = useState<number[] | null>(null)
 
     useEffect(() => {
         const points: { [id: string]: number } = {}
+
         for (const row of data) {
             if (!row.timestamp) continue;
 
@@ -86,7 +99,7 @@ export default function Activity({ data }: { data: Data }) {
                 x: {
                     type: 'time',
                     time: {
-                        unit: 'hour',
+                        unit: 'day',
                         // displayFormats: {
                         //     minute: 'HH:mm'
                         // },
@@ -122,25 +135,51 @@ export default function Activity({ data }: { data: Data }) {
     }, [data])
 
     useEffect(() => {
-        const points: { [id: string]: {success: number, total: number} } = {}
+        const points: { [id: string]: { success: number, total: number } } = {}
+
+        const start = periodStart(period);
+        if (start !== null) {
+            const now = new Date();
+            const stepSize = getStepSize(period);
+            for (let i = start.getTime(); i < now.getTime(); i += stepSize) {
+                points[i] = { success: 0, total: 0 }
+            }
+        }
+
         for (const row of data) {
             if (!row.timestamp) continue;
 
-            const dayId = getMinuteId(row.timestamp);
+            const timeId = getHourId(row.timestamp);
 
             if (!row.status) continue;
             const success = row.status >= 200 && row.status <= 399;
 
-            if (!points[dayId]) {
-                points[dayId] = { success: 0, total: 0 }
+            if (!points[timeId]) {
+                points[timeId] = { success: 0, total: 0 }
             }
             if (success) {
-                points[dayId].success++
+                points[timeId].success++
             }
-            points[dayId].total++
-
-            // fill in the 
+            points[timeId].total++
         }
+
+        // const stepSize = 300000 * 60;
+        // const min = Math.min(...Object.keys(points).map(Number));
+        // const max = Math.max(...Object.keys(points).map(Number));
+        // let timeId = min + stepSize;
+        // while (true) {
+        //     if (!points[timeId]) {
+        //         points[timeId] = { success: 0, total: 0 }
+        //     }
+        //     if (timeId > max) {
+        //         break
+        //     }
+        //     timeId += stepSize
+        // }
+
+        const values = Object.entries(points).sort(([timeId1, _], [timeId2, __]) => Number(timeId2) - Number(timeId1)).map(([_, value]) => value.total ? Math.ceil((value.success / value.total) * 10) : 0)
+
+        setSuccessRates(values);
     }, [data])
 
     return (
@@ -165,9 +204,10 @@ export default function Activity({ data }: { data: Data }) {
             </div>
 
             <div className="pb-0 pt-2">
-                <div className="flex">
+                <div className="flex ml-14 mr-2 mt-2 mb-2">
                     {successRates?.map((successRate, index) => (
-                        <div key={index}>
+                        <div key={index} className="flex-1 h-12 mx-[0.2px] level rounded-[3px]">
+
                         </div>
                     ))}
 
