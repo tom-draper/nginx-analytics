@@ -30,5 +30,94 @@ body {
 }
 
 .level {
-  background: var(--other-green)
+  background: var(--other-green);
+  background: oklch(0.928 0.006 264.531);
+  background: oklch(0.967 0.003 264.542);
+  background: rgb(255, 80, 80);
+}
+
+/* .level-10 {
+  background: var(--other-green);
+}
+
+.level-9 {
+  background: rgb(115, 212, 102)
+}
+
+.level-8 {
+  background: rgb(185, 220, 91)
+}
+
+.level-7 {
+  background: rgb(225, 229, 80);
+}
+
+.level-6 {
+  background: rgb(255, 229, 80);
+}
+
+.level-5 {
+  background: rgb(255, 179, 80);
+}
+
+.level-4 {
+  background: rgb(255, 129, 80);
+}
+
+.level-3 {
+  background: rgb(255, 80, 80);
+}
+
+.level-2 {
+  background: rgb(255, 80, 80);
+}
+
+.level-1 {
+  background: rgb(255, 80, 80);
+} */
+
+.level-10 {
+  background: var(--other-green);
+}
+
+.level-9 {
+  background: rgb(102, 201, 92); /* Lighter green */
+}
+
+.level-8 {
+  background: rgb(153, 209, 85); /* Yellow-green */
+}
+
+.level-7 {
+  background: rgb(204, 217, 78); /* Yellow */
+}
+
+.level-6 {
+  background: rgb(255, 210, 75); /* Golden yellow */
+}
+
+.level-5 {
+  background: rgb(255, 170, 75); /* Orange */
+}
+
+.level-4 {
+  background: rgb(255, 130, 75); /* Deep orange */
+}
+
+.level-3 {
+  background: rgb(255, 100, 75); /* Red-orange */
+}
+
+.level-2 {
+  background: rgb(255, 90, 80); /* Slightly lighter red */
+}
+
+.level-1 {
+  background: rgb(255, 80, 80); /* Stays as requested */
+}
+
+
+
+.level-none {
+  background: oklch(0.967 0.003 264.542);
 }

@@ -6,7 +6,7 @@ export type LogRow = {
     httpVersion: string;
     status: number | null; 
     responseSize: number | null;
-    referrer: string;
+    referer: string;
     userAgent: string;
 }
 

@@ -5,16 +5,16 @@ export const periodStart = (period: Period) => {
     const date = new Date();
     switch (period) {
         case '24 hours':
-            date.setDate(date.getHours() - 24)
+            date.setHours(date.getHours() - 24)
             return date;
         case 'week':
             date.setDate(date.getDate() - 7)
             return date;
         case 'month':
-            date.setDate(date.getMonth() - 1)
+            date.setMonth(date.getMonth() - 1)
             return date;
-        case 'month':
-            date.setDate(date.getMonth() - 6)
+        case '6 months':
+            date.setMonth(date.getMonth() - 6)
             return date;
         default:
             return null;

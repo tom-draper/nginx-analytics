@@ -39,21 +39,21 @@ export function Endpoints({ data }: { data: Data }) {
     }, [data])
 
     return (
-        <div className="border rounded border-gray-300 flex-1 px-4 py-3 m-2">
+        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
             <h2 className="font-semibold">
                 Endpoints
             </h2>
             <div className="mt-2">
                 {endpoints.map((endpoint, index) => (
-                    <button key={index} className="bg-gray-100 my-2 rounded w-full relative h-6 cursor-pointer flex items-center">
-                        <span className="text-sm flex items-center mx-2 absolute z-50">
+                    <button key={index} className="bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center">
+                        <span className="text-sm flex items-center mx-2 z-50 py-[2px]">
                             <span className="pr-1">
                                 {endpoint.count.toLocaleString()}
                             </span>
                             <span className="px-1 text-gray-600">
                                 {endpoint.method}
                             </span>
-                            <span className="px-1 text-gray-600">
+                            <span className="px-1 text-gray-600 text-left break-words">
                                 {endpoint.path ?? ''}
                             </span>
                         </span>

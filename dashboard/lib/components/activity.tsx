@@ -1,8 +1,7 @@
 "use client";
 
-import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend } from "chart.js";
+import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend, ChartData } from "chart.js";
 import { useEffect, useState } from "react";
-//@ts-expect-error tee
 import { Bar } from "react-chartjs-2";
 import { Data } from "../types";
 import 'chartjs-adapter-date-fns';
@@ -22,7 +21,7 @@ function getDayId(date: Date) {
         throw new Error("Invalid date object");
     }
 
-    return date.setHours(0, 0, 0, 0); // Set minutes, seconds, and milliseconds to zero
+    return new Date(date).setHours(0, 0, 0, 0); // Set minutes, seconds, and milliseconds to zero
 }
 
 function getHourId(date: Date) {
@@ -30,7 +29,7 @@ function getHourId(date: Date) {
         throw new Error("Invalid date object");
     }
 
-    return date.setMinutes(0, 0, 0); // Set minutes, seconds, and milliseconds to zero
+    return new Date(date).setMinutes(0, 0, 0); // Set minutes, seconds, and milliseconds to zero
 }
 
 function get5MinuteId(date: Date) {
@@ -47,7 +46,7 @@ function getMinuteId(date: Date) {
         throw new Error("Invalid date object");
     }
 
-    return date.setSeconds(0, 0); // Changed to use setSeconds instead
+    return new Date(date).setSeconds(0, 0); // Changed to use setSeconds instead
 }
 
 const getStepSize = (period: Period) => {
@@ -61,29 +60,61 @@ const getStepSize = (period: Period) => {
     }
 }
 
+const getTimeIdGetter = (period: Period) => {
+    switch (period) {
+        case '24 hours':
+            return get5MinuteId
+        case 'week':
+            return getHourId
+        default:
+            return getDayId
+    }
+}
+
+const getTimeUnit = (period: Period) => {
+    switch (period) {
+        case '24 hours':
+            return 'minute'
+        case 'week':
+            return 'hour'
+        default:
+            return 'day'
+    }
+}
+
+const getSuccessRateLevel = (successRate: number | null) => {
+    if (successRate === null) {
+        return null
+    }
+
+    return Math.ceil((successRate) * 10)
+}
+
 export default function Activity({ data, period }: { data: Data, period: Period }) {
-    const [requestsPlotData, setRequestsPlotData] = useState<object | null>(null)
-    const [requestsPlotOptions, setRequestsPlotOptions] = useState<object | null>(null)
-    const [successRates, setSuccessRates] = useState<number[] | null>(null)
+    const [plotData, setPlotData] = useState<ChartData<"bar"> | null>(null)
+    const [plotOptions, setPlotOptions] = useState<object | null>(null)
+    const [successRates, setSuccessRates] = useState<({timestamp: number, value: number | null})[]>([])
 
     useEffect(() => {
         const points: { [id: string]: number } = {}
 
+        const getTimeId = getTimeIdGetter(period);
         for (const row of data) {
-            if (!row.timestamp) continue;
+            if (!row.timestamp) {
+                continue;
+            }
 
-            const dayId = getHourId(row.timestamp);
-
-            if (points[dayId]) {
-                points[dayId]++
+            const timeId = getTimeId(row.timestamp);
+            if (points[timeId]) {
+                points[timeId]++
             } else {
-                points[dayId] = 1
+                points[timeId] = 1
             }
         }
 
         const values = Object.entries(points).map(([x, y]) => ({ x: new Date(parseInt(x)), y }));
 
-        setRequestsPlotData({
+        setPlotData({
             datasets: [{
                 label: '# of Requests',
                 data: values,
@@ -94,12 +125,13 @@ export default function Activity({ data, period }: { data: Data, period: Period 
             }]
         })
 
-        setRequestsPlotOptions({
+        setPlotOptions({
             scales: {
                 x: {
                     type: 'time',
+                    display: false,
                     time: {
-                        unit: 'day',
+                        unit: getTimeUnit(period),
                         // displayFormats: {
                         //     minute: 'HH:mm'
                         // },
@@ -111,7 +143,9 @@ export default function Activity({ data, period }: { data: Data, period: Period 
                     },
                     grid: {
                         display: false
-                    }
+                    },
+                    min: periodStart(period),
+                    max: new Date()
                 },
                 y: {
                     title: {
@@ -134,24 +168,38 @@ export default function Activity({ data, period }: { data: Data, period: Period 
         })
     }, [data])
 
+    const getSuccessRateTitle = (successRate: { timestamp: number, value: number | null }) => {
+        const time = new Date(successRate.timestamp).toLocaleString()
+        if (successRate.value === null) {
+            return `No requests\n${time}`
+        }
+
+        return `Success rate: ${((successRate.value === 0 || successRate.value === 1) ? (successRate.value * 100).toFixed(0) : (successRate.value * 100).toFixed(1))}%\n${time}`;
+    }
+
     useEffect(() => {
         const points: { [id: string]: { success: number, total: number } } = {}
 
         const start = periodStart(period);
+        const getTimeId = getTimeIdGetter(period);
         if (start !== null) {
             const now = new Date();
             const stepSize = getStepSize(period);
-            for (let i = start.getTime(); i < now.getTime(); i += stepSize) {
+            for (let i = getTimeId(start); i < now.getTime(); i += stepSize) {
                 points[i] = { success: 0, total: 0 }
             }
         }
 
         for (const row of data) {
-            if (!row.timestamp) continue;
+            if (!row.timestamp) {
+                continue;
+            }
 
-            const timeId = getHourId(row.timestamp);
+            const timeId = getTimeId(row.timestamp);
 
-            if (!row.status) continue;
+            if (!row.status) {
+                continue;
+            }
             const success = row.status >= 200 && row.status <= 399;
 
             if (!points[timeId]) {
@@ -163,50 +211,33 @@ export default function Activity({ data, period }: { data: Data, period: Period 
             points[timeId].total++
         }
 
-        // const stepSize = 300000 * 60;
-        // const min = Math.min(...Object.keys(points).map(Number));
-        // const max = Math.max(...Object.keys(points).map(Number));
-        // let timeId = min + stepSize;
-        // while (true) {
-        //     if (!points[timeId]) {
-        //         points[timeId] = { success: 0, total: 0 }
-        //     }
-        //     if (timeId > max) {
-        //         break
-        //     }
-        //     timeId += stepSize
-        // }
-
-        const values = Object.entries(points).sort(([timeId1, _], [timeId2, __]) => Number(timeId2) - Number(timeId1)).map(([_, value]) => value.total ? Math.ceil((value.success / value.total) * 10) : 0)
+        const values = Object.entries(points).sort(([timeId1, _], [timeId2, __]) => Number(timeId2) - Number(timeId1)).map(([timeId, value]) => ({ timestamp: Number(timeId), value: value.total ? value.success / value.total : null})).reverse()
 
         setSuccessRates(values);
     }, [data])
 
     return (
-        <div className="border rounded border-gray-300 flex-1 px-4 py-3 m-2">
+        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
             <h2 className="font-semibold">
                 Activity
             </h2>
 
             <div className="relative w-full pt-2" style={{ height: '200px' }}>
-                {requestsPlotData && <Bar
-                    data={requestsPlotData}
+                {plotData && <Bar
+                    data={plotData}
                     options={{
-                        ...requestsPlotOptions,
+                        ...plotOptions,
                         maintainAspectRatio: false,
                         responsive: true,
-                        animation: {
-                            duration: 0 // Disable animations for smoother resizing
-                        }
                     }}
                     style={{ width: '100%', height: '100%' }}
                 />}
             </div>
 
             <div className="pb-0 pt-2">
-                <div className="flex ml-14 mr-2 mt-2 mb-2">
+                <div className="flex ml-14 mt-2 mb-2">
                     {successRates?.map((successRate, index) => (
-                        <div key={index} className="flex-1 h-12 mx-[0.2px] level rounded-[3px]">
+                        <div key={index} className={`flex-1 h-12 mx-[] rounded-[1px] ${successRate.value === null ? 'level-none' : 'level-' + getSuccessRateLevel(successRate.value)}`} title={getSuccessRateTitle(successRate)}>
 
                         </div>
                     ))}

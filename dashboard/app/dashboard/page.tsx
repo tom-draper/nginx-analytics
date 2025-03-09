@@ -15,6 +15,8 @@ import { Data } from "@/lib/types";
 import { Device } from "@/lib/components/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
+import UsageTime from "@/lib/components/usage-time";
+import { Referrals } from "@/lib/components/referrals";
 
 export default function Home() {
     const [data, setData] = useState<Data>([]);
@@ -54,7 +56,7 @@ export default function Home() {
 
         let position: number = 0;
         fetchLogs();
-        const interval = setInterval(fetchLogs, 30000); // Polling every 2s
+        const interval = setInterval(fetchLogs, 30000); // Polling every 30s
         return () => clearInterval(interval);
     }, []);
 
@@ -80,7 +82,7 @@ export default function Home() {
 
                 <div className="flex">
                     {/* Left */}
-                    <div className="w-[40em]">
+                    <div className="min-w-[28em]">
                         <div className="flex">
                             <Logo />
                             <SuccessRate data={filteredData} />
@@ -106,19 +108,17 @@ export default function Home() {
 
                         <div className="w-full flex">
                             <Location data={filteredData} />
-                            <Device data={filteredData} />
-                        </div>
-
-                        <div className="border rounded border-gray-300 flex-1 px-4 py-3 m-2">
-                            <h2 className="font-semibold">
-                                Usage Time
-                            </h2>
-
-                            <div className="pb-120">
-                                Content
+                            <div className="min-w-[28em]">
+                                <Device data={filteredData} />
                             </div>
                         </div>
 
+                        <div className="w-full flex">
+                            <UsageTime data={filteredData} />
+                            <div className="min-w-[28em]">
+                                <Referrals data={filteredData} />
+                            </div>
+                        </div>
                     </div>
                 </div>
 

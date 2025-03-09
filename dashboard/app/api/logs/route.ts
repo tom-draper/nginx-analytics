@@ -55,7 +55,7 @@ async function serveLocalLogs(filePath: string, position: number) {
                 const fileSize = stats.size;
 
                 if (position >= fileSize) {
-                    console.error('No new logs.');
+                    console.error('No new logs');
                     resolve(NextResponse.json({ message: "No new logs." }, { status: 200 }));
                     return;
                 }
@@ -78,7 +78,7 @@ async function serveLocalLogs(filePath: string, position: number) {
                 stream.on('end', () => {
                     const newPosition = data.length === 0 ? fileSize : fileSize - data.length;
                     console.log(`New position: ${newPosition}/${fileSize}`)
-                    console.log('Logs returned', newLogs.length)
+                    console.log(`Logs returned: ${newLogs.length}`)
 
                     resolve(NextResponse.json(
                         { logs: newLogs, position: newPosition },

@@ -12,6 +12,7 @@
     "chart.js": "^4.4.8",
     "chartjs-adapter-date-fns": "^3.0.0",
     "date-fns": "^4.1.0",
+    "maxmind": "^4.3.24",
     "next": "15.2.0",
     "react": "^19.0.0",
     "react-chartjs-2": "^5.3.0",

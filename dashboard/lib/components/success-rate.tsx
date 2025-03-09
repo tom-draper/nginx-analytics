@@ -28,7 +28,7 @@ export function SuccessRate({ data }: { data: Data }) {
     }, [data])
 
     return (
-        <div className="border rounded border-gray-300 flex-1 px-4 py-3 m-2">
+        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
             <h2 className="font-semibold">
                 Success Rate
             </h2>
