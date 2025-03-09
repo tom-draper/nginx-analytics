@@ -17,7 +17,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const defaultPort string = "8080"
+const defaultPort string = "3000"
 const defaultNginxAccessPath string = "/var/log/nginx/access.log"
 const defaultNginxErrorPath string = "/var/log/nginx/error.log"
 
@@ -39,7 +39,8 @@ func main() {
 		serveLog(w, r, args.nginxAccessPath)
 	})
 
-	http.HandleFunc("/logs/errors", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/logs/error", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Accessing error.log")
 		if authToken != "" && !isAuthenticated(r) {
 			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
 			return
@@ -48,6 +49,7 @@ func main() {
 	})
 
 	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Checking status")
 		if authToken != "" && !isAuthenticated(r) {
 			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
 			return
@@ -274,7 +276,7 @@ func serveLog(w http.ResponseWriter, r *http.Request, filePath string) {
 	newPosition := position + totalRead - int64(len(incompleteLine))
 
 	if newPosition == position {
-		log.Println("No new logs.")
+		log.Println("No new logs")
 	} else {
 		log.Printf("Returning %d lines.\n", len(logs))
 	}
@@ -291,28 +293,42 @@ func serveLog(w http.ResponseWriter, r *http.Request, filePath string) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
+type Status struct {
+	Status           string `json:"status"`
+	Uptime           string `json:"uptime"`
+	Timestamp        string `json:"timestamp"`
+	Version          string `json:"version"`
+	AccessLogStatus  string `json:"accessLogStatus"`
+	ErrorLogStatus   string `json:"errorLogStatus"`
+}
+
 func checkServerStatus(w http.ResponseWriter, nginxAccessPath string, nginxErrorPath string) {
-	status := map[string]interface{}{
-		"status":    "ok",
-		"uptime":    time.Since(startTime).String(),
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"version":   "1.0.0",
+	// Create an instance of Status struct
+	status := Status{
+		Status:  "ok",
+		Uptime:  time.Since(startTime).String(),
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Version: "1.0.0",
 	}
 
+	// Check if the access log file exists
 	if _, err := os.Stat(nginxAccessPath); err != nil {
-		status["accessLogStatus"] = "not found"
+		status.AccessLogStatus = "not found"
 	} else {
-		status["accessLogStatus"] = "ok"
+		status.AccessLogStatus = "ok"
 	}
 
+	// Check if the error log file exists
 	if _, err := os.Stat(nginxErrorPath); err != nil {
-		status["errorLogStatus"] = "not found"
+		status.ErrorLogStatus = "not found"
 	} else {
-		status["errorLogStatus"] = "ok"
+		status.ErrorLogStatus = "ok"
 	}
 
 	// Send status as JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(status)
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
