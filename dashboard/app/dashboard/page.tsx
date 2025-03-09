@@ -115,9 +115,7 @@ export default function Home() {
 
                         <div className="w-full flex">
                             <UsageTime data={filteredData} />
-                            <div className="min-w-[28em]">
-                                <Referrals data={filteredData} />
-                            </div>
+                            <Referrals data={filteredData} />
                         </div>
                     </div>
                 </div>

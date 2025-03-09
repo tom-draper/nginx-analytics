@@ -45,7 +45,7 @@ export function Endpoints({ data }: { data: Data }) {
             </h2>
             <div className="mt-2">
                 {endpoints.map((endpoint, index) => (
-                    <button key={index} className="bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center">
+                    <button key={index} className="hover:bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center" title={`Status: ${endpoint.status}`}>
                         <span className="text-sm flex items-center mx-2 z-50 py-[2px]">
                             <span className="pr-1">
                                 {endpoint.count.toLocaleString()}

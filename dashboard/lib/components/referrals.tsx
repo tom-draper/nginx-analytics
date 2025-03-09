@@ -15,7 +15,7 @@ export function Referrals({ data }: { data: Data }) {
         const referrerCount: { [referer: string]: number } = {};
         for (const row of data) {
             if (!row.referer) {
-                // continue;
+                continue;
             }
 
             if (!referrerCount[row.referer]) {
@@ -31,7 +31,7 @@ export function Referrals({ data }: { data: Data }) {
     return (
         <>
             {referrals.length > 0 && (
-                <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
+                <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3 min-w-[24rem]">
                     <h2 className="font-semibold">
                         Referrals
                     </h2>
@@ -55,10 +55,6 @@ export function Referrals({ data }: { data: Data }) {
                     </div>
                 </div>
             )}
-
         </>
-
-
-
     )
 }

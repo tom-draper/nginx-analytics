@@ -98,10 +98,10 @@ export function Location({ data }: { data: Data }) {
                 Location
             </h2>
 
-            <div className="flex mt-1">
+            <div className="flex mt-2">
                 {locations && locations.map((location) => (
-                    <div key={location.country} className="flex-1">
-                        <div className="flex-1 rounded h-36 mx-1 my-1 cursor-pointer grid" title={`${location.country}: ${location.count.toLocaleString()} requests`} onClick={() => {
+                    <button key={location.country} className="flex-1">
+                        <div className="flex-1 rounded h-32 mx-1 my-1 cursor-pointer grid hover:bg-gray-100" title={`${countryCodeToName(location.country)}: ${location.count.toLocaleString()} requests`} onClick={() => {
                         }}>
                             <div className="bg-[var(--other-green)] rounded mt-auto" style={{height: `${(location.count / locations[0].count) * 100}%`}}></div>
                         </div>
@@ -111,9 +111,9 @@ export function Location({ data }: { data: Data }) {
                                 {getFlagEmoji(location.country)}
                             </div>
                         </div>
-                    </div>
+                    </button>
                 ))}
-                {locations && locations.length === 0 && (
+                {locations !== null && locations.length === 0 && (
                     <div className="flex-1">
                         <div className="flex-1 rounded h-36 mx-1 my-1 cursor-pointer grid place-items-center" title={`No locations found`}>
                             <div className="text-gray-400 pb-2">No locations found</div>

@@ -116,6 +116,26 @@ body {
   background: rgb(255, 80, 80); /* Stays as requested */
 }
 
+.red {
+  background: rgb(255, 80, 80);
+}
+
+.orange {
+  background: rgb(255, 170, 75);
+}
+
+.yellow {
+  background: rgb(255, 210, 75);
+}
+
+.blue {
+  background: rgb(102, 201, 92);
+}
+
+.green {
+  background: rgb(46, 204, 113);
+}
+
 
 
 .level-none {
