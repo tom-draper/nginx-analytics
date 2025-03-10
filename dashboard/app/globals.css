@@ -8,18 +8,26 @@
 :root {
   /* --background: #ffffff;
   --foreground: #171717; */
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --nginx-green: #009400;
-    --other-green: rgb(46, 204, 113);
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --nginx-green: #009400;
+  --other-green: rgb(46, 204, 113);
+  --highlight: rgb(46, 204, 113);
+  --highlight: rgb(26, 240, 115);
+  --background: rgb(0, 0, 0);
+  --card-background: white;
+  --text: black;
+  --faded-text: gray;
+  --border-color: gray;
+  --border-radius: 1em;
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    /* --background: #0a0a0a;
-    --foreground: #ededed; */
-  --background: #ffffff;
-  --foreground: #171717;
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --background: #ffffff;
+    --foreground: #171717;
   }
 }
 
@@ -34,6 +42,12 @@ body {
   background: oklch(0.928 0.006 264.531);
   background: oklch(0.967 0.003 264.542);
   background: rgb(255, 80, 80);
+}
+
+.card {
+  border-radius: var(--border-radius);
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
 }
 
 /* .level-10 {
@@ -81,39 +95,48 @@ body {
 }
 
 .level-9 {
-  background: rgb(102, 201, 92); /* Lighter green */
+  background: rgb(102, 201, 92);
+  /* Lighter green */
 }
 
 .level-8 {
-  background: rgb(153, 209, 85); /* Yellow-green */
+  background: rgb(153, 209, 85);
+  /* Yellow-green */
 }
 
 .level-7 {
-  background: rgb(204, 217, 78); /* Yellow */
+  background: rgb(204, 217, 78);
+  /* Yellow */
 }
 
 .level-6 {
-  background: rgb(255, 210, 75); /* Golden yellow */
+  background: rgb(255, 210, 75);
+  /* Golden yellow */
 }
 
 .level-5 {
-  background: rgb(255, 170, 75); /* Orange */
+  background: rgb(255, 170, 75);
+  /* Orange */
 }
 
 .level-4 {
-  background: rgb(255, 130, 75); /* Deep orange */
+  background: rgb(255, 130, 75);
+  /* Deep orange */
 }
 
 .level-3 {
-  background: rgb(255, 100, 75); /* Red-orange */
+  background: rgb(255, 100, 75);
+  /* Red-orange */
 }
 
 .level-2 {
-  background: rgb(255, 90, 80); /* Slightly lighter red */
+  background: rgb(255, 90, 80);
+  /* Slightly lighter red */
 }
 
 .level-1 {
-  background: rgb(255, 80, 80); /* Stays as requested */
+  background: rgb(255, 80, 80);
+  /* Stays as requested */
 }
 
 .red {

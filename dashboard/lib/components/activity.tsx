@@ -219,7 +219,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
     }, [data, period])
 
     return (
-        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
+        <div className="card flex-1 px-4 py-3 m-3">
             <h2 className="font-semibold">
                 Activity
             </h2>
