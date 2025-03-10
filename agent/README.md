@@ -11,16 +11,17 @@ ssh user@yourserver
 chmod +x /usr/local/bin/nginx-analytics-agent
 ```
 
-If your Nginx log path is different from the default `/var/log/nginx/access.log`, add the correct path as an environment variable.
-
-```env
-NGINX_ACCESS_PATH=/path/to/access.log
-NGINX_ERROR_PATH=/path/to/error.log
-```
+> If your Nginx log path is different from the default `/var/log/nginx/access.log`, add the correct path as an environment variable.
+>
+> ```env
+> NGINX_ACCESS_PATH=/path/to/access.log
+> NGINX_ERROR_PATH=/path/to/error.log
+> ```
+<br>
 
 Update your existing Nginx configuration, or copy the below config into `/etc/nginx/conf.d/nginx-analytics-agent.conf`.
 
-```
+```nginx
 server {
     listen 80;
     server_name yourdomain.com; # Optional
@@ -64,10 +65,11 @@ Reload Nginx:
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
 ```
+<br>
 
 Setup a systemd service `/etc/systemd/system/nginx-analytics-agent.service` to run the agent as a background task.
 
-```
+```service
 [Unit]
 Description=Nginx Analytics Agent
 After=network.target
@@ -114,4 +116,4 @@ Run the CLI from anywhere, with environment variables set pointing to the agent'
 ```env
 NGINX_ACCESS_URL=http://yourserver.com/logs/access
 NGINX_ERROR_URL=http://yourserver.com/logs/error
-``
+```
