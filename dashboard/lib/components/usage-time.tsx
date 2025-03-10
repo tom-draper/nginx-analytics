@@ -1,13 +1,13 @@
 import { PolarArea } from "react-chartjs-2";
 import { Data } from "../types";
-import { useEffect, useState } from "react";
-import { Chart as ChartJS, ChartData, RadialLinearScale, ArcElement } from "chart.js";
+import { useEffect, useState, useRef } from "react";
+import { Chart as ChartJS, ChartData, RadialLinearScale, ArcElement, Tooltip } from "chart.js";
 
-ChartJS.register(RadialLinearScale, ArcElement);
+ChartJS.register(RadialLinearScale, ArcElement, Tooltip);
 
 export default function UsageTime({ data }: { data: Data }) {
     const [plotData, setPlotData] = useState<ChartData<"polarArea"> | null>(null);
-    const [plotOptions, setPlotOptions] = useState<object | null>(null);
+    const chartRef = useRef<ChartJS>(null);
 
     useEffect(() => {
         const hourCounts = new Array(24).fill(0);
@@ -22,33 +22,112 @@ export default function UsageTime({ data }: { data: Data }) {
             hourCounts[hour]++;
         }
 
+        // Reorder the hours to start with 12 (noon) at the top
+        // This means we need to shift the array so that index 12 becomes index 0
+        const reorderedHours = [...hourCounts.slice(12), ...hourCounts.slice(0, 12)];
+        
+        // Create formatted time labels (hh:mm)
+        const timeLabels = Array.from({ length: 24 }, (_, i) => {
+            // Calculate the actual hour (starting from noon at the top)
+            const hour = (i + 12) % 24;
+            return `${hour.toString().padStart(2, '0')}:00`;
+        });
+
         setPlotData({
-            labels: hourCounts.map((_, i) => `${i}:00`),
+            labels: timeLabels,
             datasets: [{
                 label: 'Requests per Hour',
-                data: hourCounts,
-                backgroundColor: 'rgb(46, 204, 113)'
+                data: reorderedHours,
+                backgroundColor: 'rgb(46, 204, 113)',
+                borderWidth: 1,
+                borderColor: '#fff'
             }]
         });
     }, [data]);
 
+    // Add a plugin to adjust label positions
+    const plugins = [{
+        id: 'customLabelPositioning',
+        beforeDraw: (chart) => {
+            if (!chart.config.data.labels) {
+                return;
+            }
+            
+            const ctx = chart.ctx;
+            const centerX = chart.chartArea.width / 2 + chart.chartArea.left;
+            const centerY = chart.chartArea.height / 2 + chart.chartArea.top;
+            const radius = Math.min(chart.chartArea.width, chart.chartArea.height) / 2;
+            
+            ctx.save();
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            const labels = chart.config.data.labels;
+            const angleSize = (2 * Math.PI) / labels.length;
+            
+            for (let i = 0; i < labels.length; i++) {
+                // Calculate angle for this segment (accounting for rotation to put noon at top)
+                // Rotate by -90 degrees (or -π/2 radians) to start at top
+                // Then adjust by the segment size times the index
+                const angle = -Math.PI / 2 + i * angleSize;
+                
+                // Position slightly outside the chart area
+                const labelRadius = radius * 1.05;
+                const x = centerX + Math.cos(angle) * labelRadius;
+                const y = centerY + Math.sin(angle) * labelRadius;
+                
+                // Rotate text to be perpendicular to radius
+                ctx.save();
+                ctx.translate(x, y);
+                
+                ctx.rotate(angle + Math.PI / 2);
+                
+                ctx.fillText(labels[i] as string, 0, 0);
+                ctx.restore();
+            }
+            
+            ctx.restore();
+        }
+    }];
+
     return (
         <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
             <h2 className="font-semibold">Usage Time</h2>
-            {plotData && <PolarArea data={plotData} options={{
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: true },
-                },
-                layout: {
-                    padding: {
-                        left: 20,
-                        right: 20,
-                    }
-                },
-                responsive: true,
-                maintainAspectRatio: true,
-            }} />}
+            {plotData && <PolarArea 
+                ref={chartRef}
+                data={plotData} 
+                plugins={plugins}
+                options={{
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { 
+                            enabled: true,
+                            callbacks: {
+                                title: (items) => items[0].label,
+                                label: (context) => `${context.raw} requests`
+                            }
+                        },
+                    },
+                    scales: {
+                        r: {
+                            ticks: { display: false },
+                            grid: { circular: true },
+                            pointLabels: { display: false } // Disable default labels
+                        }
+                    },
+                    layout: {
+                        padding: {
+                            top: 25,
+                            bottom: 25,
+                            left: 40,
+                            right: 40,
+                        }
+                    },
+                    responsive: true,
+                    maintainAspectRatio: true,
+                }} 
+            />}
         </div>
     );
 }

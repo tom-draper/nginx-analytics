@@ -1,10 +1,11 @@
 
 // app/api/auth/route.ts
 import { cookies } from 'next/headers';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
 	const { password } = await request.json();
+
 	const storedPassword = process.env.NGINX_ANALYTICS_PASSWORD;
 
 	if (password === storedPassword) {
@@ -16,10 +17,10 @@ export async function POST(request: NextRequest) {
 			maxAge: 60 * 60 * 24 * 7, // Expiry in 7 days (adjust as needed)
 		});
 
-		return new Response(JSON.stringify({ success: true }), { status: 200 });
+		return NextResponse.json({ success: true }, { status: 200 });
 	} else {
-		return new Response(
-			JSON.stringify({ success: false, message: 'Invalid password' }),
+		return NextResponse.json(
+			({ success: false, message: 'Unauthorized' }),
 			{ status: 401 }
 		);
 	}

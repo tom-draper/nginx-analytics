@@ -93,7 +93,7 @@ const getSuccessRateLevel = (successRate: number | null) => {
 export default function Activity({ data, period }: { data: Data, period: Period }) {
     const [plotData, setPlotData] = useState<ChartData<"bar"> | null>(null)
     const [plotOptions, setPlotOptions] = useState<object | null>(null)
-    const [successRates, setSuccessRates] = useState<({timestamp: number, value: number | null})[]>([])
+    const [successRates, setSuccessRates] = useState<({ timestamp: number, value: number | null })[]>([])
 
     useEffect(() => {
         const points: { [id: string]: number } = {}
@@ -113,6 +113,8 @@ export default function Activity({ data, period }: { data: Data, period: Period 
         }
 
         const values = Object.entries(points).map(([x, y]) => ({ x: new Date(parseInt(x)), y }));
+
+        console.log(values);
 
         setPlotData({
             datasets: [{
@@ -145,7 +147,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
                         display: false
                     },
                     min: periodStart(period),
-                    max: new Date()
+                    max: period === 'all time' ? undefined : new Date()
                 },
                 y: {
                     title: {
@@ -166,7 +168,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
                 }
             }
         })
-    }, [data])
+    }, [data, period])
 
     const getSuccessRateTitle = (successRate: { timestamp: number, value: number | null }) => {
         const time = new Date(successRate.timestamp).toLocaleString()
@@ -211,10 +213,10 @@ export default function Activity({ data, period }: { data: Data, period: Period 
             points[timeId].total++
         }
 
-        const values = Object.entries(points).sort(([timeId1, _], [timeId2, __]) => Number(timeId2) - Number(timeId1)).map(([timeId, value]) => ({ timestamp: Number(timeId), value: value.total ? value.success / value.total : null})).reverse()
+        const values = Object.entries(points).sort(([timeId1, _], [timeId2, __]) => Number(timeId2) - Number(timeId1)).map(([timeId, value]) => ({ timestamp: Number(timeId), value: value.total ? value.success / value.total : null })).reverse()
 
         setSuccessRates(values);
-    }, [data])
+    }, [data, period])
 
     return (
         <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
@@ -237,7 +239,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
             <div className="pb-0 pt-2">
                 <div className="flex ml-14 mt-2 mb-2">
                     {successRates?.map((successRate, index) => (
-                        <div key={index} className={`flex-1 h-12 mx-[] rounded-[1px] ${successRate.value === null ? 'level-none' : 'level-' + getSuccessRateLevel(successRate.value)}`} title={getSuccessRateTitle(successRate)}>
+                        <div key={index} className={`flex-1 h-12 mx-[0.5px] rounded-[2px] ${successRate.value === null ? 'level-none' : 'level-' + getSuccessRateLevel(successRate.value)}`} title={getSuccessRateTitle(successRate)}>
 
                         </div>
                     ))}

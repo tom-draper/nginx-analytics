@@ -39,7 +39,7 @@ export function Endpoints({ data }: { data: Data }) {
     }, [data])
 
     return (
-        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
+        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3 min-h-[20em]">
             <h2 className="font-semibold">
                 Endpoints
             </h2>

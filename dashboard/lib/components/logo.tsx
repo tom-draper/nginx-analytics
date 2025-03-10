@@ -3,7 +3,7 @@ export function Logo() {
     return (
         <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
             <div className="grid place-items-center h-full">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" className="h-16">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" className="h-14">
                     <path d="M150 10 
            L270 75
            L270 185
