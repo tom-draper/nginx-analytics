@@ -11,43 +11,61 @@ ssh user@yourserver
 chmod +x /usr/local/bin/nginx-analytics-agent
 ```
 
-Update your existing Nginx configuration, or copy `nginx.conf` to `/etc/nginx/conf.d/nginx-analytics-agent.conf`.
+If your Nginx log path is different from the default `/var/log/nginx/access.log`, add the correct path as an environment variable.
+
+```env
+NGINX_ACCESS_PATH=/path/to/access.log
+NGINX_ERROR_PATH=/path/to/error.log
+```
+
+Update your existing Nginx configuration, or copy the below config into `/etc/nginx/conf.d/nginx-analytics-agent.conf`.
 
 ```
-location /logs/access {
-    proxy_pass http://localhost:3000/logs/access;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_cache_bypass $http_upgrade;
-}
+server {
+    listen 80;
+    server_name yourdomain.com; # Optional
 
-location /logs/error {
-    proxy_pass http://localhost:3000/logs/error;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_cache_bypass $http_upgrade;
-}
+    location /logs/access {
+        proxy_pass http://localhost:3000/logs/access;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
 
-location /status {
-    proxy_pass http://localhost:3000/status;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_cache_bypass $http_upgrade;
+    location /logs/error {
+        proxy_pass http://localhost:3000/logs/error;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /status {
+        proxy_pass http://localhost:3000/status;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
 }
 ```
 
 All log data transferred by the agent is encrypted end-to-end, so HTTPS is optional.
 
-Setup a systemd service `/etc/systemd/system/nginx-analytics-agent.service` to run the agent in the background.
+Reload Nginx:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Setup a systemd service `/etc/systemd/system/nginx-analytics-agent.service` to run the agent as a background task.
 
 ```
 [Unit]
@@ -75,7 +93,7 @@ sudo systemctl start nginx-analytics-agent
 Confirm the service is up and running with a status check.
 
 ```bash
-curl http://yourserver.com/logs/status
+curl http://yourdomain.com/logs/status
 
 > {"status": "ok", "accessLogStatus": "ok", "errorLogStatus": "ok", ...}
 ```

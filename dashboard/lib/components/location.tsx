@@ -1,15 +1,10 @@
 import { Data } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { type Location } from '@/lib/location'
 
-type Location = {
-    ipAddress: string;
-    country: string;
-    city: string;
-}
 
-export function Location({ data }: { data: Data }) {
+export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation }: { data: Data, locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void }) {
     const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
-    const [locationMap, setLocationMap] = useState<Map<string, Location>>(new Map());
 
     const fetchLocations = async (ipAddresses: string[]) => {
         const response = await fetch('/api/location', {
@@ -48,6 +43,14 @@ export function Location({ data }: { data: Data }) {
         return regionNames.of(countryCode);
     }
 
+    const selectLocation = (location: string) => {
+        if (filterLocation === location) {
+            setFilterLocation(null);
+        } else {
+            setFilterLocation(location)
+        }
+    }
+
     useEffect(() => {
         const updateLocationMap = (locations: Location[]) => {
             setLocationMap((prevMap) => {
@@ -83,7 +86,7 @@ export function Location({ data }: { data: Data }) {
         };
 
         fetchData();
-    }, [data]);
+    }, [data, setLocationMap]);
 
     useEffect(() => {
         const locationCount: { [location: string]: number } = {};
@@ -111,9 +114,8 @@ export function Location({ data }: { data: Data }) {
 
             <div className="flex mt-2">
                 {locations && locations.slice(0, 12).map((location) => (
-                    <button key={location.country} className="flex-1">
-                        <div className="flex-1 rounded h-32 mx-1 my-1 cursor-pointer grid hover:bg-gray-100" title={`${countryCodeToName(location.country)}: ${location.count.toLocaleString()} requests`} onClick={() => {
-                        }}>
+                    <div key={location.country} className="flex-1">
+                        <div className="flex-1 rounded h-32 mx-1 my-1 cursor-pointer grid hover:bg-gray-100" title={`${countryCodeToName(location.country)}: ${location.count.toLocaleString()} requests`} onClick={() => { selectLocation(location.country) }}>
                             <div className="bg-[var(--other-green)] rounded mt-auto" style={{ height: `${(location.count / locations[0].count) * 100}%` }}></div>
                         </div>
 
@@ -122,7 +124,7 @@ export function Location({ data }: { data: Data }) {
                                 {getFlagEmoji(location.country)}
                             </div>
                         </div>
-                    </button>
+                    </div>
                 ))}
                 {locations !== null && locations.length > 0 && (
                     <div className="absolute top-4 right-6 text-sm text-gray-500">

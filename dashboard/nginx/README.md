@@ -2,6 +2,8 @@
 
 ## Configuration Guide
 
+Update your existing Nginx configuration to securely expose your log files.
+
 ```nginx
 server {
     listen 80;
@@ -27,10 +29,20 @@ Reload Nginx:
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Then, host the dashboard on your favourite platform, ensuring environment variables are set pointing to these endpoints.
+### Dashboard
+
+Host the dashboard on your preferred platform, with environment variables set pointing to the agent's endpoints.
 
 ```env
 NGINX_ACCESS_URL=http://yourserver.com/logs/access
 NGINX_ERROR_URL=http://yourserver.com/logs/error
 ```
 
+### CLI
+
+Run the CLI from anywhere, with environment variables set pointing to the agent's endpoints.
+
+```env
+NGINX_ACCESS_URL=http://yourserver.com/logs/access
+NGINX_ERROR_URL=http://yourserver.com/logs/error
+``

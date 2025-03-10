@@ -1,6 +1,6 @@
 import { Period } from "../period";
 
-export function Navigation({ period, setPeriod }: { period: Period, setPeriod: (period: Period) => void }) {
+export function Navigation({ filterPeriod, setFilterPeriod: setPeriod }: { filterPeriod: Period, setFilterPeriod: (period: Period) => void }) {
     return (
         <nav className="mb-1">
             <div className="mx-3 flex flex-end justify-end">
@@ -16,19 +16,19 @@ export function Navigation({ period, setPeriod }: { period: Period, setPeriod: (
                     </button>
                 </div>
                 <div className="border rounded-lg border-gray-300 text-[0.9em] text-gray-500 overflow-hidden">
-                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${period === '24 hours' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('24 hours')}>
+                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${filterPeriod === '24 hours' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('24 hours')}>
                         24 hours
                     </button>
-                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${period === 'week' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('week')}>
+                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${filterPeriod === 'week' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('week')}>
                         Week
                     </button>
-                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${period === 'month' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('month')}>
+                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${filterPeriod === 'month' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('month')}>
                         Month
                     </button>
-                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${period === '6 months' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('6 months')}>
+                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${filterPeriod === '6 months' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('6 months')}>
                         6 months
                     </button>
-                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${period === 'all time' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('all time')}>
+                    <button className={`px-3 py-1 hover:text-black cursor-pointer ${filterPeriod === 'all time' ? 'bg-[var(--other-green)] text-black': ''}`} onClick={() => setPeriod('all time')}>
                         All time
                     </button>
                 </div>

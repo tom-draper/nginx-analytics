@@ -9,6 +9,7 @@ import { SuccessRate } from "@/lib/components/success-rate";
 import Users from "@/lib/components/users";
 import { Version } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
+import { type Location as LocationType } from "@/lib/location"
 import { parseLogs } from "@/lib/parse";
 import { useEffect, useMemo, useState } from "react";
 import { Data } from "@/lib/types";
@@ -22,6 +23,7 @@ export default function Home() {
     const [data, setData] = useState<Data>([]);
     const [filteredData, setFilteredData] = useState<Data>([]);
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
+    const [locationMap, setLocationMap] = useState<Map<string, LocationType>>(new Map());
 
     const [filter, setFilter] = useState<Filter>(newFilter());
 
@@ -31,6 +33,29 @@ export default function Home() {
         setFilter((previous) => ({
             ...previous,
             period
+        }))
+    }
+
+    const setLocation = (location: string | null) => {
+        setFilter((previous) => ({
+            ...previous,
+            location
+        }))
+    }
+
+    const setEndpoint = (path: string | null, method: string | null, status: number | null) => {
+        setFilter((previous) => ({
+            ...previous,
+            path,
+            method,
+            status
+        }))
+    }
+
+    const setReferrer = (referrer: string | null) => {
+        setFilter((previous) => ({
+            ...previous,
+            referrer
         }))
     }
 
@@ -68,17 +93,23 @@ export default function Home() {
         const filteredData: Data = [];
         const start = periodStart(filter.period);
         for (const row of data) {
-            if (start === null || (row.timestamp && row.timestamp > start)) {
+            if (
+                (start === null || (row.timestamp && row.timestamp > start))
+                && (filter.location === null || (filter.location === locationMap.get(row.ipAddress)?.country))
+                && (filter.path === null || (filter.path === row.path))
+                && (filter.method === null || (filter.method === row.method))
+                && (filter.status === null || (filter.status === row.status))
+            ) {
                 filteredData.push(row);
             }
         }
         setFilteredData(filteredData);
-    }, [data, filter]);
+    }, [data, filter, locationMap]);
 
     return (
         <div className="">
             <main className="p-12 pt-7">
-                <Navigation period={filter.period} setPeriod={setPeriod}/>
+                <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} />
 
                 <div className="flex">
                     {/* Left */}
@@ -94,7 +125,7 @@ export default function Home() {
                         </div>
 
                         <div className="flex">
-                            <Endpoints data={filteredData} />
+                            <Endpoints data={filteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} />
                         </div>
 
                         <div className="flex">
@@ -107,7 +138,7 @@ export default function Home() {
                         <Activity data={filteredData} period={currentPeriod} />
 
                         <div className="w-full flex">
-                            <Location data={filteredData} />
+                            <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} />
                             <div className="min-w-[28em]">
                                 <Device data={filteredData} />
                             </div>
@@ -115,7 +146,7 @@ export default function Home() {
 
                         <div className="w-full flex">
                             <UsageTime data={filteredData} />
-                            <Referrals data={filteredData} />
+                            <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                         </div>
                     </div>
                 </div>

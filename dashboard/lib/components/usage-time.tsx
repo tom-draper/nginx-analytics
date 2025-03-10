@@ -105,7 +105,7 @@ export default function UsageTime({ data }: { data: Data }) {
                             enabled: true,
                             callbacks: {
                                 title: (items) => items[0].label,
-                                label: (context) => `${context.raw} requests`
+                                label: (context) => `${context.raw.toLocaleString()} requests`
                             }
                         },
                     },

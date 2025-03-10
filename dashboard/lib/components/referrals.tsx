@@ -8,7 +8,7 @@ type Referral = {
     count: number
 }
 
-export function Referrals({ data }: { data: Data }) {
+export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: Data, filterReferrer: string | null, setFilterReferrer: (referrer: string | null) => void }) {
     const [referrals, setReferrals] = useState<Referral[]>([])
 
     useEffect(() => {
@@ -28,6 +28,14 @@ export function Referrals({ data }: { data: Data }) {
         setReferrals(referrals);
     }, [data])
 
+    const selectReferrer = (referrer: string) => {
+        if (referrer === filterReferrer) {
+            setFilterReferrer(null)
+        } else {
+            setFilterReferrer(referrer)
+        }
+    }
+
     return (
         <>
             {referrals.length > 0 && (
@@ -37,7 +45,7 @@ export function Referrals({ data }: { data: Data }) {
                     </h2>
                     <div className="mt-2">
                         {referrals.map((endpoint, index) => (
-                            <button key={index} className="bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center">
+                            <button key={index} className="bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center" onClick={() => selectReferrer(endpoint.referrer)}>
                                 <span className="text-sm flex items-center mx-2 z-50 py-[2px]">
                                     <span className="pr-1">
                                         {endpoint.count.toLocaleString()}

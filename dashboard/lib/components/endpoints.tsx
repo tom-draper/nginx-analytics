@@ -10,7 +10,7 @@ type Endpoint = {
     count: number
 }
 
-export function Endpoints({ data }: { data: Data }) {
+export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint }: { data: Data, filterPath: string | null, filterMethod: string | null, filterStatus: number | null, setEndpoint: (path: string | null, method: string | null, status: number | null) => void }) {
     const [endpoints, setEndpoints] = useState<Endpoint[]>([])
 
     useEffect(() => {
@@ -38,6 +38,22 @@ export function Endpoints({ data }: { data: Data }) {
         setEndpoints(endpoints.sort((a, b) => b.count - a.count).slice(0, 50));
     }, [data])
 
+    const selectEndpoint = (path: string, method: string, status: number | null) => {
+        if (endpoints.length <= 1) {
+            setEndpoint(null, null, null)
+        }
+
+        if (path !== filterPath) {
+            setEndpoint(path, filterMethod, filterStatus)
+        } else if (method && path === filterPath && method !== filterMethod) {
+            setEndpoint(path, method, filterStatus)
+        } else if (status && path === filterPath && method === filterMethod && status !== filterStatus) {
+            setEndpoint(path, method, status)
+        } else {
+            setEndpoint(null, null, null)
+        }
+    }
+
     return (
         <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3 min-h-[20em]">
             <h2 className="font-semibold">
@@ -45,7 +61,7 @@ export function Endpoints({ data }: { data: Data }) {
             </h2>
             <div className="mt-2">
                 {endpoints.map((endpoint, index) => (
-                    <button key={index} className="hover:bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center" title={`Status: ${endpoint.status}`}>
+                    <button key={index} className="hover:bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center" title={`Status: ${endpoint.status}`} onClick={() => {selectEndpoint(endpoint.path, endpoint.method, endpoint.status ?? null)}}>
                         <span className="text-sm flex items-center mx-2 z-50 py-[2px]">
                             <span className="pr-1">
                                 {endpoint.count.toLocaleString()}

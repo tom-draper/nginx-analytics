@@ -11,10 +11,6 @@ export async function POST(request: NextRequest) {
     }
 
     const locations = await getLocations(ipAddresses);
-
-    const validLocations = locations.filter(loc => loc.country !== null && loc.city !== null);
-    console.log(`${validLocations.length} locations found from ${ipAddresses.length} IP addresses`)
-
     return NextResponse.json({ locations }, { status: 200 });
 }
 

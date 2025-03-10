@@ -1,5 +1,11 @@
 import maxmind, { CityResponse, CountryResponse, Reader } from 'maxmind';
 
+export type Location = {
+    ipAddress: string;
+    country: string;
+    city: string;
+}
+
 let cityLookup: Reader<CityResponse> | undefined;
 let countryLookup: Reader<CountryResponse> | undefined;
 let initializationPromise: Promise<void> | null = null;
@@ -15,11 +21,8 @@ function initializeLookups(): Promise<void> {
     initializationPromise = (async () => {
         try {
             cityLookup = await maxmind.open<CityResponse>('GeoLite2-City.mmdb');
-            console.log('City database loaded');
             return;
         } catch (error) {
-            console.error('Error loading city lookup', error);
-            
             try {
                 countryLookup = await maxmind.open<CountryResponse>('GeoLite2-Country.mmdb');
                 console.log('Country database loaded');

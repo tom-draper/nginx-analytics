@@ -1,6 +1,6 @@
 # Nginx Analytics
 
-An extremely flexible and privacy-focused analytics solution for Nginx.
+A modern, flexible and privacy-focused analytics solution for Nginx.
 
 ## Getting Started
 
@@ -12,7 +12,7 @@ Follow the <a href="./dashboard/README.md">dashboard deployment guide</a>.
 
 ### Option 2: Dashboard + Agent
 
-Deploy the lightweight agent to your server to securely expose your log files to the dashboard, and stream log file content and changes in real-time. 
+Deploy the lightweight agent to your server to securely expose your log files to the dashboard, and stream log file content and changes in real-time. Deploy the dashboard anywhere. 
 
 Best when server resources are tight, or log files are large.
 
@@ -20,11 +20,11 @@ Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
 ### Option 3: Dashboard + Nginx
 
-Update your Nginx configuration to serve your log files over HTTP as restricted static files.
+Update your Nginx configuration to serve your log files over HTTP as restricted static files. Deploy the dashboard anywhere.
 
-Limited functionality; but best if you want to avoid further deployments to your server.
+Limited functionality; best if you want to avoid further deployments to your server.
 
-Follow the <a href="./nginx/README.md">Nginx configuration guide</a>.
+Follow the <a href="./dashboard/nginx/README.md">Nginx configuration guide</a>.
 
 ### Options 4: File Upload
 
@@ -32,7 +32,7 @@ Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get
 
 ### Option 5: CLI
 
-Deploy the CLI to the server, and access via SSH.
+Deploy the CLI to the same server as Nginx, and access via SSH.
 
 ### Option 6: CLI + Agent 
 
