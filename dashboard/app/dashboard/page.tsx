@@ -52,6 +52,13 @@ export default function Home() {
         }))
     }
 
+    const setStatus = (status: number | [number, number] | null) => {
+        setFilter((previous) => ({
+            ...previous,
+            status
+        }))
+    }
+
     const setReferrer = (referrer: string | null) => {
         setFilter((previous) => ({
             ...previous,
@@ -61,7 +68,6 @@ export default function Home() {
 
     useEffect(() => {
         const fetchLogs = async () => {
-            console.log('Fetching logs');
             try {
                 const res = await fetch(`/api/logs?type=access&position=${position}`);
                 if (!res.ok) {
@@ -92,13 +98,14 @@ export default function Home() {
     useEffect(() => {
         const filteredData: Data = [];
         const start = periodStart(filter.period);
+        const statusType = typeof filter.status;
         for (const row of data) {
             if (
                 (start === null || (row.timestamp && row.timestamp > start))
                 && (filter.location === null || (filter.location === locationMap.get(row.ipAddress)?.country))
                 && (filter.path === null || (filter.path === row.path))
                 && (filter.method === null || (filter.method === row.method))
-                && (filter.status === null || (filter.status === row.status))
+                && (filter.status === null || ((statusType === 'number' && filter.status === row.status) || (statusType === 'object' && row.status >= filter.status[0] && row.status <= filter.status[1])))
             ) {
                 filteredData.push(row);
             }
@@ -125,7 +132,7 @@ export default function Home() {
                         </div>
 
                         <div className="flex">
-                            <Endpoints data={filteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} />
+                            <Endpoints data={filteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} />
                         </div>
 
                         <div className="flex">

@@ -22,14 +22,14 @@ export default function Users({ data }: {data: Data}) {
     }, [data])
 
     return (
-        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
+        <div className="card flex-1 px-4 py-3 m-3">
             <h2 className="font-semibold">
                 Users
             </h2>
 
             <div className="text-3xl font-semibold grid place-items-center">
-                <div className="py-4">
-                    {users ? users.size.toLocaleString() : ''}
+                <div className="py-4 text-[var(--text-tinted)]">
+                    {users ? users.size.toLocaleString() : '0'}
                 </div>
             </div>
         </div>

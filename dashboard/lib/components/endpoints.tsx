@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Data } from "../types";
+import { clientErrorStatus, redirectStatus, serverErrorStatus } from "../status";
 
 type Endpoint = {
     path: string
@@ -10,7 +11,7 @@ type Endpoint = {
     count: number
 }
 
-export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint }: { data: Data, filterPath: string | null, filterMethod: string | null, filterStatus: number | null, setEndpoint: (path: string | null, method: string | null, status: number | null) => void }) {
+export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus }: { data: Data, filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number] | null) => void, setStatus: (status: number | [number, number] | null) => void }) {
     const [endpoints, setEndpoints] = useState<Endpoint[]>([])
 
     useEffect(() => {
@@ -41,9 +42,7 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
     const selectEndpoint = (path: string, method: string, status: number | null) => {
         if (endpoints.length <= 1) {
             setEndpoint(null, null, null)
-        }
-
-        if (path !== filterPath) {
+        } else if (path !== filterPath) {
             setEndpoint(path, filterMethod, filterStatus)
         } else if (method && path === filterPath && method !== filterMethod) {
             setEndpoint(path, method, filterStatus)
@@ -54,28 +53,99 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
         }
     }
 
+    const selectAllStatus = () => {
+        setStatus(null)
+    }
+
+    const selectSuccessStatus = () => {
+        if (Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [200, 299][index])) {
+            setStatus(null)
+        } else {
+            setStatus([200, 299])
+        }
+    }
+
+    const selectRedirectStatus = () => {
+        if (Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [300, 399][index])) {
+            setStatus(null)
+        } else {
+            setStatus([300, 399])
+        }
+    }
+
+    const selectClientErrorStatus = () => {
+        if (Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [400, 499][index])) {
+            setStatus(null)
+        } else {
+            setStatus([400, 499])
+        }
+    }
+
+    const selectServerErrorStatus = () => {
+        if (Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [500, 599][index])) {
+            setStatus(null)
+        } else {
+            setStatus([500, 599])
+        }
+    }
+
+    const getBackground = (status: number | undefined) => {
+        if (!status) {
+            return 'var(--highlight)'
+        }
+
+        if (clientErrorStatus(status)) {
+            return 'var(--warn)'
+        }
+
+        if (serverErrorStatus(status)) {
+            return 'var(--error)'
+        }
+
+        if (redirectStatus(status)) {
+            return 'var(--info)'
+        }
+
+        return 'var(--highlight)'
+    }
+
     return (
-        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3 min-h-[20em]">
+        <div className="card flex-1 px-4 py-3 m-3 min-h-[16em] relative">
             <h2 className="font-semibold">
                 Endpoints
             </h2>
-            <div className="mt-2">
+            <div className="absolute flex top-[14px] right-4 text-xs text-[var(--text-muted3)]">
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectSuccessStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [200, 299][index]) ? 'var(--highlight)' : '' }}>
+                    Success
+                </button>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectRedirectStatus} style={{color: Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [300, 399][index]) ? 'var(--info)' : '' }}>
+                    Redirect
+                </button>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectClientErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [400, 499][index]) ? 'var(--warn)' : '' }}>
+                    Client
+                </button>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectServerErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [500, 599][index]) ? 'var(--error)' : '' }}>
+                    Server
+                </button>
+            </div>
+            <div className="mt-3">
                 {endpoints.map((endpoint, index) => (
-                    <button key={index} className="hover:bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center" title={`Status: ${endpoint.status}`} onClick={() => {selectEndpoint(endpoint.path, endpoint.method, endpoint.status ?? null)}}>
-                        <span className="text-sm flex items-center mx-2 z-50 py-[2px]">
-                            <span className="pr-1">
+                    <button key={index} className="hover:bg-[var(--hover-background)] my-2 rounded w-full relative cursor-pointer flex items-center" title={`Status: ${endpoint.status}`} onClick={() => { selectEndpoint(endpoint.path, endpoint.method, endpoint.status ?? null) }}>
+                        <span className="text-sm flex items-center mx-2 z-50 py-[2px] text-[var(--text-muted2)]">
+                            <span className="pr-1 font-semibold">
                                 {endpoint.count.toLocaleString()}
                             </span>
-                            <span className="px-1 text-gray-600">
+                            <span className="px-1">
                                 {endpoint.method}
                             </span>
-                            <span className="px-1 text-gray-600 text-left break-words">
+                            <span className="px-1 text-left break-words">
                                 {endpoint.path ?? ''}
                             </span>
                         </span>
 
-                        <div className="bg-[var(--other-green)] h-full rounded absolute inset-0" style={{
-                            width: `${(endpoint.count / endpoints[0].count) * 100}%`
+                        <div className="h-full rounded absolute inset-0" style={{
+                            width: `${(endpoint.count / endpoints[0].count) * 100}%`,
+                            background: getBackground(endpoint.status)
                         }}></div>
                     </button>
                 ))}

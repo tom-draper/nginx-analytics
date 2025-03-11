@@ -5,6 +5,7 @@ import { type Location } from '@/lib/location'
 
 export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation }: { data: Data, locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void }) {
     const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
+    const [loading, setLoading] = useState(false);
 
     const fetchLocations = async (ipAddresses: string[]) => {
         const response = await fetch('/api/location', {
@@ -14,6 +15,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
 
         if (!response.ok) {
             console.log('Failed to fetch locations');
+            setLoading(false);
             return [];
         }
         const data = await response.json();
@@ -34,7 +36,6 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
     }
 
     function countryCodeToName(countryCode: string) {
-        // get the country name from the country code
         if (!countryCode) {
             return '';
         }
@@ -69,24 +70,25 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
         };
 
         const fetchData = async () => {
-            setLocationMap((prevMap) => {
-                const ipAddresses = data.map((row) => row.ipAddress);
-                const unknown = ipAddresses.filter((ip) => !prevMap.has(ip));
+            const ipAddresses = data.map((row) => row.ipAddress);
+            const unknown = ipAddresses.filter((ip) => !locationMap.has(ip));
 
-                if (unknown.length > 0) {
-                    fetchLocations(unknown).then((locations) => {
-                        if (locations.length > 0) {
-                            updateLocationMap(locations);
-                        }
-                    });
+            if (unknown.length > 0) {
+                setLoading(true);
+                try {
+                    const locations = await fetchLocations(unknown);
+                    if (locations.length > 0) {
+                        updateLocationMap(locations);
+                    }
+                } catch (error) {
+                    console.error("Error fetching locations:", error);
                 }
-
-                return prevMap;
-            });
+                setLoading(false);
+            }
         };
 
         fetchData();
-    }, [data, setLocationMap]);
+    }, [data, locationMap, setLocationMap]);
 
     useEffect(() => {
         const locationCount: { [location: string]: number } = {};
@@ -107,7 +109,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
     }, [data, locationMap])
 
     return (
-        <div className="border rounded-lg border-gray-300 flex-2 px-4 py-3 m-3 relative">
+        <div className="card flex-2 px-4 py-3 m-3 relative">
             <h2 className="font-semibold">
                 Location
             </h2>
@@ -115,8 +117,8 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
             <div className="flex mt-2">
                 {locations && locations.slice(0, 12).map((location) => (
                     <div key={location.country} className="flex-1">
-                        <div className="flex-1 rounded h-32 mx-1 my-1 cursor-pointer grid hover:bg-gray-100" title={`${countryCodeToName(location.country)}: ${location.count.toLocaleString()} requests`} onClick={() => { selectLocation(location.country) }}>
-                            <div className="bg-[var(--other-green)] rounded mt-auto" style={{ height: `${(location.count / locations[0].count) * 100}%` }}></div>
+                        <div className="flex-1 rounded h-32 mx-1 my-1 cursor-pointer grid hover:bg-[var(--hover-background)]" title={`${countryCodeToName(location.country)}: ${location.count.toLocaleString()} requests`} onClick={() => { selectLocation(location.country) }}>
+                            <div className="bg-[var(--highlight)] rounded mt-auto" style={{ height: `${(location.count / locations[0].count) * 100}%` }}></div>
                         </div>
 
                         <div className="flex flex-col text-center">
@@ -127,18 +129,24 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
                     </div>
                 ))}
                 {locations !== null && locations.length > 0 && (
-                    <div className="absolute top-4 right-6 text-sm text-gray-500">
-                        {locations.length} locations
+                    <div className="absolute top-4 right-6 text-sm text-[var(--text-muted3)]">
+                        {locations.length} {locations.length === 1 ? 'location' : 'locations'}
                     </div>
                 )}
                 {locations !== null && locations.length === 0 && (
                     <div className="flex-1">
-                        <div className="flex-1 rounded h-36 mx-1 my-1 grid place-items-center" title={`No locations found`}>
-                            <div className="text-gray-400 pb-2">No locations found</div>
-                        </div>
+                        {loading ? (
+                            <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center">
+                                <div className="spinner"></div>
+                            </div>
+                        ) : (
+                            <div className="flex-1 rounded h-36 mx-1 my-1 grid place-items-center" title={`No locations found`}>
+                                <div className="text-[var(--text-muted3)] pb-2">No locations found</div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     )
 }

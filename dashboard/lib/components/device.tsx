@@ -111,13 +111,14 @@ export function Device({ data }: { data: Data }) {
                         "#FF9F40",
                     ],
                     hoverOffset: 4,
+                    borderWidth: 0,
                 },
             ],
         });
     }, [data]);
 
     return (
-        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
+        <div className="card flex-1 px-4 py-3 m-3">
             <h2 className="font-semibold">Device</h2>
 
             <div className="relative w-full flex items-center justify-center pb-4" >

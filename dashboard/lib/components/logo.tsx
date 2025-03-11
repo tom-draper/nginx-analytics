@@ -1,7 +1,7 @@
 
 export function Logo() {
     return (
-        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
+        <div className="card flex-1 px-4 py-3 m-3 text-[var(--highlight)]">
             <div className="grid place-items-center h-full">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" className="h-14">
                     <path d="M150 10 
@@ -12,7 +12,7 @@ export function Logo() {
            L30 75
            Z"
                         fill="transparent"
-                        stroke="#2ECC71"
+                        stroke="currentColor"
                         strokeWidth="8"
                         strokeLinejoin="round" />
 
@@ -24,7 +24,7 @@ export function Logo() {
            L150 250
            L30 185
            Z"
-                        fill="#2ECC71"
+                        fill="currentColor"
                         fillOpacity="0.5"
                         stroke="none" />
 
@@ -34,7 +34,7 @@ export function Logo() {
            L270 75"
                         fill="none"
                         // stroke="#2ECC71"
-                        stroke="#2ECC71"
+                        stroke="currentColor"
                         strokeWidth="8"
                         strokeLinejoin="round" />
                 </svg>

@@ -39,7 +39,7 @@ export default function UsageTime({ data }: { data: Data }) {
                 label: 'Requests per Hour',
                 data: reorderedHours,
                 backgroundColor: 'rgb(46, 204, 113)',
-                borderWidth: 1,
+                borderWidth: 0,
                 borderColor: '#fff'
             }]
         });
@@ -59,9 +59,10 @@ export default function UsageTime({ data }: { data: Data }) {
             const radius = Math.min(chart.chartArea.width, chart.chartArea.height) / 2;
             
             ctx.save();
-            ctx.font = '10px Arial';
+            ctx.font = '11px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#666666'
             
             const labels = chart.config.data.labels;
             const angleSize = (2 * Math.PI) / labels.length;
@@ -92,9 +93,10 @@ export default function UsageTime({ data }: { data: Data }) {
     }];
 
     return (
-        <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3">
+        <div className="card flex-1 px-4 py-3 m-3">
             <h2 className="font-semibold">Usage Time</h2>
             {plotData && <PolarArea 
+                className="max-h-160"
                 ref={chartRef}
                 data={plotData} 
                 plugins={plugins}
@@ -119,10 +121,11 @@ export default function UsageTime({ data }: { data: Data }) {
                     layout: {
                         padding: {
                             top: 25,
-                            bottom: 25,
-                            left: 40,
-                            right: 40,
-                        }
+                            bottom: 40,
+                            left: 60,
+                            right: 60,
+                        },
+                        
                     },
                     responsive: true,
                     maintainAspectRatio: true,

@@ -39,11 +39,11 @@ export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: D
     return (
         <>
             {referrals.length > 0 && (
-                <div className="border rounded-lg border-gray-300 flex-1 px-4 py-3 m-3 min-w-[24rem]">
+                <div className="card flex-1 px-4 py-3 m-3 min-w-[24rem]">
                     <h2 className="font-semibold">
                         Referrals
                     </h2>
-                    <div className="mt-2">
+                    <div className="mt-3">
                         {referrals.map((endpoint, index) => (
                             <button key={index} className="bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center" onClick={() => selectReferrer(endpoint.referrer)}>
                                 <span className="text-sm flex items-center mx-2 z-50 py-[2px]">
@@ -55,7 +55,7 @@ export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: D
                                     </span>
                                 </span>
 
-                                <div className="bg-[var(--other-green)] h-full rounded absolute inset-0" style={{
+                                <div className="bg-[var(--highlight)] h-full rounded absolute inset-0" style={{
                                     width: `${(endpoint.count / referrals[0].count) * 100}%`
                                 }}></div>
                             </button>

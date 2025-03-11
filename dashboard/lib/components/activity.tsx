@@ -114,15 +114,13 @@ export default function Activity({ data, period }: { data: Data, period: Period 
 
         const values = Object.entries(points).map(([x, y]) => ({ x: new Date(parseInt(x)), y }));
 
-        console.log(values);
-
         setPlotData({
             datasets: [{
                 label: '# of Requests',
                 data: values,
                 borderWidth: 1,
-                backgroundColor: 'rgba(46, 204, 113, 1)',
-                borderColor: 'rgb(46, 204, 113)',
+                backgroundColor: 'rgb(26, 240, 115)',
+                borderColor: 'rgb(26, 240, 115)',
                 borderRadius: 4
             }]
         })

@@ -85,10 +85,10 @@ L270 75"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={`rounded border  border-gray-300 px-2 w-60 py-1 mr-2 ${inputError ? 'border-red-500 text-red-500 animate-shake' : ''}`}
+            className={`rounded border border-[var(--border-color)] px-2 w-60 py-1 mr-2 ${inputError ? 'border-red-500 text-red-500 animate-shake' : ''}`}
             placeholder="Enter password"
           />
-          <button type="submit" className="bg-[var(--highlight)] cursor-pointer text-[var(--text)] px-4 py-1 rounded">Submit</button>
+          <button type="submit" className="bg-[var(--highlight)] cursor-pointer text-[var(--inverted-text)] px-4 py-1 rounded">Submit</button>
         </form>
       </div>
     </div>
