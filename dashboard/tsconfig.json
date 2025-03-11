@@ -34,7 +34,7 @@
     "dashboard/.next/types/**/*.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts"
-  ],
+, "scripts/logo/logo.ts"  ],
   "exclude": [
     "node_modules"
   ]
