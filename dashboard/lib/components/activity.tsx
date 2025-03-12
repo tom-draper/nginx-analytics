@@ -95,7 +95,8 @@ export default function Activity({ data, period }: { data: Data, period: Period 
     const [plotOptions, setPlotOptions] = useState<object | null>(null)
     const [successRates, setSuccessRates] = useState<({ timestamp: number, value: number | null })[]>([])
     const [displayRates, setDisplayRates] = useState<({ timestamp: number, value: number | null })[]>([])
-    // const containerRef = useRef<HTMLDivElement>(null);
+    const [containerWidth, setContainerWidth] = useState<number>(0);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     // Function to sample success rates based on container width
     const calculateDisplayRates = (rates: { timestamp: number, value: number | null }[], width: number) => {
@@ -128,42 +129,42 @@ export default function Activity({ data, period }: { data: Data, period: Period 
         return sampled;
     };
 
-    // useEffect(() => {
-    //     const updateWidth = () => {
-    //         if (containerRef.current) {
-    //             setContainerWidth(containerRef.current.offsetWidth - 66);
-    //         }
-    //     };
+    useEffect(() => {
+        const updateWidth = () => {
+            if (containerRef.current) {
+                setContainerWidth(containerRef.current.offsetWidth - 66);
+            }
+        };
 
-    //     // Initial measurement
-    //     updateWidth();
+        // Initial measurement
+        updateWidth();
 
-    //     // Create ResizeObserver
-    //     const resizeObserver = new ResizeObserver(() => {
-    //         window.requestAnimationFrame(updateWidth);
-    //     });
+        // Create ResizeObserver
+        const resizeObserver = new ResizeObserver(() => {
+            window.requestAnimationFrame(updateWidth);
+        });
 
-    //     if (containerRef.current) {
-    //         resizeObserver.observe(containerRef.current);
-    //     }
+        if (containerRef.current) {
+            resizeObserver.observe(containerRef.current);
+        }
 
-    //     // Also listen for window resize events as a fallback
-    //     window.addEventListener('resize', updateWidth);
+        // Also listen for window resize events as a fallback
+        window.addEventListener('resize', updateWidth);
 
-    //     // Clean up
-    //     return () => {
-    //         if (containerRef.current) {
-    //             resizeObserver.unobserve(containerRef.current);
-    //         }
-    //         window.removeEventListener('resize', updateWidth);
-    //     };
-    // }, []); // Remove containerWidth from dependencies to prevent circular updates
+        // Clean up
+        return () => {
+            if (containerRef.current) {
+                resizeObserver.unobserve(containerRef.current);
+            }
+            window.removeEventListener('resize', updateWidth);
+        };
+    }, []); // Remove containerWidth from dependencies to prevent circular updates
 
     // Update display rates when success rates or container width change
-    // useEffect(() => {
-    //     const updatedDisplayRates = calculateDisplayRates(successRates, containerWidth);
-    //     setDisplayRates(updatedDisplayRates);
-    // }, [successRates, containerWidth]);
+    useEffect(() => {
+        const updatedDisplayRates = calculateDisplayRates(successRates, containerWidth);
+        setDisplayRates(updatedDisplayRates);
+    }, [successRates, containerWidth]);
 
     useEffect(() => {
         const points: { [id: string]: { requests: number; users: Set<string> } } = {};
@@ -241,11 +242,6 @@ export default function Activity({ data, period }: { data: Data, period: Period 
             },
             maintainAspectRatio: false,
             responsive: true,
-            onResize: (chart, newSize) => {
-                console.log(chart);
-                console.log(newSize);
-                chart.resize()
-            },
             plugins: {
                 legend: {
                     display: false
@@ -366,12 +362,12 @@ export default function Activity({ data, period }: { data: Data, period: Period 
                 />}
             </div>
 
-            <div className="pb-0 pt-2">
+            <div className="pb-0 pt-2" ref={containerRef}>
                 <div className="flex ml-[66px] mt-2 mb-2 overflow-hidden">
                     {displayRates?.map((successRate, index) => (
-                        <div 
-                            key={index} 
-                            className={`flex-1 h-12 mx-[0.5px] rounded-[2px] ${successRate.value === null ? 'level-none' : 'level-' + getSuccessRateLevel(successRate.value)}`} 
+                        <div
+                            key={index}
+                            className={`flex-1 h-12 mx-[0.5px] rounded-[2px] ${successRate.value === null ? 'level-none' : 'level-' + getSuccessRateLevel(successRate.value)}`}
                             title={getSuccessRateTitle(successRate)}
                         >
                         </div>

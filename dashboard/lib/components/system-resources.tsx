@@ -20,12 +20,12 @@ export function SystemResources() {
     }, [])
 
     return (
-        <div className="border rounded-lg border-gray-300 flex-2 px-4 py-3 m-3">
+        <div className="card flex-2 px-4 py-3 m-3">
             <h2 className="font-semibold">
                 System Resources
             </h2>
 
-            <div className="flex mt-2">
+            <div className="flex mt-2 pb-40">
 
             </div>
         </div>

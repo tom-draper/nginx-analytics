@@ -18,6 +18,8 @@ import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
 import UsageTime from "@/lib/components/usage-time";
 import { Referrals } from "@/lib/components/referrals";
+import { SystemResources } from "@/lib/components/system-resources";
+import { ResponseSize } from "@/lib/components/response-size";
 
 export default function Home() {
     const [data, setData] = useState<Data>([]);
@@ -169,9 +171,16 @@ export default function Home() {
                             </div>
                         </div>
 
+                        <div className="flex max-xl:flex-col">
+                            <div className="xl:w-[28em]">
+                                <ResponseSize data={filteredData} />
+                            </div>
+                            <SystemResources />
+                        </div>
+
                         <div className="w-inherit">
-                                <UsageTime data={filteredData} />
-                                <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
+                            <UsageTime data={filteredData} />
+                            <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                         </div>
                     </div>
                 </div>
