@@ -1,34 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260">
-    <path d="M150 10 
-L270 75
-L270 185
-L150 250
-L30 185
-L30 75
-Z"
-        fill="transparent"
-        stroke="#2ECC71"
-        stroke-width="8"
-        stroke-linejoin="round" />
-
-    <path d="M30 185
-L90 130
-L210 130
-L270 75
-L270 185
-L150 250
-L30 185
-Z"
-        fill="#2ECC71"
-        fill-opacity="0.5"
-        stroke="none" />
-
-    <path d="M30 185
-L90 130
-L210 130
-L270 75"
-        fill="none"
-        stroke="#2ECC71"
-        stroke-width="8"
-        stroke-linejoin="round" />
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 310 310" width="510" height="510">
+	<title>icon</title>
+	<style>
+		.s0 { fill: #000000;stroke: #1af073;stroke-width: 18 } 
+		.s1 { fill: #1af073 } 
+		.s2 { fill: #000000 } 
+	</style>
+	<path fill-rule="evenodd" class="s0" d="m30 220l80-100"/>
+	<path fill-rule="evenodd" class="s0" d="m110 120l90 70"/>
+	<path fill-rule="evenodd" class="s0" d="m200 190l80-100"/>
+	<g>
+		<path fill-rule="evenodd" class="s1" d="m30 240c-11.1 0-20-8.9-20-20 0-11.1 8.9-20 20-20 11.1 0 20 8.9 20 20 0 11.1-8.9 20-20 20z"/>
+		<path fill-rule="evenodd" class="s2" d="m30 232c-6.6 0-12-5.4-12-12 0-6.6 5.4-12 12-12 6.6 0 12 5.4 12 12 0 6.6-5.4 12-12 12z"/>
+	</g>
+	<g>
+		<path fill-rule="evenodd" class="s1" d="m110 140c-11.1 0-20-8.9-20-20 0-11.1 8.9-20 20-20 11.1 0 20 8.9 20 20 0 11.1-8.9 20-20 20z"/>
+		<path fill-rule="evenodd" class="s2" d="m110 132c-6.6 0-12-5.4-12-12 0-6.6 5.4-12 12-12 6.6 0 12 5.4 12 12 0 6.6-5.4 12-12 12z"/>
+	</g>
+	<g>
+		<path fill-rule="evenodd" class="s1" d="m200 210c-11.1 0-20-8.9-20-20 0-11.1 8.9-20 20-20 11.1 0 20 8.9 20 20 0 11.1-8.9 20-20 20z"/>
+		<path fill-rule="evenodd" class="s2" d="m200 202c-6.6 0-12-5.4-12-12 0-6.6 5.4-12 12-12 6.6 0 12 5.4 12 12 0 6.6-5.4 12-12 12z"/>
+	</g>
+	<g>
+		<path fill-rule="evenodd" class="s1" d="m280 110c-11.1 0-20-8.9-20-20 0-11.1 8.9-20 20-20 11.1 0 20 8.9 20 20 0 11.1-8.9 20-20 20z"/>
+		<path fill-rule="evenodd" class="s2" d="m280 102c-6.6 0-12-5.4-12-12 0-6.6 5.4-12 12-12 6.6 0 12 5.4 12 12 0 6.6-5.4 12-12 12z"/>
+	</g>
 </svg>

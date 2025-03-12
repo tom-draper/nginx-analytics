@@ -38,7 +38,7 @@ export default function UsageTime({ data }: { data: Data }) {
             datasets: [{
                 label: 'Requests per Hour',
                 data: reorderedHours,
-                backgroundColor: 'rgb(46, 204, 113)',
+                backgroundColor: 'rgb(26, 240, 115)',
                 borderWidth: 0,
                 borderColor: '#fff'
             }]
@@ -93,44 +93,45 @@ export default function UsageTime({ data }: { data: Data }) {
     }];
 
     return (
-        <div className="card flex-1 px-4 py-3 m-3">
+        <div className="card flex-1 px-4 py-3 m-3 w-inherit">
             <h2 className="font-semibold">Usage Time</h2>
-            {plotData && <PolarArea 
-                className="max-h-160"
-                ref={chartRef}
-                data={plotData} 
-                plugins={plugins}
-                options={{
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { 
-                            enabled: true,
-                            callbacks: {
-                                title: (items) => items[0].label,
-                                label: (context) => `${context.raw.toLocaleString()} requests`
+            <div className="relative w-full h-full pt-2" style={{ height: '600px' }}>
+                {plotData && <PolarArea 
+                    ref={chartRef}
+                    data={plotData} 
+                    plugins={plugins}
+                    options={{
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { 
+                                enabled: true,
+                                callbacks: {
+                                    title: (items) => items[0].label,
+                                    label: (context) => `${context.raw.toLocaleString()} requests`
+                                }
+                            },
+                        },
+                        scales: {
+                            r: {
+                                ticks: { display: false },
+                                grid: { circular: true },
+                                pointLabels: { display: false } // Disable default labels
                             }
                         },
-                    },
-                    scales: {
-                        r: {
-                            ticks: { display: false },
-                            grid: { circular: true },
-                            pointLabels: { display: false } // Disable default labels
-                        }
-                    },
-                    layout: {
-                        padding: {
-                            top: 25,
-                            bottom: 40,
-                            left: 60,
-                            right: 60,
+                        layout: {
+                            padding: {
+                                top: 25,
+                                bottom: 40,
+                                left: 60,
+                                right: 60,
+                            },
+                            
                         },
-                        
-                    },
-                    responsive: true,
-                    maintainAspectRatio: true,
-                }} 
-            />}
+                        responsive: true,
+                        maintainAspectRatio: false,
+                    }} 
+                />}
+            </div>
         </div>
     );
 }

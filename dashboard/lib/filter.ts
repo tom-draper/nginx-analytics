@@ -5,7 +5,7 @@ export type Filter = {
     location: string | null
     path: string | null
     method: string | null
-    status: number | [number, number] | null
+    status: number | [number, number][] | null
     referrer: string | null
 }
 

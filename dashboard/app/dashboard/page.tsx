@@ -13,7 +13,7 @@ import { type Location as LocationType } from "@/lib/location"
 import { parseLogs } from "@/lib/parse";
 import { useEffect, useMemo, useState } from "react";
 import { Data } from "@/lib/types";
-import { Device } from "@/lib/components/device";
+import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
 import UsageTime from "@/lib/components/usage-time";
@@ -43,7 +43,7 @@ export default function Home() {
         }))
     }
 
-    const setEndpoint = (path: string | null, method: string | null, status: number | null) => {
+    const setEndpoint = (path: string | null, method: string | null, status: number | [number, number][] | null) => {
         setFilter((previous) => ({
             ...previous,
             path,
@@ -52,7 +52,7 @@ export default function Home() {
         }))
     }
 
-    const setStatus = (status: number | [number, number] | null) => {
+    const setStatus = (status: number | [number, number][] | null) => {
         setFilter((previous) => ({
             ...previous,
             status
@@ -95,17 +95,35 @@ export default function Home() {
         setData(parseLogs(accessLogs))
     }, [accessLogs])
 
+
+
     useEffect(() => {
+        const validStatus = (status: number | null) => {
+            if (status === null || filter.status === null) {
+                return true;
+            }
+
+            if (typeof filter.status === 'number') {
+                return status === filter.status;
+            }
+
+            for (const range of filter.status) {
+                if (range[0] <= status && range[1] >= status) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         const filteredData: Data = [];
         const start = periodStart(filter.period);
-        const statusType = typeof filter.status;
         for (const row of data) {
             if (
                 (start === null || (row.timestamp && row.timestamp > start))
                 && (filter.location === null || (filter.location === locationMap.get(row.ipAddress)?.country))
                 && (filter.path === null || (filter.path === row.path))
                 && (filter.method === null || (filter.method === row.method))
-                && (filter.status === null || ((statusType === 'number' && filter.status === row.status) || (statusType === 'object' && row.status >= filter.status[0] && row.status <= filter.status[1])))
+                && (filter.status === null || validStatus(row.status))
             ) {
                 filteredData.push(row);
             }
@@ -141,19 +159,19 @@ export default function Home() {
                     </div>
 
                     {/* Right */}
-                    <div className="w-full">
+                    <div className="w-full" style={{width: 'calc(100vw - 48px - 48px - 448px)'}}>
                         <Activity data={filteredData} period={currentPeriod} />
 
-                        <div className="w-full flex">
+                        <div className="flex max-xl:flex-col">
                             <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} />
-                            <div className="min-w-[28em]">
+                            <div className="xl:w-[28em]">
                                 <Device data={filteredData} />
                             </div>
                         </div>
 
-                        <div className="w-full flex">
-                            <UsageTime data={filteredData} />
-                            <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
+                        <div className="w-inherit">
+                                <UsageTime data={filteredData} />
+                                <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                         </div>
                     </div>
                 </div>

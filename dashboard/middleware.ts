@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
+  const password = process.env.NGINX_ANALYTICS_PASSWORD;
   const authToken = request.cookies.get("auth_token");
 
-  if (!authToken) {
+  if (password && !authToken) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -11,5 +12,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/dashboard:path",
+  matcher: "/dashboard",
 };

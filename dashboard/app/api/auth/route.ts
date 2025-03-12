@@ -11,10 +11,10 @@ export async function POST(request: NextRequest) {
 	if (password === storedPassword) {
 		// Set a cookie to indicate the user is authenticated
 		const cookieStore = await cookies();
-		cookieStore.set('auth', 'true', {
+		cookieStore.set('auth_token', 'true', {
 			path: '/', // Make the cookie available to the entire site
 			httpOnly: true, // Protect the cookie from client-side JavaScript access
-			maxAge: 60 * 60 * 24 * 7, // Expiry in 7 days (adjust as needed)
+			maxAge: 60 * 60, 
 		});
 
 		return NextResponse.json({ success: true }, { status: 200 });

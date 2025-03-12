@@ -2,12 +2,12 @@
 
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
-import { Data } from "../types";
+import { Data } from "../../types";
 import { useEffect, useState } from "react";
 import {
     type Candidate,
     maintainCandidates,
-} from '../candidates';
+} from '../../candidates';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -79,7 +79,7 @@ function getClient(userAgent: string | null): string {
     return 'Other';
 }
 
-export function Device({ data }: { data: Data }) {
+export function Client({ data }: { data: Data }) {
     const [plotData, setPlotData] = useState<ChartData<"doughnut"> | null>(null);
 
     useEffect(() => {
@@ -100,7 +100,7 @@ export function Device({ data }: { data: Data }) {
             labels,
             datasets: [
                 {
-                    label: "Client",
+                    label: "Count",
                     data: values,
                     backgroundColor: [
                         "#FF6384",
@@ -118,21 +118,17 @@ export function Device({ data }: { data: Data }) {
     }, [data]);
 
     return (
-        <div className="card flex-1 px-4 py-3 m-3">
-            <h2 className="font-semibold">Device</h2>
-
-            <div className="relative w-full flex items-center justify-center pb-4" >
-                {plotData && <Doughnut data={plotData} options={{
-                    plugins: {
-                        legend: {
-                            position: 'right', // Moves legend to the right side
-                            align: 'center',
-                        },
+        <div className="relative w-full flex items-center justify-center pb-4" >
+            {plotData && <Doughnut data={plotData} options={{
+                plugins: {
+                    legend: {
+                        position: 'right', // Moves legend to the right side
+                        align: 'center',
                     },
-                    responsive: true,
-                    maintainAspectRatio: false
-                }} />}
-            </div>
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }} />}
         </div>
     );
 }

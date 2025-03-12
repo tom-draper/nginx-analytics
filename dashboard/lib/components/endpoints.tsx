@@ -11,7 +11,7 @@ type Endpoint = {
     count: number
 }
 
-export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus }: { data: Data, filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number] | null) => void, setStatus: (status: number | [number, number] | null) => void }) {
+export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus }: { data: Data, filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void }) {
     const [endpoints, setEndpoints] = useState<Endpoint[]>([])
 
     useEffect(() => {
@@ -57,36 +57,41 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
         setStatus(null)
     }
 
-    const selectSuccessStatus = () => {
-        if (Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [200, 299][index])) {
-            setStatus(null)
+    const selectStatusRange = (range: [number, number]) => {
+        if (Array.isArray(filterStatus)) {
+            if (filterStatus.some(pair => pair.every((value, i) => value === range[i]))) {
+                console.log(range);
+                if (filterStatus.length === 1) {
+                    setStatus(null);
+                } else {
+                    setStatus(filterStatus.filter(pair => !(pair[0] === range[0] && pair[1] === range[1])))
+                }
+            } else {
+                setStatus([...filterStatus, range])
+            }
         } else {
-            setStatus([200, 299])
+            setStatus([range])
         }
+    }
+
+    const selectSuccessStatus = () => {
+        const target: [number, number] = [200, 299]
+        selectStatusRange(target);
     }
 
     const selectRedirectStatus = () => {
-        if (Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [300, 399][index])) {
-            setStatus(null)
-        } else {
-            setStatus([300, 399])
-        }
+        const target: [number, number] = [300, 399]
+        selectStatusRange(target);
     }
 
     const selectClientErrorStatus = () => {
-        if (Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [400, 499][index])) {
-            setStatus(null)
-        } else {
-            setStatus([400, 499])
-        }
+        const target: [number, number] = [400, 499]
+        selectStatusRange(target);
     }
 
     const selectServerErrorStatus = () => {
-        if (Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [500, 599][index])) {
-            setStatus(null)
-        } else {
-            setStatus([500, 599])
-        }
+        const target: [number, number] = [500, 599]
+        selectStatusRange(target);
     }
 
     const getBackground = (status: number | undefined) => {
@@ -115,16 +120,16 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
                 Endpoints
             </h2>
             <div className="absolute flex top-[14px] right-4 text-xs text-[var(--text-muted3)]">
-                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectSuccessStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [200, 299][index]) ? 'var(--highlight)' : '' }}>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectSuccessStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [200, 299][i])) ? 'var(--highlight)' : '' }}>
                     Success
                 </button>
-                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectRedirectStatus} style={{color: Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [300, 399][index]) ? 'var(--info)' : '' }}>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectRedirectStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [300, 399][i])) ? 'var(--info)' : '' }}>
                     Redirect
                 </button>
-                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectClientErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [400, 499][index]) ? 'var(--warn)' : '' }}>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectClientErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [400, 499][i])) ? 'var(--warn)' : '' }}>
                     Client
                 </button>
-                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectServerErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.length === 2 && filterStatus.every((val, index) => val === [500, 599][index]) ? 'var(--error)' : '' }}>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectServerErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [500, 599][i])) ? 'var(--error)' : '' }}>
                     Server
                 </button>
             </div>
