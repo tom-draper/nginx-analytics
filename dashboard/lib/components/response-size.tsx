@@ -150,7 +150,7 @@ export function ResponseSize({ data }: { data: Data }) {
                     backgroundColor: 'rgb(26, 240, 115)',
                     borderColor: 'rgb(26, 240, 115)',
                     borderWidth: 0,
-                    borderRadius: 1,
+                    borderRadius: 4,
                     barPercentage: 1,
                     categoryPercentage: 1,
                 }
