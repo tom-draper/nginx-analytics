@@ -1,6 +1,9 @@
 'use client';
 
-export function LogFiles({ logSizes, loading }: { logSize: { files: any[], summary: any }, loading: boolean }) {
+import { formatBytes } from "../format";
+import { LogSizes } from "../types";
+
+export function LogFiles({ logSizes, loading }: { logSizes: LogSizes, loading: boolean }) {
     if (!logSizes) {
         return (
             <div className="card flex-2 flex flex-col px-4 py-3 m-3 relative">
@@ -24,7 +27,9 @@ export function LogFiles({ logSizes, loading }: { logSize: { files: any[], summa
 
     const colors = [
         'var(--highlight)',
-        'var(--warn)'
+        'var(--warn)',
+        '#FF6485',
+        'yellow'
     ]
 
     return (
@@ -35,11 +40,12 @@ export function LogFiles({ logSizes, loading }: { logSize: { files: any[], summa
 
             {/* Disk Usage - Moved to the bottom as less important */}
             <div className="p-2 pt-4">
-                <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden flex">
                     {logSizes.files.map((file, index) => (
                         <div
                             key={index}
-                            className="h-full rounded-full"
+                            className="h-full"
+                            title={file.name}
                             style={{
                                 width: `${(file.size / logSizes.summary.totalSize) * 100}%`,
                                 backgroundColor: colors[index]
@@ -50,7 +56,7 @@ export function LogFiles({ logSizes, loading }: { logSize: { files: any[], summa
                 <div className="flex justify-between text-xs mt-1">
                     <span>Files: {logSizes.summary.totalFiles} </span>
                     {/* <span>Since: {logSizes.summary.totalFiles}</span> */}
-                    <span>Total: {logSizes.summary.totalSizeFormatted}</span>
+                    <span>Total: {formatBytes(logSizes.summary.totalSize, 1)}</span>
                 </div>
             </div>
         </div>

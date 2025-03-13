@@ -45,13 +45,26 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
             setEndpoint(null, null, null)
         } else if (path !== filterPath) {
             setEndpoint(path, filterMethod, filterStatus)
-        } else if (method && path === filterPath && method !== filterMethod) {
+        } else if (method && path === filterPath && method !== filterMethod && !allSameMethod()) {
             setEndpoint(path, method, filterStatus)
-        } else if (status && path === filterPath && method === filterMethod && status !== filterStatus) {
+        } else if (status && path === filterPath && (method === filterMethod || allSameMethod()) && status !== filterStatus) {
             setEndpoint(path, method, status)
         } else {
             setEndpoint(null, null, null)
         }
+    }
+
+    const allSameMethod = () => {
+        if (!endpoints) {
+            return false;
+        }
+        const method = endpoints[0].method;
+        for (let i = 1; i < endpoints.length - 1; i++) {
+            if (endpoints[i].method !== method) {
+                return false;
+            }
+        }
+        return true;
     }
 
     const selectAllStatus = () => {

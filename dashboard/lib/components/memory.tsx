@@ -12,6 +12,8 @@ import {
     Legend,
     Filler
 } from "chart.js";
+import { HistoryData, SystemResources } from "../types";
+import { formatBytes } from "../format";
 
 // Register Chart.js components
 ChartJS.register(
@@ -134,7 +136,7 @@ const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" })
     );
 };
 
-export function Memory({ resources, loading, historyData }: { resources: any, loading: boolean, historyData: any}) {
+export function Memory({ resources, loading, historyData }: { resources: SystemResources | null, loading: boolean, historyData: HistoryData}) {
     if (!resources) {
         return (
             <div className="card flex-2 flex flex-col px-4 py-3 m-3 relative">
@@ -156,21 +158,9 @@ export function Memory({ resources, loading, historyData }: { resources: any, lo
         );
     }
 
-    // Format bytes to human readable format
-    const formatBytes = (bytes: number, decimals = 2) => {
-        if (bytes === 0) return '0 Bytes';
-
-        const k = 1024;
-        const dm = decimals < 0 ? 0 : decimals;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-    };
-
-    // Get percentage values
-    const memoryUsage = parseFloat(resources.memory.usedPercentage);
+    // Get percentage values for both memory metrics
+    const totalUsedMemory = (resources.memory.used / resources.memory.total) * 100;
+    const availableMemory = ((resources.memory.total - resources.memory.available) / resources.memory.total) * 100;
 
     // Get color based on usage percentage
     const getColorForUsage = (usage: number) => {
@@ -180,7 +170,7 @@ export function Memory({ resources, loading, historyData }: { resources: any, lo
     };
 
     // Get the current memory usage color instead of using a fixed color
-    const currentMemColor = getColorForUsage(memoryUsage);
+    const currentMemColor = getColorForUsage(totalUsedMemory);
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative">
@@ -192,24 +182,34 @@ export function Memory({ resources, loading, historyData }: { resources: any, lo
             <div className="p-2 pt-3">
                 <div className="flex items-start">
                     <CircularProgress
-                        value={memoryUsage}
-                        text={`${memoryUsage.toFixed(1)}%`}
+                        value={totalUsedMemory}
+                        text={`${totalUsedMemory.toFixed(1)}%`}
                         color={currentMemColor}
                     />
-                    <div className="ml-4 flex flex-col justify-center text-xs mt-2">
-                        <div>Total: {formatBytes(resources.memory.total)}</div>
+                    <div className="ml-4 flex flex-col justify-center text-xs mt-0">
                         <div>Used: {formatBytes(resources.memory.used)}</div>
                         <div>Free: {formatBytes(resources.memory.free)}</div>
+                        <div>Available: {formatBytes(resources.memory.available)}</div>
+                        <div>Total: {formatBytes(resources.memory.total)}</div>
                     </div>
                 </div>
 
-                {/* Memory usage bar */}
+                {/* Layered memory usage bar */}
                 <div className="mt-4">
-                    <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden">
+                    <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden relative">
+                        {/* Bottom layer - Used memory (amber) */}
                         <div
-                            className="h-full rounded-full"
+                            className="h-full rounded-full absolute top-0 left-0"
                             style={{
-                                width: `${memoryUsage}%`,
+                                width: `${totalUsedMemory}%`,
+                                backgroundColor: currentMemColor + 'aa'
+                            }}
+                        ></div>
+                        {/* Top layer - Total minus available memory (dynamic color) */}
+                        <div
+                            className="h-full rounded-full absolute top-0 left-0"
+                            style={{
+                                width: `${availableMemory}%`,
                                 backgroundColor: currentMemColor
                             }}
                         ></div>
@@ -225,7 +225,7 @@ export function Memory({ resources, loading, historyData }: { resources: any, lo
                     <ResourceUsageChart
                         data={historyData.memoryUsage}
                         timestamps={historyData.timestamps}
-                        label="Memory Usage"
+                        label="Memory usage"
                         color={currentMemColor}
                     />
                 </div>

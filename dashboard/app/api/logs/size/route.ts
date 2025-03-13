@@ -1,4 +1,5 @@
 import { getLogFileSizes, getLogSizeSummary } from '@/lib/file-utils'; // Adjust the import path as needed
+import { LogSizes } from '@/lib/types';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -8,13 +9,10 @@ export async function GET() {
         const logDirectory = path.substring(0, path?.lastIndexOf('/'));
 
         const files = await getLogFileSizes(logDirectory);
-
         const summary = getLogSizeSummary(files);
+        const logSizes: LogSizes = {files, summary}
 
-        return NextResponse.json({
-            files: files.sort((a, b) => b.size - a.size), // Sort by size descending
-            summary
-        });
+        return NextResponse.json(logSizes);
     } catch (error) {
         console.error('Error fetching log sizes:', error);
         return NextResponse.json({

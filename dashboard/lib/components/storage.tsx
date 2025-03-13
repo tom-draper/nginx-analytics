@@ -1,5 +1,7 @@
 'use client';
 
+import { formatBytes } from "../format";
+
 export function Storage({ resources, loading }: { resources: any, loading: boolean }) {
     if (!resources) {
         return (
@@ -27,10 +29,10 @@ export function Storage({ resources, loading }: { resources: any, loading: boole
         d.mountedOn === "/" || d.mountedOn === "/mnt/c"
     );
 
-    const diskUsage = primaryDisk ? parseInt(primaryDisk.usedPercentage) : 0;
+    const diskUsage = primaryDisk ? (primaryDisk.used / primaryDisk.size) * 100 : 0;
 
     // Get color based on usage percentage
-    const getColorForUsage = (usage) => {
+    const getColorForUsage = (usage: number) => {
         if (usage < 50) return "var(--highlight)"; // green
         if (usage < 80) return "var(--warn)"; // amber
         return "var(--error)"; // red
@@ -54,9 +56,9 @@ export function Storage({ resources, loading }: { resources: any, loading: boole
                     ></div>
                 </div>
                 <div className="flex justify-between text-xs mt-1">
-                    <span>Used: {primaryDisk?.used || "N/A"} ({diskUsage}%)</span>
-                    <span>Free: {primaryDisk?.available || "N/A"}</span>
-                    <span>Total: {primaryDisk?.size || "N/A"}</span>
+                    <span>Used: {formatBytes(primaryDisk?.used, 1) || "N/A"} ({diskUsage.toFixed(1)}%)</span>
+                    <span>Free: {formatBytes(primaryDisk?.size - primaryDisk?.used, 1) || "N/A"}</span>
+                    <span>Total: {formatBytes(primaryDisk?.size, 1) || "N/A"}</span>
                 </div>
             </div>
         </div>

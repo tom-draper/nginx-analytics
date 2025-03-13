@@ -13,6 +13,7 @@ import {
     Legend,
     Filler
 } from "chart.js";
+import { SystemResources } from "../types";
 
 // Register Chart.js components
 ChartJS.register(
@@ -67,7 +68,7 @@ const CPUCores = ({ cores, usage }: { cores: number, usage: number }) => {
                             style={{ backgroundColor: getColorForUsage(coreUsage) }}
                             title={`Core ${index}: ${coreUsage.toFixed(1)}%`}
                         >
-                            <div className="text-xs text-[var(--text)] opacity-60 font-semibold">{coreUsage.toFixed(0)}%</div>
+                            <div className="text-xs text-[var(--text)] opacity-70 font-semibold">{coreUsage.toFixed(0)}%</div>
                         </div>
                     </div>
                 ))}
@@ -149,7 +150,7 @@ const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" })
     );
 };
 
-export function CPU({ resources, loading, historyData }: { resources: any, loading: boolean, historyData: any }) {
+export function CPU({ resources, loading, historyData }: { resources: SystemResources | null, loading: boolean, historyData: HistoryData }) {
     if (!resources) {
         return (
             <div className="card flex-2 flex flex-col px-4 py-3 m-3 relative">
@@ -196,16 +197,13 @@ export function CPU({ resources, loading, historyData }: { resources: any, loadi
     // Get percentage values
     const cpuUsage = resources.cpu.usage;
 
-    // Colors for charts
-    const cpuColor = "#f59e0b"; // amber
-
     const getColorForUsage = (usage: number) => {
         if (usage < 50) return "#1af073"; // green
         if (usage < 80) return "#ffaa4b"; // amber
         return "#ff5050"; // red
     };
 
-    const currentCPUColor = getColorForUsage(cpuUsage);
+    const currentCPUColor = getColorForUsage(cpuUsage || 0);
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative">
@@ -215,14 +213,14 @@ export function CPU({ resources, loading, historyData }: { resources: any, loadi
             <div className="text-xs text-[var(--text-muted3)] mb-4 absolute top-4 right-5 flex">
                 <Clock className="inline-block w-3 h-3 mr-1 self-center" />
                 <div>
-                    Uptime: {formatUptime(resources.uptime.seconds)}
+                    Uptime: {formatUptime(resources.uptime)}
                 </div>
             </div>
 
             {/* CPU Usage with chart */}
             <div className="p-2">
                 {/* CPU Cores visualization */}
-                <CPUCores cores={resources.cpu.cores} usage={cpuUsage} />
+                <CPUCores cores={resources.cpu.cores} usage={cpuUsage || 0} />
 
                 {/* CPU Usage Chart */}
                 <div className="mt-4">
@@ -230,7 +228,7 @@ export function CPU({ resources, loading, historyData }: { resources: any, loadi
                     <ResourceUsageChart
                         data={historyData.cpuUsage}
                         timestamps={historyData.timestamps}
-                        label="CPU Usage"
+                        label=" CPU usage"
                         color={currentCPUColor}
                     />
                 </div>

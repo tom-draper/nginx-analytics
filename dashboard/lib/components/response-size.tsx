@@ -204,7 +204,7 @@ export function ResponseSize({ data }: { data: Data }) {
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-46 overflow-hidden">
             {/* Background histogram chart */}
             {chartData && (
-                <div className="absolute bottom-[-1px] left-0 right-0" style={{ height: '60%' }}>
+                <div className="absolute bottom-[-1px] left-0 right-0 z-10" style={{ height: '40%' }}>
                     <Bar
                         ref={chartRef}
                         data={chartData}
@@ -221,7 +221,7 @@ export function ResponseSize({ data }: { data: Data }) {
                 {stats && (
                     <div className="flex mt-2 py-4">
                         <div className="flex-1 grid place-items-center">
-                            <div className="px-4 py-3 rounded bg-[rgba(60,60,60,0.4)] backdrop-blur-[8px]">
+                            <div className="px-4 py-3 rounded bg-[rgba(46,46,46,0.6)] backdrop-blur-[8px]">
                                 <div>
                                     {formatBytes(stats.min)}
                                 </div>
@@ -231,7 +231,7 @@ export function ResponseSize({ data }: { data: Data }) {
                             </div>
                         </div>
                         <div className="flex-1 grid place-items-center">
-                            <div className="px-4 py-3 rounded bg-[rgba(60,60,60,0.4)] backdrop-blur-[8px]">
+                            <div className="px-4 py-3 rounded bg-[rgba(46,46,46,0.6)] backdrop-blur-[8px]">
                                 <div>
                                     {formatBytes(stats.avg)}
                                 </div>
@@ -241,7 +241,7 @@ export function ResponseSize({ data }: { data: Data }) {
                             </div>
                         </div>
                         <div className="flex-1 grid place-items-center">
-                            <div className="px-4 py-3 rounded bg-[rgba(60,60,60,0.4)] backdrop-blur-[8px]">
+                            <div className="px-4 py-3 rounded bg-[rgba(46,46,46,0.6)] backdrop-blur-[8px]">
                                 <div>
                                     {formatBytes(stats.max)}
                                 </div>

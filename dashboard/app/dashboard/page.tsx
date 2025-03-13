@@ -12,7 +12,7 @@ import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseLogs } from "@/lib/parse";
 import { useEffect, useMemo, useState } from "react";
-import { Data } from "@/lib/types";
+import { Data, HistoryData, SystemResources } from "@/lib/types";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -30,14 +30,13 @@ export default function Home() {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [locationMap, setLocationMap] = useState<Map<string, LocationType>>(new Map());
 
-    const [resources, setResources] = useState<any | null>(null);
+    const [resources, setResources] = useState<SystemResources | null>(null);
     const [loadingResources, setLoadingResources] = useState(true);
-    const [historyData, setHistoryData] = useState({
+    const [historyData, setHistoryData] = useState<HistoryData>({
         cpuUsage: [],
         memoryUsage: [],
         timestamps: []
     });
-
 
     const [logSizes, setLogSizes] = useState<any | null>(null);
     const [loadingLogSizes, setLoadingLogSizes] = useState(true);
@@ -64,6 +63,7 @@ export default function Home() {
     }
 
     const setEndpoint = (path: string | null, method: string | null, status: number | [number, number][] | null) => {
+        console.log(path, method, status)
         setFilter((previous) => ({
             ...previous,
             path,
@@ -73,6 +73,7 @@ export default function Home() {
     }
 
     const setStatus = (status: number | [number, number][] | null) => {
+        console.log(status)
         setFilter((previous) => ({
             ...previous,
             status
@@ -125,7 +126,6 @@ export default function Home() {
                     throw new Error("Failed to fetch system resources");
                 }
                 const data = await res.json();
-                console.log(data);
                 setResources(data);
 
                 // Update history data with new readings
@@ -134,7 +134,7 @@ export default function Home() {
 
                     // Create new arrays with latest data
                     const newCpuUsage = [...previous.cpuUsage, data.cpu.usage];
-                    const newMemoryUsage = [...previous.memoryUsage, parseFloat(data.memory.usedPercentage)];
+                    const newMemoryUsage = [...previous.memoryUsage, ((data.memory.used) / data.memory.total) * 100];
                     const newTimestamps = [...previous.timestamps, now];
 
                     // Keep only the last MAX_HISTORY_POINTS
@@ -168,7 +168,6 @@ export default function Home() {
                     throw new Error("Failed to fetch log sizes");
                 }
                 const data = await response.json();
-                console.log(data);
 
                 setLogSizes(data);
             } catch (error) {

@@ -5,12 +5,7 @@ import { promisify } from 'util';
 const stat = promisify(fs.stat);
 const readdir = promisify(fs.readdir);
 
-/**
- * Gets sizes of all .log and .gz files in a directory
- * @param {string} directoryPath - Path to the log directory
- * @returns {Promise<Array<{name: string, size: number, sizeFormatted: string, extension: string}>>}
- */
-export async function getLogFileSizes(directoryPath = '/var/log/nginx/') {
+export async function getLogFileSizes(directoryPath: string = '/var/log/nginx/'): Promise<Array<{ name: string; size: number; extension: string; }>> {
     try {
         // Read all files in the directory
         const files = await readdir(directoryPath);
@@ -24,16 +19,12 @@ export async function getLogFileSizes(directoryPath = '/var/log/nginx/') {
                 const filePath = path.join(directoryPath, filename);
                 const stats = await stat(filePath);
 
-                // Format size in readable format
-                const sizeFormatted = formatFileSize(stats.size);
-
                 // Get file extension
                 const extension = path.extname(filename);
 
                 return {
                     name: filename,
                     size: stats.size, // Raw size in bytes
-                    sizeFormatted,    // Human-readable size
                     extension,
                     lastModified: stats.mtime
                 };
@@ -47,26 +38,16 @@ export async function getLogFileSizes(directoryPath = '/var/log/nginx/') {
     }
 }
 
-/**
- * Formats file size to human-readable format
- * @param {number} bytes - File size in bytes
- * @returns {string} Formatted file size
- */
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
+// function formatFileSize(bytes: number) {
+//     if (bytes === 0) return '0 Bytes';
 
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+//     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+//     const i = Math.floor(Math.log(bytes) / Math.log(1024));
 
-    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
-}
+//     return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+// }
 
-/**
- * Get summary of log file sizes grouped by type
- * @param {Array} files - Array of file objects with size information
- * @returns {Object} Summary object with total sizes
- */
-export function getLogSizeSummary(files) {
+export function getLogSizeSummary(files: any[]) {
     const summary = {
         totalSize: 0,
         logFilesSize: 0,
@@ -87,11 +68,6 @@ export function getLogSizeSummary(files) {
             summary.compressedFilesCount++;
         }
     });
-
-    // Format the summary sizes
-    summary.totalSizeFormatted = formatFileSize(summary.totalSize);
-    summary.logFilesSizeFormatted = formatFileSize(summary.logFilesSize);
-    summary.compressedFilesSizeFormatted = formatFileSize(summary.compressedFilesSize);
 
     return summary;
 }
