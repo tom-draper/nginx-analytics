@@ -2,8 +2,14 @@ import { NextResponse } from 'next/server';
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import si from 'systeminformation';
 
 const execAsync = promisify(exec);
+
+// Cache for process data to reduce system impact
+let processCache = null;
+let processCacheTimestamp = 0;
+const PROCESS_CACHE_TTL = 3000; // 3 seconds cache lifetime
 
 export async function GET() {
     try {
@@ -26,24 +32,26 @@ async function getSystemInfo() {
     const loadAvg = os.loadavg();
     const uptime = os.uptime();
 
-    // Calculate CPU usage
-    const cpuUsage = await calculateCpuUsage();
+    // Calculate CPU usage using systeminformation
+    const cpuUsage = await getCpuUsage();
 
-    // Get disk usage
+    // Get disk usage using systeminformation
     const diskUsage = await getDiskUsage();
 
-    // Get process info
-    const processInfo = await getProcessInfo();
+    // Get process info using systeminformation with caching
+    // const processInfo = await getProcessInfo();
+    const processInfo = null;
 
     // Get network statistics
-    const networkStats = await getNetworkStats();
+    // const networkStats = await getNetworkStats();
+    const networkStats = null;
 
     return {
         timestamp: new Date().toISOString(),
-        hostname: os.hostname(),
-        platform: os.platform(),
-        arch: os.arch(),
-        release: os.release(),
+        // hostname: os.hostname(),
+        // platform: os.platform(),
+        // arch: os.arch(),
+        // release: os.release(),
         uptime: {
             seconds: uptime,
             formatted: formatUptime(uptime)
@@ -57,7 +65,9 @@ async function getSystemInfo() {
                 '5m': loadAvg[1],
                 '15m': loadAvg[2]
             },
-            usage: cpuUsage
+            usage: cpuUsage,
+            // You can also get per-core usage from systeminformation if needed
+            // coreUsage: cpuCoreUsage
         },
         memory: {
             total: totalMem,
@@ -72,9 +82,20 @@ async function getSystemInfo() {
     };
 }
 
-async function calculateCpuUsage() {
-    // This is a simple method that works on Linux/macOS
-    // For more accurate measurements, consider using a library
+async function getCpuUsage() {
+    try {
+        // Get current CPU load percentage using systeminformation
+        const currentLoad = await si.currentLoad();
+        return parseFloat(currentLoad.currentLoad.toFixed(1));
+    } catch (error) {
+        console.error('Error calculating CPU usage:', error);
+        // Fallback to the original method if systeminformation fails
+        return calculateCpuUsageFallback();
+    }
+}
+
+async function calculateCpuUsageFallback() {
+    // This is a fallback method that works on Linux/macOS
     try {
         if (os.platform() === 'win32') {
             const { stdout } = await execAsync('wmic cpu get LoadPercentage');
@@ -86,12 +107,32 @@ async function calculateCpuUsage() {
             return parseFloat(stdout.trim());
         }
     } catch (error) {
-        console.error('Error calculating CPU usage:', error);
+        console.error('Error calculating CPU usage (fallback):', error);
         return null;
     }
 }
 
 async function getDiskUsage() {
+    try {
+        // Get disk information using systeminformation
+        const fsSize = await si.fsSize();
+        
+        return fsSize.map(disk => ({
+            filesystem: disk.fs,
+            size: formatBytes(disk.size),
+            used: formatBytes(disk.used),
+            available: formatBytes(disk.size - disk.used),
+            usedPercentage: disk.use.toFixed(1),
+            mountedOn: disk.mount
+        }));
+    } catch (error) {
+        console.error('Error getting disk usage:', error);
+        // Fallback to the original method
+        return getDiskUsageFallback();
+    }
+}
+
+async function getDiskUsageFallback() {
     try {
         if (os.platform() === 'win32') {
             const { stdout } = await execAsync('wmic logicaldisk get size,freespace,caption');
@@ -137,12 +178,80 @@ async function getDiskUsage() {
             return disks;
         }
     } catch (error) {
-        console.error('Error getting disk usage:', error);
+        console.error('Error getting disk usage (fallback):', error);
         return [];
     }
 }
 
 async function getProcessInfo() {
+    try {
+        const now = Date.now();
+        
+        // Use cached data if it's still valid
+        if (processCache && now - processCacheTimestamp < PROCESS_CACHE_TTL) {
+            return processCache;
+        }
+        
+        // Get process information using systeminformation
+        const processData = await si.processes();
+        
+        // Sort by CPU usage and take top 7 processes (excluding monitoring processes)
+        const topProcesses = processData.list
+            .sort((a, b) => b.cpu - a.cpu)
+            .slice(0, 7)
+            .map(p => ({
+                user: p.user,
+                pid: p.pid,
+                cpu: p.cpu.toFixed(1),
+                mem: p.memRss ? ((p.memRss / os.totalmem()) * 100).toFixed(1) : p.mem.toFixed(1),
+                command: p.command
+            }));
+            
+        // Check for NGINX
+        let nginxInfo = null;
+        try {
+            const nginxProcesses = processData.list.filter(p => 
+                p.command.includes('nginx') || p.name.includes('nginx')
+            );
+            
+            nginxInfo = {
+                running: nginxProcesses.length > 0,
+                processes: nginxProcesses.length,
+                // Try to get nginx version if it's running and we're not on Windows
+                version: nginxProcesses.length > 0 && os.platform() !== 'win32' ? 
+                    await getNginxVersion() : 'Unknown'
+            };
+        } catch (e) {
+            nginxInfo = { running: false, error: 'NGINX not found or not accessible' };
+        }
+        
+        const result = {
+            nginx: nginxInfo,
+            topProcesses
+        };
+        
+        // Cache the result
+        processCache = result;
+        processCacheTimestamp = now;
+        
+        return result;
+    } catch (error) {
+        console.error('Error getting process info:', error);
+        // Fallback to original method if systeminformation fails
+        return getProcessInfoFallback();
+    }
+}
+
+async function getNginxVersion() {
+    try {
+        const { stdout } = await execAsync('nginx -v 2>&1');
+        return stdout.trim();
+    } catch (error) {
+        return 'Unknown';
+    }
+}
+
+async function getProcessInfoFallback() {
     try {
         // Get NGINX info if available
         let nginxInfo = null;
@@ -170,7 +279,7 @@ async function getProcessInfo() {
         // Get overall process stats
         let topProcesses = [];
         if (os.platform() !== 'win32') {
-            const { stdout } = await execAsync('ps aux --sort=-%cpu | head -n 6');
+            const { stdout } = await execAsync('ps aux --sort=-%cpu | head -n 8');
             const lines = stdout.trim().split('\n').slice(1); // Skip header
 
             topProcesses = lines.map(line => {
@@ -185,7 +294,7 @@ async function getProcessInfo() {
             });
         } else {
             const { stdout } = await execAsync('tasklist /v /fo csv | sort /r');
-            const lines = stdout.trim().split('\n').slice(1, 6); // Skip header, take top 5
+            const lines = stdout.trim().split('\n').slice(1, 8); // Skip header, take top 7
 
             topProcesses = lines.map(line => {
                 const parts = line.replace(/"/g, '').split(',');
@@ -203,12 +312,69 @@ async function getProcessInfo() {
             topProcesses
         };
     } catch (error) {
-        console.error('Error getting process info:', error);
+        console.error('Error getting process info (fallback):', error);
         return { error: 'Failed to get process information' };
     }
 }
 
 async function getNetworkStats() {
+    try {
+        // Get network statistics using systeminformation
+        const networkInterfaces = os.networkInterfaces();
+        const networkStats = await si.networkStats();
+        
+        // Get current network connections
+        let connectionStats = null;
+        try {
+            const networkConnections = await si.networkConnections();
+            
+            connectionStats = {
+                totalConnections: networkConnections.length,
+                httpConnections: networkConnections.filter(conn => 
+                    conn.localport === 80 || conn.localport === 443
+                ).length
+            };
+        } catch (e) {
+            // Use fallback method for connections
+            connectionStats = await getNetworkConnectionsFallback();
+        }
+
+        return {
+            interfaces: networkInterfaces,
+            connections: connectionStats,
+            stats: networkStats.map(iface => ({
+                interface: iface.iface,
+                rx: formatBytes(iface.rx_bytes),
+                tx: formatBytes(iface.tx_bytes),
+                rx_sec: formatBytes(iface.rx_sec),
+                tx_sec: formatBytes(iface.tx_sec)
+            }))
+        };
+    } catch (error) {
+        console.error('Error getting network stats:', error);
+        // Fallback to original method
+        return getNetworkStatsFallback();
+    }
+}
+
+async function getNetworkConnectionsFallback() {
+    try {
+        if (os.platform() !== 'win32') {
+            const { stdout: netstatOutput } = await execAsync('netstat -tn | wc -l');
+            const { stdout: nginxConns } = await execAsync('netstat -an | grep :80 | grep ESTABLISHED | wc -l');
+
+            return {
+                totalConnections: parseInt(netstatOutput.trim(), 10) - 2, // Subtract header lines
+                httpConnections: parseInt(nginxConns.trim(), 10)
+            };
+        }
+        return { error: 'Connection statistics not available on this platform' };
+    } catch (e) {
+        return { error: 'Failed to get connection statistics' };
+    }
+}
+
+async function getNetworkStatsFallback() {
     try {
         const networkInterfaces = os.networkInterfaces();
 
@@ -233,12 +399,12 @@ async function getNetworkStats() {
             connections: connectionStats
         };
     } catch (error) {
-        console.error('Error getting network stats:', error);
+        console.error('Error getting network stats (fallback):', error);
         return { error: 'Failed to get network information' };
     }
 }
 
-function formatUptime(seconds: number) {
+function formatUptime(seconds) {
     const days = Math.floor(seconds / (24 * 60 * 60));
     seconds -= days * 24 * 60 * 60;
 
@@ -249,4 +415,16 @@ function formatUptime(seconds: number) {
     seconds -= minutes * 60;
 
     return `${days}d ${hours}h ${minutes}m ${Math.floor(seconds)}s`;
+}
+
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+    
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }

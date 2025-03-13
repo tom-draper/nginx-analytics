@@ -156,6 +156,10 @@ export default function Home() {
                         </div>
 
                         <div className="flex">
+                            <ResponseSize data={filteredData} />
+                        </div>
+
+                        <div className="flex">
                             <Version data={filteredData} />
                         </div>
                     </div>
@@ -172,9 +176,9 @@ export default function Home() {
                         </div>
 
                         <div className="flex max-xl:flex-col">
-                            <div className="xl:w-[28em]">
+                            {/* <div className="xl:w-[28em]">
                                 <ResponseSize data={filteredData} />
-                            </div>
+                            </div> */}
                             <SystemResources />
                         </div>
 

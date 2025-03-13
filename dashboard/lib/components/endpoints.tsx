@@ -24,6 +24,7 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
                 groupedEndpoints[endpointId] = 1
             }
         }
+        
 
         const endpoints: Endpoint[] = [];
         for (const [endpointId, count] of Object.entries(groupedEndpoints)) {
@@ -60,7 +61,6 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
     const selectStatusRange = (range: [number, number]) => {
         if (Array.isArray(filterStatus)) {
             if (filterStatus.some(pair => pair.every((value, i) => value === range[i]))) {
-                console.log(range);
                 if (filterStatus.length === 1) {
                     setStatus(null);
                 } else {

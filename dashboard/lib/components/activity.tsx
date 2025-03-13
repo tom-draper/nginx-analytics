@@ -234,7 +234,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
                 y: {
                     title: {
                         display: true,
-                        text: 'Count'
+                        text: 'Requests'
                     },
                     min: 0,
                     stacked: true
