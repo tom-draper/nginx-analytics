@@ -36,6 +36,7 @@
   --warn: #ff644b;
   --warn: rgb(255, 170, 75);
   --error: rgb(255, 80, 80);
+  --info: #00bfff;
   --info: rgb(0, 191, 255);
 }
 

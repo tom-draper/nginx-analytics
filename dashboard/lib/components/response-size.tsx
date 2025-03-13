@@ -126,6 +126,8 @@ export function ResponseSize({ data }: { data: Data }) {
 
     useEffect(() => {
         if (!data.length) {
+            setStats(null);
+            setChartData(null);
             return;
         }
 
@@ -150,7 +152,7 @@ export function ResponseSize({ data }: { data: Data }) {
                     backgroundColor: 'rgb(26, 240, 115)',
                     borderColor: 'rgb(26, 240, 115)',
                     borderWidth: 0,
-                    borderRadius: 4,
+                    borderRadius: 3,
                     barPercentage: 1,
                     categoryPercentage: 1,
                 }
@@ -191,7 +193,7 @@ export function ResponseSize({ data }: { data: Data }) {
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-46 overflow-hidden">
             {/* Background histogram chart */}
             {chartData && (
-                <div className="absolute bottom-[-1px] left-0 right-0 z-10" style={{ height: '40%' }}>
+                <div className="absolute bottom-[-1px] left-0 right-0" style={{ height: '60%' }}>
                     <Bar
                         ref={chartRef}
                         data={chartData}
@@ -208,7 +210,7 @@ export function ResponseSize({ data }: { data: Data }) {
                 {stats && (
                     <div className="flex mt-2 py-4">
                         <div className="flex-1 grid place-items-center">
-                            <div className="px-4 py-3 rounded bg-[var(--hover-background)]">
+                            <div className="px-4 py-3 rounded bg-[rgba(60,60,60,0.4)] backdrop-blur-[8px]">
                                 <div>
                                     {formatBytes(stats.min)}
                                 </div>
@@ -218,7 +220,7 @@ export function ResponseSize({ data }: { data: Data }) {
                             </div>
                         </div>
                         <div className="flex-1 grid place-items-center">
-                            <div className="px-4 py-3 rounded bg-[var(--hover-background)]">
+                            <div className="px-4 py-3 rounded bg-[rgba(60,60,60,0.4)] backdrop-blur-[8px]">
                                 <div>
                                     {formatBytes(stats.avg)}
                                 </div>
@@ -228,7 +230,7 @@ export function ResponseSize({ data }: { data: Data }) {
                             </div>
                         </div>
                         <div className="flex-1 grid place-items-center">
-                            <div className="px-4 py-3 rounded bg-[var(--hover-background)]">
+                            <div className="px-4 py-3 rounded bg-[rgba(60,60,60,0.4)] backdrop-blur-[8px]">
                                 <div>
                                     {formatBytes(stats.max)}
                                 </div>

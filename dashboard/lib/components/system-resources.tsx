@@ -316,9 +316,9 @@ export function SystemResources() {
                 Uptime: {formatUptime(resources.uptime.seconds)}
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mt-3">
+            <div className="flex flex-col md:flex-row gap-4 mt-1">
                 {/* CPU Usage with chart */}
-                <div className="p-4 pt-3 border border-[var(--border-color)] rounded md:w-1/2">
+                <div className="p-2 md:w-1/2">
                     <div className="flex justify-between mb-2">
                         <div className="flex items-center">
                             <Cpu className="w-4 h-4 mr-2" />
@@ -345,7 +345,7 @@ export function SystemResources() {
                 </div>
 
                 {/* Memory Usage with chart */}
-                <div className="p-4 pt-3 border border-[var(--border-color)] rounded flex-grow md:w-1/2">
+                <div className="p-2 pt-0 flex-grow md:w-1/2">
                     <div className="flex items-center mb-2">
                         <Activity className="w-4 h-4 mr-2" />
                         <span className="font-medium text-sm">Memory</span>
@@ -366,7 +366,7 @@ export function SystemResources() {
 
                     {/* Memory usage bar */}
                     <div className="mt-4">
-                        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden">
                             <div
                                 className="h-full rounded-full"
                                 style={{
@@ -395,7 +395,7 @@ export function SystemResources() {
             </div>
 
             {/* Disk Usage - Moved to the bottom as less important */}
-            <div className="mt-4 p-4 pt-3 border border-[var(--border-color)] rounded">
+            <div className="p-2 pt-4">
                 <div className="flex items-center mb-2">
                     <HardDrive className="w-3 h-3 mr-2" />
                     <span className="font-medium text-sm">Disk Storage ({primaryDisk?.mountedOn || "N/A"})</span>

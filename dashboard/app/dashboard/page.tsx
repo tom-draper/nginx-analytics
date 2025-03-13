@@ -18,14 +18,28 @@ import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
 import UsageTime from "@/lib/components/usage-time";
 import { Referrals } from "@/lib/components/referrals";
-import { SystemResources } from "@/lib/components/system-resources";
 import { ResponseSize } from "@/lib/components/response-size";
+import { CPU } from "@/lib/components/cpu";
+import { Memory } from "@/lib/components/memory";
+import { Storage } from "@/lib/components/storage";
+import { LogFiles } from "@/lib/components/log-files";
 
 export default function Home() {
     const [data, setData] = useState<Data>([]);
     const [filteredData, setFilteredData] = useState<Data>([]);
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [locationMap, setLocationMap] = useState<Map<string, LocationType>>(new Map());
+
+    const [resources, setResources] = useState(null);
+    const [loadingResources, setLoadingResources] = useState(true);
+    const [historyData, setHistoryData] = useState({
+        cpuUsage: [],
+        memoryUsage: [],
+        timestamps: []
+    });
+
+    // Maximum number of data points to keep in history
+    const maxHistoryPoints = 900;
 
     const [filter, setFilter] = useState<Filter>(newFilter());
 
@@ -97,6 +111,49 @@ export default function Home() {
         setData(parseLogs(accessLogs))
     }, [accessLogs])
 
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoadingResources(true);
+            try {
+                const res = await fetch(`/api/system`);
+                if (!res.ok) {
+                    setLoadingResources(false);
+                    throw new Error("Failed to fetch system resources");
+                }
+                const data = await res.json();
+                console.log(data);
+                setResources(data);
+
+                // Update history data with new readings
+                setHistoryData(prev => {
+                    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    // Create new arrays with latest data
+                    const newCpuUsage = [...prev.cpuUsage, data.cpu.usage];
+                    const newMemoryUsage = [...prev.memoryUsage, parseFloat(data.memory.usedPercentage)];
+                    const newTimestamps = [...prev.timestamps, now];
+
+                    // Keep only the last MAX_HISTORY_POINTS
+                    return {
+                        cpuUsage: newCpuUsage.slice(-maxHistoryPoints),
+                        memoryUsage: newMemoryUsage.slice(-maxHistoryPoints),
+                        timestamps: newTimestamps.slice(-maxHistoryPoints)
+                    };
+                });
+                setLoadingResources(false);
+            } catch (error) {
+                console.error("Error fetching system resources:", error);
+                setLoadingResources(false);
+            }
+        };
+
+        fetchData();
+
+        // Refresh data every 2 seconds
+        const intervalId = setInterval(fetchData, 2000);
+
+        return () => clearInterval(intervalId);
+    }, []);
 
 
     useEffect(() => {
@@ -175,17 +232,28 @@ export default function Home() {
                             </div>
                         </div>
 
-                        <div className="flex max-xl:flex-col">
-                            {/* <div className="xl:w-[28em]">
-                                <ResponseSize data={filteredData} />
-                            </div> */}
-                            <SystemResources />
+                        <div className="flex">
+                            <CPU resources={resources} loading={loadingResources} historyData={historyData} />
+                            <Memory resources={resources} loading={loadingResources} historyData={historyData} />
+                        </div>
+
+                        <div className="flex">
+                            <Storage resources={resources} loading={loadingResources} />
+                            <LogFiles resources={resources} loading={loadingResources}/>
                         </div>
 
                         <div className="w-inherit">
                             <UsageTime data={filteredData} />
                             <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                         </div>
+
+                        <div className="flex max-xl:flex-col">
+                            {/* <div className="xl:w-[28em]">
+                                <ResponseSize data={filteredData} />
+                            </div> */}
+                            {/* <SystemResources /> */}
+                        </div>
+
                     </div>
                 </div>
 

@@ -29,7 +29,7 @@ async function getSystemInfo() {
     const cpus = os.cpus();
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
-    const loadAvg = os.loadavg();
+    // const loadAvg = os.loadavg();
     const uptime = os.uptime();
 
     // Calculate CPU usage using systeminformation
@@ -38,36 +38,17 @@ async function getSystemInfo() {
     // Get disk usage using systeminformation
     const diskUsage = await getDiskUsage();
 
-    // Get process info using systeminformation with caching
-    // const processInfo = await getProcessInfo();
-    const processInfo = null;
-
-    // Get network statistics
-    // const networkStats = await getNetworkStats();
-    const networkStats = null;
-
     return {
         timestamp: new Date().toISOString(),
-        // hostname: os.hostname(),
-        // platform: os.platform(),
-        // arch: os.arch(),
-        // release: os.release(),
         uptime: {
             seconds: uptime,
-            formatted: formatUptime(uptime)
+            // formatted: formatUptime(uptime)
         },
         cpu: {
             model: cpus[0].model,
             cores: cpus.length,
             speed: cpus[0].speed,
-            loadAverage: {
-                '1m': loadAvg[0],
-                '5m': loadAvg[1],
-                '15m': loadAvg[2]
-            },
             usage: cpuUsage,
-            // You can also get per-core usage from systeminformation if needed
-            // coreUsage: cpuCoreUsage
         },
         memory: {
             total: totalMem,
@@ -77,8 +58,6 @@ async function getSystemInfo() {
             freePercentage: (freeMem / totalMem * 100).toFixed(2)
         },
         disk: diskUsage,
-        process: processInfo,
-        network: networkStats
     };
 }
 
