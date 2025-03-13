@@ -66,9 +66,9 @@ const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" })
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        // animation: {
-        //   duration: 500
-        // },
+        animation: {
+            
+        },
         scales: {
             x: {
                 display: false
@@ -174,12 +174,13 @@ export function Memory({ resources, loading, historyData }: { resources: any, lo
 
     // Get color based on usage percentage
     const getColorForUsage = (usage: number) => {
-        if (usage < 50) return "var(--highlight)"; // green
-        if (usage < 80) return "var(--warn)"; // amber
-        return "var(--error)"; // red
+        if (usage < 50) return "#1af073"; // green
+        if (usage < 80) return "#ffaa4b"; // amber
+        return "#ff5050"; // red
     };
 
-    const memColor = '#00bfff';
+    // Get the current memory usage color instead of using a fixed color
+    const currentMemColor = getColorForUsage(memoryUsage);
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative">
@@ -193,7 +194,7 @@ export function Memory({ resources, loading, historyData }: { resources: any, lo
                     <CircularProgress
                         value={memoryUsage}
                         text={`${memoryUsage.toFixed(1)}%`}
-                        color={getColorForUsage(memoryUsage)}
+                        color={currentMemColor}
                     />
                     <div className="ml-4 flex flex-col justify-center text-xs mt-2">
                         <div>Total: {formatBytes(resources.memory.total)}</div>
@@ -209,7 +210,7 @@ export function Memory({ resources, loading, historyData }: { resources: any, lo
                             className="h-full rounded-full"
                             style={{
                                 width: `${memoryUsage}%`,
-                                backgroundColor: getColorForUsage(memoryUsage)
+                                backgroundColor: currentMemColor
                             }}
                         ></div>
                     </div>
@@ -225,7 +226,7 @@ export function Memory({ resources, loading, historyData }: { resources: any, lo
                         data={historyData.memoryUsage}
                         timestamps={historyData.timestamps}
                         label="Memory Usage"
-                        color={memColor}
+                        color={currentMemColor}
                     />
                 </div>
             </div>

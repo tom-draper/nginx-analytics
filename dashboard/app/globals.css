@@ -14,6 +14,7 @@
   --other-green: rgb(46, 204, 113);
   --highlight: rgb(46, 204, 113);
   --highlight: rgb(26, 240, 115);
+  --highlight: #1af073;
   --background: rgb(0, 0, 0);
   --background: #08090a;
   --card-background: rgb(13, 13, 13);
@@ -34,8 +35,9 @@
   --border-radius: 0.3rem;
   --hover-background: rgb(34, 34, 34);
   --warn: #ff644b;
+  --warn: #ffaa4b;
   --warn: rgb(255, 170, 75);
-  --error: rgb(255, 80, 80);
+  --error: #ff5050;
   --info: #00bfff;
   --info: rgb(0, 191, 255);
 }

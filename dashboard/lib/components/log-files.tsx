@@ -1,7 +1,7 @@
 'use client';
 
-export function LogFiles({ resources, loading }: { resources: any, loading: boolean }) {
-    if (!resources) {
+export function LogFiles({ logSizes, loading }: { logSize: { files: any[], summary: any }, loading: boolean }) {
+    if (!logSizes) {
         return (
             <div className="card flex-2 flex flex-col px-4 py-3 m-3 relative">
                 <h2 className="font-semibold text-lg">
@@ -22,19 +22,10 @@ export function LogFiles({ resources, loading }: { resources: any, loading: bool
         );
     }
 
-    // Find the primary disk (largest one that's not a snap mount)
-    const primaryDisk = resources.disk.find(d =>
-        d.mountedOn === "/" || d.mountedOn === "/mnt/c"
-    );
-
-    const diskUsage = primaryDisk ? parseInt(primaryDisk.usedPercentage) : 0;
-
-    // Get color based on usage percentage
-    const getColorForUsage = (usage: number) => {
-        if (usage < 50) return "var(--highlight)"; // green
-        if (usage < 80) return "var(--warn)"; // amber
-        return "var(--error)"; // red
-    };
+    const colors = [
+        'var(--highlight)',
+        'var(--warn)'
+    ]
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative">
@@ -45,18 +36,21 @@ export function LogFiles({ resources, loading }: { resources: any, loading: bool
             {/* Disk Usage - Moved to the bottom as less important */}
             <div className="p-2 pt-4">
                 <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden">
-                    <div
-                        className="h-full rounded-full"
-                        style={{
-                            width: `${diskUsage}%`,
-                            backgroundColor: getColorForUsage(diskUsage)
-                        }}
-                    ></div>
+                    {logSizes.files.map((file, index) => (
+                        <div
+                            key={index}
+                            className="h-full rounded-full"
+                            style={{
+                                width: `${(file.size / logSizes.summary.totalSize) * 100}%`,
+                                backgroundColor: colors[index]
+                            }}
+                        ></div>
+                    ))}
                 </div>
                 <div className="flex justify-between text-xs mt-1">
-                    <span>Used: {primaryDisk?.used || "N/A"} ({diskUsage}%)</span>
-                    <span>Free: {primaryDisk?.available || "N/A"}</span>
-                    <span>Total: {primaryDisk?.size || "N/A"}</span>
+                    <span>Files: {logSizes.summary.totalFiles} </span>
+                    {/* <span>Since: {logSizes.summary.totalFiles}</span> */}
+                    <span>Total: {logSizes.summary.totalSizeFormatted}</span>
                 </div>
             </div>
         </div>

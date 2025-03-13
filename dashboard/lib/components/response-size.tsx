@@ -52,8 +52,7 @@ function generateHistogramData(data: number[], maxBinCount = 500) {
     }
 
     // Get min and max from the quartile-filtered data
-    const min = Math.min(...quartileData);
-    const max = Math.max(...quartileData);
+    const { min, max } = minMax(quartileData)
 
     // Round min and max to whole numbers
     const roundedMin = Math.floor(min);
@@ -119,6 +118,19 @@ function generateHistogramData(data: number[], maxBinCount = 500) {
     }
 }
 
+const minMax = (values: number[]) => {
+    const result = { min: Infinity, max: -Infinity }
+    for (const value of values) {
+        if (value < result.min) {
+            result.min = value;
+        }
+        if (value > result.max) {
+            result.max = value;
+        }
+    }
+    return result;
+}
+
 export function ResponseSize({ data }: { data: Data }) {
     const [stats, setStats] = useState<Stats | null>(null);
     const [chartData, setChartData] = useState<any>(null);
@@ -134,8 +146,7 @@ export function ResponseSize({ data }: { data: Data }) {
         // Extract response sizes
         const responseSizes = data.map(row => row.responseSize || 0);
 
-        const min = Math.min(...responseSizes);
-        const max = Math.max(...responseSizes);
+        const { min, max } = minMax(responseSizes);
         const total = responseSizes.reduce((sum, size) => sum + size, 0);
         const avg = total / responseSizes.length;
 

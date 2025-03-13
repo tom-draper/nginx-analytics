@@ -3,6 +3,11 @@ import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import si from 'systeminformation';
+import fs from 'fs';
+import path from 'path';
+
+const stat = promisify(fs.stat);
+const readdir = promisify(fs.readdir);
 
 const execAsync = promisify(exec);
 
@@ -95,7 +100,7 @@ async function getDiskUsage() {
     try {
         // Get disk information using systeminformation
         const fsSize = await si.fsSize();
-        
+
         return fsSize.map(disk => ({
             filesystem: disk.fs,
             size: formatBytes(disk.size),
@@ -165,15 +170,15 @@ async function getDiskUsageFallback() {
 async function getProcessInfo() {
     try {
         const now = Date.now();
-        
+
         // Use cached data if it's still valid
         if (processCache && now - processCacheTimestamp < PROCESS_CACHE_TTL) {
             return processCache;
         }
-        
+
         // Get process information using systeminformation
         const processData = await si.processes();
-        
+
         // Sort by CPU usage and take top 7 processes (excluding monitoring processes)
         const topProcesses = processData.list
             .sort((a, b) => b.cpu - a.cpu)
@@ -185,34 +190,34 @@ async function getProcessInfo() {
                 mem: p.memRss ? ((p.memRss / os.totalmem()) * 100).toFixed(1) : p.mem.toFixed(1),
                 command: p.command
             }));
-            
+
         // Check for NGINX
         let nginxInfo = null;
         try {
-            const nginxProcesses = processData.list.filter(p => 
+            const nginxProcesses = processData.list.filter(p =>
                 p.command.includes('nginx') || p.name.includes('nginx')
             );
-            
+
             nginxInfo = {
                 running: nginxProcesses.length > 0,
                 processes: nginxProcesses.length,
                 // Try to get nginx version if it's running and we're not on Windows
-                version: nginxProcesses.length > 0 && os.platform() !== 'win32' ? 
+                version: nginxProcesses.length > 0 && os.platform() !== 'win32' ?
                     await getNginxVersion() : 'Unknown'
             };
         } catch (e) {
             nginxInfo = { running: false, error: 'NGINX not found or not accessible' };
         }
-        
+
         const result = {
             nginx: nginxInfo,
             topProcesses
         };
-        
+
         // Cache the result
         processCache = result;
         processCacheTimestamp = now;
-        
+
         return result;
     } catch (error) {
         console.error('Error getting process info:', error);
@@ -301,15 +306,15 @@ async function getNetworkStats() {
         // Get network statistics using systeminformation
         const networkInterfaces = os.networkInterfaces();
         const networkStats = await si.networkStats();
-        
+
         // Get current network connections
         let connectionStats = null;
         try {
             const networkConnections = await si.networkConnections();
-            
+
             connectionStats = {
                 totalConnections: networkConnections.length,
-                httpConnections: networkConnections.filter(conn => 
+                httpConnections: networkConnections.filter(conn =>
                     conn.localport === 80 || conn.localport === 443
                 ).length
             };
@@ -398,12 +403,12 @@ function formatUptime(seconds) {
 
 function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return '0 Bytes';
-    
+
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-    
+
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }

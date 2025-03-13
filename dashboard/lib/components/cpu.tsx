@@ -199,14 +199,24 @@ export function CPU({ resources, loading, historyData }: { resources: any, loadi
     // Colors for charts
     const cpuColor = "#f59e0b"; // amber
 
+    const getColorForUsage = (usage: number) => {
+        if (usage < 50) return "#1af073"; // green
+        if (usage < 80) return "#ffaa4b"; // amber
+        return "#ff5050"; // red
+    };
+
+    const currentCPUColor = getColorForUsage(cpuUsage);
+
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative">
             <h2 className="font-semibold text-lg">
                 CPU
             </h2>
-            <div className="text-xs text-gray-500 mb-4 absolute top-4 right-5">
-                <Clock className="inline-block w-3 h-3 mr-1" />
-                Uptime: {formatUptime(resources.uptime.seconds)}
+            <div className="text-xs text-[var(--text-muted3)] mb-4 absolute top-4 right-5 flex">
+                <Clock className="inline-block w-3 h-3 mr-1 self-center" />
+                <div>
+                    Uptime: {formatUptime(resources.uptime.seconds)}
+                </div>
             </div>
 
             {/* CPU Usage with chart */}
@@ -221,7 +231,7 @@ export function CPU({ resources, loading, historyData }: { resources: any, loadi
                         data={historyData.cpuUsage}
                         timestamps={historyData.timestamps}
                         label="CPU Usage"
-                        color={cpuColor}
+                        color={currentCPUColor}
                     />
                 </div>
             </div>
