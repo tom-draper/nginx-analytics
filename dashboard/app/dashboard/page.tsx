@@ -23,6 +23,9 @@ import { SystemResources } from "@/lib/components/system-resources";
 import generateNginxLogs from "@/lib/demo";
 import { NginxLog } from "@/lib/types";
 import Errors from "@/lib/components/errors";
+import { Settings } from "@/lib/components/settings";
+import { type Settings as SettingsType, newSettings } from "@/lib/settings";
+import { exportCSV } from "@/lib/export";
 
 export default function Home() {
     const [logs, setLogs] = useState<NginxLog[]>([]);
@@ -30,6 +33,11 @@ export default function Home() {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
 
     const [locationMap, setLocationMap] = useState<Map<string, LocationType>>(new Map());
+
+    const [settings, setSettings] = useState<SettingsType>(newSettings());
+    const [showSettings, setShowSettings] = useState<boolean>(false);
+
+    const ignoreParams = useMemo(() => settings.ignoreParams, [settings.ignoreParams]);
 
     const [filter, setFilter] = useState<Filter>(newFilter());
 
@@ -94,10 +102,10 @@ export default function Home() {
         };
 
         let position: number = 0;
-        // fetchLogs();
-        setAccessLogs(generateNginxLogs({format: 'extended', count: 100000, startDate: new Date('2024-11-10T00:00:00Z'), endDate: new Date()}))
-        // const interval = setInterval(fetchLogs, 30000); // Polling every 30s
-        // return () => clearInterval(interval);
+        fetchLogs();
+        // setAccessLogs(generateNginxLogs({format: 'extended', count: 100000, startDate: new Date('2024-11-10T00:00:00Z'), endDate: new Date()}))
+        const interval = setInterval(fetchLogs, 30000); // Polling every 30s
+        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
@@ -133,22 +141,25 @@ export default function Home() {
                 && (filter.path === null || (row.path === filter.path))
                 && (filter.method === null || (row.method === filter.method))
                 && (filter.status === null || validStatus(row.status))
+                && (!settings.ignore404 || row.status !== 404)
                 && (filter.referrer === null || (row.referrer === filter.referrer))
             ) {
                 filteredData.push(row);
             }
         }
         setFilteredData(filteredData);
-    }, [logs, filter, locationMap]);
+    }, [logs, filter, settings, locationMap]);
 
     return (
         <div className="">
             <main className="p-12 pt-7">
-                <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} />
+                <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => {exportCSV(logs)}} />
+
+                <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} />
 
                 <div className="flex">
                     {/* Left */}
-                    <div className="min-w-[28em]">
+                    <div className="w-[27em]">
                         <div className="flex">
                             <Logo />
                             <SuccessRate data={filteredData} />
@@ -160,7 +171,7 @@ export default function Home() {
                         </div>
 
                         <div className="flex">
-                            <Endpoints data={filteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} />
+                            <Endpoints data={filteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} ignoreParams={ignoreParams} />
                         </div>
 
                         <div className="flex">
@@ -173,27 +184,30 @@ export default function Home() {
                     </div>
 
                     {/* Right */}
-                    <div className="w-full" style={{ width: 'calc(100vw - 48px - 48px - 448px)' }}>
+                    <div className="w-full" style={{ width: 'calc(100vw - 48px - 48px - 416px)' }}>
                         <Activity data={filteredData} period={currentPeriod} />
 
                         <div className="flex max-xl:flex-col">
                             <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} />
-                            <div className="xl:w-[28em]">
+                            <div className="xl:w-[27em]">
                                 <Device data={filteredData} />
                             </div>
                         </div>
 
                         {monitorSystemResources && <SystemResources />}
 
-                        <div className="w-inherit">
-                            <UsageTime data={filteredData} />
-                            <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
+                        <div className="w-inherit flex max-xl:flex-col">
+                            <div className="max-xl:!w-full flex-1" style={{ width: 'calc(100vw - 48px - 48px - 416px - 28em)' }}>
+                                <UsageTime data={filteredData} />
+                            </div>
+                            <div>
+                                <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
+                            </div>
                         </div>
 
                         <Errors />
                     </div>
                 </div>
-
             </main>
             <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
 

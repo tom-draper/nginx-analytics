@@ -25,7 +25,7 @@ export default function UsageTime({ data }: { data: NginxLog[] }) {
         // Reorder the hours to start with 12 (noon) at the top
         // This means we need to shift the array so that index 12 becomes index 0
         const reorderedHours = [...hourCounts.slice(12), ...hourCounts.slice(0, 12)];
-        
+
         // Create formatted time labels (hh:mm)
         const timeLabels = Array.from({ length: 24 }, (_, i) => {
             // Calculate the actual hour (starting from noon at the top)
@@ -39,8 +39,8 @@ export default function UsageTime({ data }: { data: NginxLog[] }) {
                 label: 'Requests per Hour',
                 data: reorderedHours,
                 backgroundColor: 'rgb(26, 240, 115)',
-                borderWidth: 0,
-                borderColor: '#fff'
+                borderWidth: 1,
+                borderColor: 'rgba(0,0,0, 0.05)'
             }]
         });
     }, [data]);
@@ -52,58 +52,58 @@ export default function UsageTime({ data }: { data: NginxLog[] }) {
             if (!chart.config.data.labels) {
                 return;
             }
-            
+
             const ctx = chart.ctx;
             const centerX = chart.chartArea.width / 2 + chart.chartArea.left;
             const centerY = chart.chartArea.height / 2 + chart.chartArea.top;
             const radius = Math.min(chart.chartArea.width, chart.chartArea.height) / 2;
-            
+
             ctx.save();
             ctx.font = '11px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = '#666666'
-            
+
             const labels = chart.config.data.labels;
             const angleSize = (2 * Math.PI) / labels.length;
-            
+
             for (let i = 0; i < labels.length; i++) {
                 // Calculate angle for this segment (accounting for rotation to put noon at top)
                 // Rotate by -90 degrees (or -π/2 radians) to start at top
                 // Then adjust by the segment size times the index
                 const angle = -Math.PI / 2 + i * angleSize;
-                
+
                 // Position slightly outside the chart area
                 const labelRadius = radius * 1.05;
                 const x = centerX + Math.cos(angle) * labelRadius;
                 const y = centerY + Math.sin(angle) * labelRadius;
-                
+
                 // Rotate text to be perpendicular to radius
                 ctx.save();
                 ctx.translate(x, y);
-                
+
                 ctx.rotate(angle + Math.PI / 2);
-                
+
                 ctx.fillText(labels[i] as string, 0, 0);
                 ctx.restore();
             }
-            
+
             ctx.restore();
         }
     }];
 
     return (
-        <div className="card flex-1 px-4 py-3 m-3 w-inherit">
+        <div className="card px-4 py-3 m-3" style={{ height: 'calc(100% - 1.5rem)' }}>
             <h2 className="font-semibold">Usage Time</h2>
             <div className="relative w-full pt-2 h-[600px]">
-                {plotData && <PolarArea 
+                {plotData && <PolarArea
                     ref={chartRef as any}
-                    data={plotData} 
+                    data={plotData}
                     plugins={plugins}
                     options={{
                         plugins: {
                             legend: { display: false },
-                            tooltip: { 
+                            tooltip: {
                                 enabled: true,
                                 callbacks: {
                                     title: (items) => items[0].label,
@@ -122,14 +122,14 @@ export default function UsageTime({ data }: { data: NginxLog[] }) {
                             padding: {
                                 top: 25,
                                 bottom: 40,
-                                left: 60,
-                                right: 60,
+                                left: 40,
+                                right: 40,
                             },
-                            
+
                         },
                         responsive: true,
                         maintainAspectRatio: false,
-                    }} 
+                    }}
                 />}
             </div>
         </div>

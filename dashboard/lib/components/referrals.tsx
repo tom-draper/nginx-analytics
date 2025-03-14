@@ -39,29 +39,32 @@ export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: N
     return (
         <>
             {referrals.length > 0 && (
-                <div className="card flex-1 px-4 py-3 m-3 min-w-[24rem]">
-                    <h2 className="font-semibold">
-                        Referrals
-                    </h2>
-                    <div className="mt-3">
-                        {referrals.map((endpoint, index) => (
-                            <button key={index} className="hover:bg-[var(--hover-background)] my-2 rounded w-full relative cursor-pointer flex items-center text-[var(--text-muted3)]" onClick={() => selectReferrer(endpoint.referrer)}>
-                                <span className="text-sm flex items-center mx-2 z-50 py-[2px]">
-                                    <span className="pr-1 font-semibold">
-                                        {endpoint.count.toLocaleString()}
+                <div className="w-[27em] max-xl:w-full" style={{ height: 'calc(100% - 1.5rem)' }}>
+                    <div className="card flex-1 px-4 py-3 m-3 h-full">
+                        <h2 className="font-semibold">
+                            Referrals
+                        </h2>
+                        <div className="mt-3">
+                            {referrals.map((endpoint, index) => (
+                                <button key={index} className="hover:bg-[var(--hover-background)] my-2 rounded w-full relative cursor-pointer flex items-center text-[var(--text-muted3)]" onClick={() => selectReferrer(endpoint.referrer)}>
+                                    <span className="text-sm flex items-center mx-2 z-10 py-[2px]">
+                                        <span className="pr-1 font-semibold">
+                                            {endpoint.count.toLocaleString()}
+                                        </span>
+                                        <span className="px-1 text-left break-words">
+                                            {endpoint.referrer ?? ''}
+                                        </span>
                                     </span>
-                                    <span className="px-1 text-left break-words">
-                                        {endpoint.referrer ?? ''}
-                                    </span>
-                                </span>
 
-                                <div className="bg-[var(--highlight)] h-full rounded absolute inset-0" style={{
-                                    width: `${(endpoint.count / referrals[0].count) * 100}%`
-                                }}></div>
-                            </button>
-                        ))}
+                                    <div className="bg-[var(--highlight)] h-full rounded absolute inset-0" style={{
+                                        width: `${(endpoint.count / referrals[0].count) * 100}%`
+                                    }}></div>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
+
             )}
         </>
     )

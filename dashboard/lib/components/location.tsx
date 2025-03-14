@@ -19,7 +19,6 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
             return [];
         }
         const data = await response.json();
-        console.log(data);
         return data.locations;
     }
 

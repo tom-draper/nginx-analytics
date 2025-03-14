@@ -7,12 +7,12 @@ import { NginxError } from "../types";
 
 export default function Errors() {
     const [errorLogs, setErrorLogs] = useState<string[]>([]);
-    const [errors, setErrors] = useState<NginxError[] | null>(null);
+    const [errors, setErrors] = useState<NginxError[]>([]);
 
     useEffect(() => {
         const fetchErrors = async () => {
             try {
-                const res = await fetch(`/api/logs?type=error&position${position}`);
+                const res = await fetch(`/api/logs?type=error&position=${position}`);
                 if (!res.ok) {
                     console.log('Failed to fetch Nginx errors from server')
                     return;
@@ -37,13 +37,14 @@ export default function Errors() {
 
     useEffect(() => {
         const errors = parseNginxErrors(errorLogs)
-        console.log(errors);
-        setErrors(errors);
+        if (errors.length) {
+            setErrors(errors);
+        }
     }, [errorLogs])
 
     return (
         <>
-            {errors !== null && (
+            {(errors !== null && errors.length > 0) && (
                 <div className="card flex-1 px-4 py-3 m-3">
                     <h2 className="font-semibold">
                         Errors

@@ -11,20 +11,20 @@ type Endpoint = {
     count: number
 }
 
-export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus }: { data: NginxLog[], filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void }) {
+export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus, ignoreParams }: { data: NginxLog[], filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void, ignoreParams: boolean }) {
     const [endpoints, setEndpoints] = useState<Endpoint[]>([])
 
     useEffect(() => {
         const groupedEndpoints: { [id: string]: number } = {};
         for (const row of data) {
-            const endpointId = `${row.path}::${row.method}::${row.status}`
+            const path = ignoreParams ? row.path.split('?')[0] : row.path;
+            const endpointId = `${path}::${row.method}::${row.status}`
             if (groupedEndpoints[endpointId]) {
                 groupedEndpoints[endpointId]++
             } else {
                 groupedEndpoints[endpointId] = 1
             }
         }
-        
 
         const endpoints: Endpoint[] = [];
         for (const [endpointId, count] of Object.entries(groupedEndpoints)) {
@@ -149,7 +149,7 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
             <div className="mt-3">
                 {endpoints.map((endpoint, index) => (
                     <button key={index} className="hover:bg-[var(--hover-background)] my-2 rounded w-full relative cursor-pointer flex items-center" title={`Status: ${endpoint.status}`} onClick={() => { selectEndpoint(endpoint.path, endpoint.method, endpoint.status ?? null) }}>
-                        <span className="text-sm flex items-center mx-2 z-50 py-[2px] text-[var(--text-muted2)]">
+                        <span className="text-sm flex items-center mx-2 z-10 py-[2px] text-[var(--text-muted2)]">
                             <span className="pr-1 font-semibold">
                                 {endpoint.count.toLocaleString()}
                             </span>
