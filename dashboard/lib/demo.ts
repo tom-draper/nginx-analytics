@@ -172,17 +172,4 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
     return logs;
 }
 
-// Example usage
-const exampleOptions: LogGeneratorOptions = {
-    format: 'extended',
-    count: 5,
-    startDate: new Date('2025-03-10T00:00:00Z'),
-    endDate: new Date('2025-03-14T23:59:59Z')
-};
-
-// Generate and print example logs
-const exampleLogs = generateNginxLogs(exampleOptions);
-console.log(exampleLogs.join('\n'));
-
-// Export the function
 export default generateNginxLogs;

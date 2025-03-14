@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Data } from "../types";
+import { NginxLog } from "../types";
 
-function getSuccessRate(data: Data) {
+function getSuccessRate(data: NginxLog[]) {
     if (!data || !data.length) {
         return null;
     }
@@ -18,7 +18,7 @@ function getSuccessRate(data: Data) {
     return success / data.length;
 }
 
-function getSuccessRatesByTime(data: Data) {
+function getSuccessRatesByTime(data: NginxLog[]) {
     // Group success rates by time periods
     const successByTime = new Map();
     const requestsByTime = new Map();
@@ -99,7 +99,7 @@ function getColor(successRate: number | null) {
     }
 }
 
-export function SuccessRate({ data }: { data: Data }) {
+export function SuccessRate({ data }: { data: NginxLog[] }) {
     const [successRate, setSuccessRate] = useState<number | null>(null);
     const [ratesTrend, setRatesTrend] = useState<Array<{date: string, rate: number}>>([]);
 

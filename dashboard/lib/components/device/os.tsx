@@ -2,7 +2,7 @@
 
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
-import { Data } from "../../types";
+import { NginxLog } from "../../types";
 import { useEffect, useState } from "react";
 import {
     type Candidate,
@@ -76,7 +76,7 @@ function getOS(userAgent: string | null): string {
     return 'Other';
 }
 
-export function OS({ data }: { data: Data }) {
+export function OS({ data }: { data: NginxLog[] }) {
     const [plotData, setPlotData] = useState<ChartData<"doughnut"> | null>(null);
 
     useEffect(() => {

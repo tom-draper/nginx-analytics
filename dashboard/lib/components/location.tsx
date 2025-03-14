@@ -1,9 +1,9 @@
-import { Data } from "@/lib/types";
+import { NginxLog } from "@/lib/types";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { type Location } from '@/lib/location'
 
 
-export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation }: { data: Data, locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void }) {
+export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void }) {
     const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
     const [loading, setLoading] = useState(false);
 

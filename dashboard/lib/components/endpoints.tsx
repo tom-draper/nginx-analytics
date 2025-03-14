@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { Data } from "../types";
+import { NginxLog } from "../types";
 import { clientErrorStatus, redirectStatus, serverErrorStatus } from "../status";
 
 type Endpoint = {
@@ -11,7 +11,7 @@ type Endpoint = {
     count: number
 }
 
-export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus }: { data: Data, filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void }) {
+export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus }: { data: NginxLog[], filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void }) {
     const [endpoints, setEndpoints] = useState<Endpoint[]>([])
 
     useEffect(() => {

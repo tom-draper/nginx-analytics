@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { Data } from "../types";
+import { NginxLog } from "../types";
 
-function getRequestsByTime(data: Data) {
+function getRequestsByTime(data: NginxLog[]) {
     // Group requests by time periods
     const requestsByTime = new Map();
     
@@ -49,7 +49,7 @@ function getRequestsByTime(data: Data) {
     return buckets;
 }
 
-export function Requests({ data }: { data: Data }) {
+export function Requests({ data }: { data: NginxLog[] }) {
     const [count, setCount] = useState(data.length);
     const [requestTrend, setRequestTrend] = useState<Array<{date: string, count: number}>>([]);
 

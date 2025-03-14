@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Data } from "../../types";
+import { NginxLog } from "../../types";
 import { Client } from "./client"
 import { OS } from "./os";
 import { DeviceType } from "./device-type";
 
 type Page = 'client' | 'os' | 'device'
 
-export function Device({ data }: { data: Data }) {
+export function Device({ data }: { data: NginxLog[] }) {
     const [page, setPage] = useState<Page>('client')
 
     return (

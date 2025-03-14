@@ -2,7 +2,7 @@
 
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
-import { Data } from "../types";
+import { NginxLog } from "../types";
 import { useEffect, useState } from "react";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -20,7 +20,7 @@ function getVersion(userAgent: string): string | null {
     return match[1];
 }
 
-export function Version({ data }: { data: Data }) {
+export function Version({ data }: { data: NginxLog[] }) {
     const [plotData, setPlotData] = useState<ChartData<"doughnut"> | null>(null);
 
     useEffect(() => {

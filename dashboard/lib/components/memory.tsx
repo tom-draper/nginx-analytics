@@ -165,8 +165,8 @@ export function Memory({ resources, loading, historyData }: { resources: SystemI
 
     // Get color based on usage percentage
     const getColorForUsage = (usage: number) => {
-        if (usage < 50) return "#1af073"; // green
-        if (usage < 80) return "#ffaa4b"; // amber
+        if (usage < 60) return "#1af073"; // green
+        if (usage < 90) return "#ffaa4b"; // amber
         return "#ff5050"; // red
     };
 

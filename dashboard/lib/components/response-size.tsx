@@ -1,4 +1,4 @@
-import { Data } from "@/lib/types";
+import { NginxLog } from "@/lib/types";
 import { useEffect, useState, useRef } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
@@ -131,7 +131,7 @@ const minMax = (values: number[]) => {
     return result;
 }
 
-export function ResponseSize({ data }: { data: Data }) {
+export function ResponseSize({ data }: { data: NginxLog[] }) {
     const [stats, setStats] = useState<Stats | null>(null);
     const [chartData, setChartData] = useState<any>(null);
     const chartRef = useRef(null);

@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { Data } from "../types";
+import { NginxLog } from "../types";
 
 type Referral = {
     referrer: string
     count: number
 }
 
-export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: Data, filterReferrer: string | null, setFilterReferrer: (referrer: string | null) => void }) {
+export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: NginxLog[], filterReferrer: string | null, setFilterReferrer: (referrer: string | null) => void }) {
     const [referrals, setReferrals] = useState<Referral[]>([])
 
     useEffect(() => {

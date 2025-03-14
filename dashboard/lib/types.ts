@@ -1,17 +1,28 @@
-export type LogRow = {
+export type NginxLog = {
     ipAddress: string;
     timestamp: Date | null;
     method: string;
     path: string;
     httpVersion: string;
-    status: number | null; 
+    status: number | null;
     responseSize: number | null;
     referrer: string;
     userAgent: string;
 }
 
-export type Data = LogRow[]
-
+export type NginxError = {
+    timestamp: Date;
+    level: string;
+    pid: number;
+    tid: string;
+    cid: string;
+    message: string;
+    clientAddress?: string;
+    serverAddress?: string;
+    request?: string;
+    referrer?: string;
+    host?: string;
+}
 
 export type SystemInfo = {
     uptime: number;

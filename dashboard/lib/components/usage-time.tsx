@@ -1,11 +1,11 @@
 import { PolarArea } from "react-chartjs-2";
-import { Data } from "../types";
+import { NginxLog } from "../types";
 import { useEffect, useState, useRef } from "react";
 import { Chart as ChartJS, ChartData, RadialLinearScale, ArcElement, Tooltip } from "chart.js";
 
 ChartJS.register(RadialLinearScale, ArcElement, Tooltip);
 
-export default function UsageTime({ data }: { data: Data }) {
+export default function UsageTime({ data }: { data: NginxLog[] }) {
     const [plotData, setPlotData] = useState<ChartData<"polarArea"> | null>(null);
     const chartRef = useRef<ChartJS>(null);
 

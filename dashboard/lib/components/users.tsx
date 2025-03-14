@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { Data } from "../types";
+import { NginxLog } from "../types";
 import { getUserId } from "../user";
 
-function getUsers(data: Data) {
+function getUsers(data: NginxLog[]) {
     const users = new Set<string>()
     for (const row of data) {
         const userId = row.ipAddress + row.userAgent;
@@ -15,7 +15,7 @@ function getUsers(data: Data) {
     return users;
 }
 
-function getUsersByTime(data: Data) {
+function getUsersByTime(data: NginxLog[]) {
     // Group users by day (or other time bucket)
     const usersByTime = new Map();
     
@@ -64,7 +64,7 @@ function getUsersByTime(data: Data) {
     return buckets;
 }
 
-export default function Users({ data }: {data: Data}) {
+export default function Users({ data }: {data: NginxLog[]}) {
     const [users, setUsers] = useState<Set<string> | null>(null);
     const [userTrend, setUserTrend] = useState<Array<{date: string, count: number}>>([]);
 

@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
     const logType = searchParams.get("type");
 
     if (!logType) {
-        console.error('Log type required.');
-        return NextResponse.json({ error: "Log type required." }, { status: 400 });
+        console.error('Log type required');
+        return NextResponse.json({ error: "Log type required" }, { status: 400 });
     }
 
     const position = parseInt(searchParams.get('position') || '') || 0;
@@ -40,22 +40,22 @@ async function serveLocalLogs(filePath: string, position: number) {
     const resolvedPath = path.resolve(process.cwd(), filePath);
 
     if (!fs.existsSync(resolvedPath)) {
-        console.error(`File not found at path ${filePath}.`);
-        return NextResponse.json({ error: "File not found." }, { status: 404 });
+        console.error(`File not found at path ${filePath}`);
+        return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
     return new Promise<NextResponse>((resolve, reject) => {
         try {
             fs.stat(resolvedPath, (err, stats) => {
                 if (err) {
-                    reject(NextResponse.json({ error: "Internal server error." }, { status: 500 }));
+                    reject(NextResponse.json({ error: "Internal server error" }, { status: 500 }));
                     return;
                 }
 
                 const fileSize = stats.size;
 
                 if (position >= fileSize) {
-                    resolve(NextResponse.json({ message: "No new logs." }, { status: 200 }));
+                    resolve(NextResponse.json({ message: "No new logs" }, { status: 200 }));
                     return;
                 }
 
@@ -85,12 +85,12 @@ async function serveLocalLogs(filePath: string, position: number) {
                 // Handle stream error
                 stream.on('error', (error) => {
                     console.error(error);
-                    reject(NextResponse.json({ error: "Internal server error." }, { status: 500 }));
+                    reject(NextResponse.json({ error: "Internal server error" }, { status: 500 }));
                 });
             });
         } catch (error) {
             console.error(error);
-            reject(NextResponse.json({ error: "Internal server error." }, { status: 500 }));
+            reject(NextResponse.json({ error: "Internal server error" }, { status: 500 }));
         }
     });
 }

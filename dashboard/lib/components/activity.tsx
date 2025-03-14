@@ -3,7 +3,7 @@
 import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend, ChartData } from "chart.js";
 import { useEffect, useState, useRef } from "react";
 import { Bar } from "react-chartjs-2";
-import { Data } from "../types";
+import { NginxLog } from "../types";
 import 'chartjs-adapter-date-fns';
 import { Period, periodStart } from "../period";
 
@@ -90,7 +90,7 @@ const getSuccessRateLevel = (successRate: number | null) => {
     return Math.ceil((successRate) * 10)
 }
 
-export default function Activity({ data, period }: { data: Data, period: Period }) {
+export default function Activity({ data, period }: { data: NginxLog[], period: Period }) {
     const [plotData, setPlotData] = useState<ChartData<"bar"> | null>(null)
     const [plotOptions, setPlotOptions] = useState<object | null>(null)
     const [successRates, setSuccessRates] = useState<({ timestamp: number, value: number | null })[]>([])
@@ -236,10 +236,16 @@ export default function Activity({ data, period }: { data: Data, period: Period 
                         display: true,
                         text: 'Requests'
                     },
+                    // ticks: {
+                    //     padding: 20,
+                    // },
                     min: 0,
                     stacked: true
                 }
             },
+            // layout: {
+            //     left: 50,
+            // },
             maintainAspectRatio: false,
             responsive: true,
             plugins: {
@@ -276,7 +282,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
         return `Success rate: ${((successRate.value === 0 || successRate.value === 1) ? (successRate.value * 100).toFixed(0) : (successRate.value * 100).toFixed(1))}%\n${time}`;
     }
 
-    const getDateRange = (data: Data) => {
+    const getDateRange = (data: NginxLog[]) => {
         if (!data || data.length === 0) {
             return null; // Handle empty or null input
         }

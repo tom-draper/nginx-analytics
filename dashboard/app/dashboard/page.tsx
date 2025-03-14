@@ -10,9 +10,8 @@ import Users from "@/lib/components/users";
 import { Version } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
-import { parseLogs } from "@/lib/parse";
+import { parseNginxLogs } from "@/lib/parse";
 import { useEffect, useMemo, useState } from "react";
-import { Data } from "@/lib/types";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -22,11 +21,14 @@ import { ResponseSize } from "@/lib/components/response-size";
 
 import { SystemResources } from "@/lib/components/system-resources";
 import generateNginxLogs from "@/lib/demo";
+import { NginxLog } from "@/lib/types";
+import Errors from "@/lib/components/errors";
 
 export default function Home() {
-    const [data, setData] = useState<Data>([]);
-    const [filteredData, setFilteredData] = useState<Data>([]);
+    const [logs, setLogs] = useState<NginxLog[]>([]);
+    const [filteredData, setFilteredData] = useState<NginxLog[]>([]);
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
+
     const [locationMap, setLocationMap] = useState<Map<string, LocationType>>(new Map());
 
     const [filter, setFilter] = useState<Filter>(newFilter());
@@ -93,13 +95,14 @@ export default function Home() {
 
         let position: number = 0;
         // fetchLogs();
-        setAccessLogs(generateNginxLogs({format: 'extended', count: 10000, startDate: new Date('2025-03-10T00:00:00Z'), endDate: new Date()}))
+        setAccessLogs(generateNginxLogs({format: 'extended', count: 100000, startDate: new Date('2024-11-10T00:00:00Z'), endDate: new Date()}))
         // const interval = setInterval(fetchLogs, 30000); // Polling every 30s
         // return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
-        setData(parseLogs(accessLogs))
+        const logs = parseNginxLogs(accessLogs)
+        setLogs(logs);
     }, [accessLogs])
 
 
@@ -121,9 +124,9 @@ export default function Home() {
             return false;
         }
 
-        const filteredData: Data = [];
+        const filteredData: NginxLog[] = [];
         const start = periodStart(filter.period);
-        for (const row of data) {
+        for (const row of logs) {
             if (
                 (start === null || (row.timestamp && row.timestamp > start))
                 && (filter.location === null || (locationMap.get(row.ipAddress)?.country === filter.location))
@@ -136,7 +139,7 @@ export default function Home() {
             }
         }
         setFilteredData(filteredData);
-    }, [data, filter, locationMap]);
+    }, [logs, filter, locationMap]);
 
     return (
         <div className="">
@@ -186,6 +189,8 @@ export default function Home() {
                             <UsageTime data={filteredData} />
                             <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                         </div>
+
+                        <Errors />
                     </div>
                 </div>
 
