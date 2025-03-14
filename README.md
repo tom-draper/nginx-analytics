@@ -2,6 +2,8 @@
 
 A modern, flexible and privacy-focused analytics solution for Nginx.
 
+![Nginx Analytics](https://github.com/user-attachments/assets/b0fc1334-22e0-4d2c-9219-29d69a86a679)
+
 ## Getting Started
 
 ### Option 1: Dashboard
