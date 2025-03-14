@@ -1,8 +1,9 @@
 'use client';
 
 import { formatBytes } from "../format";
+import { SystemInfo } from "../types";
 
-export function Storage({ resources, loading }: { resources: any, loading: boolean }) {
+export function Storage({ resources, loading }: { resources: SystemInfo | null, loading: boolean }) {
     if (!resources) {
         return (
             <div className="card flex-2 flex flex-col px-4 py-3 m-3 relative">
@@ -55,10 +56,10 @@ export function Storage({ resources, loading }: { resources: any, loading: boole
                         }}
                     ></div>
                 </div>
-                <div className="flex justify-between text-xs mt-1">
-                    <span>Used: {formatBytes(primaryDisk?.used, 1) || "N/A"} ({diskUsage.toFixed(1)}%)</span>
-                    <span>Free: {formatBytes(primaryDisk?.size - primaryDisk?.used, 1) || "N/A"}</span>
-                    <span>Total: {formatBytes(primaryDisk?.size, 1) || "N/A"}</span>
+                <div className="flex text-xs mt-1">
+                    <span className="flex-1">Used: {formatBytes(primaryDisk?.used || 0, 1) || "N/A"} ({diskUsage.toFixed(1)}%)</span>
+                    <span className="flex-1 text-center">Free: {formatBytes((primaryDisk?.size || 0) - (primaryDisk?.used || 0), 1) || "N/A"}</span>
+                    <span className="flex-1 text-right">Total: {formatBytes((primaryDisk?.size || 0), 1) || "N/A"}</span>
                 </div>
             </div>
         </div>

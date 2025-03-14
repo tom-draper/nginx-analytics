@@ -3,7 +3,7 @@
 import { formatBytes } from "../format";
 import { LogSizes } from "../types";
 
-export function LogFiles({ logSizes, loading }: { logSizes: LogSizes, loading: boolean }) {
+export function LogFiles({ logSizes, loading }: { logSizes: LogSizes | null, loading: boolean }) {
     if (!logSizes) {
         return (
             <div className="card flex-2 flex flex-col px-4 py-3 m-3 relative">

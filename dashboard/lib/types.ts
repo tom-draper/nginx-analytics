@@ -6,14 +6,14 @@ export type LogRow = {
     httpVersion: string;
     status: number | null; 
     responseSize: number | null;
-    referer: string;
+    referrer: string;
     userAgent: string;
 }
 
 export type Data = LogRow[]
 
 
-export type SystemResources = {
+export type SystemInfo = {
     uptime: number;
     timestamp: string;
     cpu: {

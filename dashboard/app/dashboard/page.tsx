@@ -12,17 +12,16 @@ import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseLogs } from "@/lib/parse";
 import { useEffect, useMemo, useState } from "react";
-import { Data, HistoryData, SystemResources } from "@/lib/types";
+import { Data } from "@/lib/types";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
 import UsageTime from "@/lib/components/usage-time";
 import { Referrals } from "@/lib/components/referrals";
 import { ResponseSize } from "@/lib/components/response-size";
-import { CPU } from "@/lib/components/cpu";
-import { Memory } from "@/lib/components/memory";
-import { Storage } from "@/lib/components/storage";
-import { LogFiles } from "@/lib/components/log-files";
+
+import { SystemResources } from "@/lib/components/system-resources";
+import generateNginxLogs from "@/lib/demo";
 
 export default function Home() {
     const [data, setData] = useState<Data>([]);
@@ -30,23 +29,11 @@ export default function Home() {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [locationMap, setLocationMap] = useState<Map<string, LocationType>>(new Map());
 
-    const [resources, setResources] = useState<SystemResources | null>(null);
-    const [loadingResources, setLoadingResources] = useState(true);
-    const [historyData, setHistoryData] = useState<HistoryData>({
-        cpuUsage: [],
-        memoryUsage: [],
-        timestamps: []
-    });
-
-    const [logSizes, setLogSizes] = useState<any | null>(null);
-    const [loadingLogSizes, setLoadingLogSizes] = useState(true);
-
-    // Maximum number of data points to keep in history
-    const maxHistoryPoints = 900;
-
     const [filter, setFilter] = useState<Filter>(newFilter());
 
     const currentPeriod = useMemo(() => filter.period, [filter.period]);
+
+    const monitorSystemResources = process.env.NEXT_PUBLIC_NGINX_ANALYTICS_MONITOR_SYSTEM_RESOURCES === 'true';
 
     const setPeriod = (period: Period) => {
         setFilter((previous) => ({
@@ -63,7 +50,6 @@ export default function Home() {
     }
 
     const setEndpoint = (path: string | null, method: string | null, status: number | [number, number][] | null) => {
-        console.log(path, method, status)
         setFilter((previous) => ({
             ...previous,
             path,
@@ -73,7 +59,6 @@ export default function Home() {
     }
 
     const setStatus = (status: number | [number, number][] | null) => {
-        console.log(status)
         setFilter((previous) => ({
             ...previous,
             status
@@ -107,81 +92,16 @@ export default function Home() {
         };
 
         let position: number = 0;
-        fetchLogs();
-        const interval = setInterval(fetchLogs, 30000); // Polling every 30s
-        return () => clearInterval(interval);
+        // fetchLogs();
+        setAccessLogs(generateNginxLogs({format: 'extended', count: 10000, startDate: new Date('2025-03-10T00:00:00Z'), endDate: new Date()}))
+        // const interval = setInterval(fetchLogs, 30000); // Polling every 30s
+        // return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
         setData(parseLogs(accessLogs))
     }, [accessLogs])
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoadingResources(true);
-            try {
-                const res = await fetch(`/api/system`);
-                if (!res.ok) {
-                    setLoadingResources(false);
-                    throw new Error("Failed to fetch system resources");
-                }
-                const data = await res.json();
-                setResources(data);
-
-                // Update history data with new readings
-                setHistoryData(previous => {
-                    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-                    // Create new arrays with latest data
-                    const newCpuUsage = [...previous.cpuUsage, data.cpu.usage];
-                    const newMemoryUsage = [...previous.memoryUsage, ((data.memory.used) / data.memory.total) * 100];
-                    const newTimestamps = [...previous.timestamps, now];
-
-                    // Keep only the last MAX_HISTORY_POINTS
-                    return {
-                        cpuUsage: newCpuUsage.slice(-maxHistoryPoints),
-                        memoryUsage: newMemoryUsage.slice(-maxHistoryPoints),
-                        timestamps: newTimestamps.slice(-maxHistoryPoints)
-                    };
-                });
-            } catch (error) {
-                console.error("Error fetching system resources:", error);
-            }
-            setLoadingResources(false);
-        };
-
-        fetchData();
-
-        // Refresh data every 2 seconds
-        const intervalId = setInterval(fetchData, 2000);
-
-        return () => clearInterval(intervalId);
-    }, []);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoadingLogSizes(true);
-            try {
-                const response = await fetch(`/api/logs/size`);
-                if (!response.ok) {
-                    setLoadingLogSizes(false);
-                    throw new Error("Failed to fetch log sizes");
-                }
-                const data = await response.json();
-
-                setLogSizes(data);
-            } catch (error) {
-                console.error("Error fetching log sizes:", error);
-            }
-            setLoadingLogSizes(false);
-        };
-
-        fetchData();
-
-        const intervalId = setInterval(fetchData, 600_000);
-
-        return () => clearInterval(intervalId);
-    }, []);
 
     useEffect(() => {
         const validStatus = (status: number | null) => {
@@ -206,10 +126,11 @@ export default function Home() {
         for (const row of data) {
             if (
                 (start === null || (row.timestamp && row.timestamp > start))
-                && (filter.location === null || (filter.location === locationMap.get(row.ipAddress)?.country))
-                && (filter.path === null || (filter.path === row.path))
-                && (filter.method === null || (filter.method === row.method))
+                && (filter.location === null || (locationMap.get(row.ipAddress)?.country === filter.location))
+                && (filter.path === null || (row.path === filter.path))
+                && (filter.method === null || (row.method === filter.method))
                 && (filter.status === null || validStatus(row.status))
+                && (filter.referrer === null || (row.referrer === filter.referrer))
             ) {
                 filteredData.push(row);
             }
@@ -259,28 +180,12 @@ export default function Home() {
                             </div>
                         </div>
 
-                        <div className="flex max-xl:flex-col">
-                            <CPU resources={resources} loading={loadingResources} historyData={historyData} />
-                            <Memory resources={resources} loading={loadingResources} historyData={historyData} />
-                        </div>
-
-                        <div className="flex max-xl:flex-col">
-                            <Storage resources={resources} loading={loadingResources} />
-                            <LogFiles logSizes={logSizes} loading={loadingLogSizes} />
-                        </div>
+                        {monitorSystemResources && <SystemResources />}
 
                         <div className="w-inherit">
                             <UsageTime data={filteredData} />
                             <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                         </div>
-
-                        <div className="flex max-xl:flex-col">
-                            {/* <div className="xl:w-[28em]">
-                                <ResponseSize data={filteredData} />
-                            </div> */}
-                            {/* <SystemResources /> */}
-                        </div>
-
                     </div>
                 </div>
 

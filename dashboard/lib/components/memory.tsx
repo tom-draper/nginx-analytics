@@ -12,8 +12,9 @@ import {
     Legend,
     Filler
 } from "chart.js";
-import { HistoryData, SystemResources } from "../types";
+import { HistoryData, SystemInfo } from "../types";
 import { formatBytes } from "../format";
+import { AnyMxRecord } from "dns";
 
 // Register Chart.js components
 ChartJS.register(
@@ -64,7 +65,7 @@ const CircularProgress = ({ value, text, color }: {value: number, text: string, 
 };
 
 // Single resource usage chart component
-const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" }) => {
+const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" }: {data: any, timestamps: any, label: string, color: string, height?: string}) => {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
@@ -98,7 +99,7 @@ const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" })
                 intersect: false,
                 mode: 'index',
                 callbacks: {
-                    title: function (tooltipItems) {
+                    title: function (tooltipItems: any) {
                         return timestamps[tooltipItems[0].dataIndex];
                     }
                 }
@@ -131,12 +132,12 @@ const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" })
 
     return (
         <div className={`w-[100%] ${height}`}>
-            <Line options={chartOptions} data={chartData} />
+            <Line options={chartOptions as any} data={chartData} />
         </div>
     );
 };
 
-export function Memory({ resources, loading, historyData }: { resources: SystemResources | null, loading: boolean, historyData: HistoryData}) {
+export function Memory({ resources, loading, historyData }: { resources: SystemInfo | null, loading: boolean, historyData: HistoryData}) {
     if (!resources) {
         return (
             <div className="card flex-2 flex flex-col px-4 py-3 m-3 relative">

@@ -3,7 +3,7 @@ import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import si from 'systeminformation';
-import { SystemResources } from '@/lib/types';
+import { SystemInfo } from '@/lib/types';
 
 const execAsync = promisify(exec);
 
@@ -27,7 +27,7 @@ async function getSystemInfo() {
     const memory = await getMemoryInfo();
     const diskUsage = await getDiskUsage();
 
-    const systemInfo: SystemResources = {
+    const systemInfo: SystemInfo = {
         uptime,
         timestamp: new Date().toISOString(),
         cpu: {
@@ -100,7 +100,8 @@ async function getDiskUsage() {
     } catch (error) {
         console.error('Error getting disk usage:', error);
         // Fallback to the original method
-        return getDiskUsageFallback();
+        // return getDiskUsageFallback();
+        return [];
     }
 }
 
@@ -153,18 +154,4 @@ async function getDiskUsageFallback() {
         console.error('Error getting disk usage (fallback):', error);
         return [];
     }
-}
-
-function formatBytes(bytes: number, decimals = 2) {
-    if (bytes === 0) {
-        return '0 Bytes';
-    }
-
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }

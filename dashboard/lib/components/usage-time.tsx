@@ -48,7 +48,7 @@ export default function UsageTime({ data }: { data: Data }) {
     // Add a plugin to adjust label positions
     const plugins = [{
         id: 'customLabelPositioning',
-        beforeDraw: (chart) => {
+        beforeDraw: (chart: any) => {
             if (!chart.config.data.labels) {
                 return;
             }
@@ -95,9 +95,9 @@ export default function UsageTime({ data }: { data: Data }) {
     return (
         <div className="card flex-1 px-4 py-3 m-3 w-inherit">
             <h2 className="font-semibold">Usage Time</h2>
-            <div className="relative w-full h-full pt-2" style={{ height: '600px' }}>
+            <div className="relative w-full pt-2 h-[600px]">
                 {plotData && <PolarArea 
-                    ref={chartRef}
+                    ref={chartRef as any}
                     data={plotData} 
                     plugins={plugins}
                     options={{
@@ -107,7 +107,7 @@ export default function UsageTime({ data }: { data: Data }) {
                                 enabled: true,
                                 callbacks: {
                                     title: (items) => items[0].label,
-                                    label: (context) => `${context.raw.toLocaleString()} requests`
+                                    label: (context) => `${context?.raw?.toLocaleString()} requests`
                                 }
                             },
                         },

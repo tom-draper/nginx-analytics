@@ -95,7 +95,7 @@ export function Requests({ data }: { data: Data }) {
         
         return (
             <svg
-                className="absolute bottom-0 left-0 w-full h-6"
+                className="absolute bottom-0 left-0 w-full h-10"
                 preserveAspectRatio="none"
                 viewBox={`0 0 ${width} ${height}`}
             >

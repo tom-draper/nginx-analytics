@@ -13,7 +13,7 @@ import {
     Legend,
     Filler
 } from "chart.js";
-import { SystemResources } from "../types";
+import { HistoryData, SystemInfo } from "../types";
 
 // Register Chart.js components
 ChartJS.register(
@@ -78,7 +78,7 @@ const CPUCores = ({ cores, usage }: { cores: number, usage: number }) => {
 };
 
 // Single resource usage chart component
-const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" }) => {
+const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" }: {data: any, timestamps: any, label: any, color: string, height?: string}) => {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
@@ -112,7 +112,7 @@ const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" })
                 intersect: false,
                 mode: 'index',
                 callbacks: {
-                    title: function (tooltipItems) {
+                    title: function (tooltipItems: any) {
                         return timestamps[tooltipItems[0].dataIndex];
                     }
                 }
@@ -145,12 +145,12 @@ const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" })
 
     return (
         <div className={`w-[100%] ${height}`}>
-            <Line options={chartOptions} data={chartData} />
+            <Line options={chartOptions as any} data={chartData} />
         </div>
     );
 };
 
-export function CPU({ resources, loading, historyData }: { resources: SystemResources | null, loading: boolean, historyData: HistoryData }) {
+export function CPU({ resources, loading, historyData }: { resources: SystemInfo | null, loading: boolean, historyData: HistoryData }) {
     if (!resources) {
         return (
             <div className="card flex-2 flex flex-col px-4 py-3 m-3 relative">

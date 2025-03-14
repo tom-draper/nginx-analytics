@@ -196,7 +196,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
             datasets: [
                 {
                     label: 'Users',
-                    data: values.map(v => ({ x: v.x, y: v.users })),
+                    data: values.map(v => ({ x: v.x, y: v.users })) as any,
                     backgroundColor: '#00bfff',
                     borderWidth: 0,
                     borderRadius: 4,
@@ -204,7 +204,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
                 },
                 {
                     label: 'Requests',
-                    data: values.map(v => ({ x: v.x, y: v.requests })),
+                    data: values.map(v => ({ x: v.x, y: v.requests })) as any,
                     backgroundColor: 'rgb(26, 240, 115)',
                     borderWidth: 0,
                     borderRadius: 4,
@@ -249,7 +249,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
                 tooltip: {
                     enabled: true,
                     callbacks: {
-                        label: function (context) {
+                        label: function (context: any) {
                             const label = context.dataset.label || '';
                             const value = context.raw.y;
                             if (label === 'Users') {
@@ -356,7 +356,7 @@ export default function Activity({ data, period }: { data: Data, period: Period 
             </h2>
 
             <div className="relative w-full h-full pt-2" style={{ height: '200px' }}>
-                {plotData && <Bar
+                {plotData && plotOptions && <Bar
                     data={plotData}
                     options={plotOptions}
                 />}

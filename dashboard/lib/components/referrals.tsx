@@ -14,14 +14,14 @@ export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: D
     useEffect(() => {
         const referrerCount: { [referer: string]: number } = {};
         for (const row of data) {
-            if (!row.referer) {
+            if (!row.referrer || row.referrer === '-') {
                 continue;
             }
 
-            if (!referrerCount[row.referer]) {
-                referrerCount[row.referer] = 0;
+            if (!referrerCount[row.referrer]) {
+                referrerCount[row.referrer] = 0;
             }
-            referrerCount[row.referer]++;
+            referrerCount[row.referrer]++;
         }
 
         const referrals = Object.entries(referrerCount).sort((a, b) => b[1] - a[1]).slice(0, 50).map(([referrer, count]) => ({ referrer, count }));
@@ -45,12 +45,12 @@ export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: D
                     </h2>
                     <div className="mt-3">
                         {referrals.map((endpoint, index) => (
-                            <button key={index} className="bg-gray-100 my-2 rounded w-full relative cursor-pointer flex items-center" onClick={() => selectReferrer(endpoint.referrer)}>
+                            <button key={index} className="hover:bg-[var(--hover-background)] my-2 rounded w-full relative cursor-pointer flex items-center text-[var(--text-muted3)]" onClick={() => selectReferrer(endpoint.referrer)}>
                                 <span className="text-sm flex items-center mx-2 z-50 py-[2px]">
-                                    <span className="pr-1">
+                                    <span className="pr-1 font-semibold">
                                         {endpoint.count.toLocaleString()}
                                     </span>
-                                    <span className="px-1 text-gray-600 text-left break-words">
+                                    <span className="px-1 text-left break-words">
                                         {endpoint.referrer ?? ''}
                                     </span>
                                 </span>
