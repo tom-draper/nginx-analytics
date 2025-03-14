@@ -2,7 +2,7 @@
 
 A modern, flexible and privacy-focused analytics solution for Nginx.
 
-![Nginx Analytics](https://github.com/user-attachments/assets/fecbce07-a70e-439a-87b2-bdd5218645d7)
+![Nginx Analytics](https://github.com/user-attachments/assets/b0fc1334-22e0-4d2c-9219-29d69a86a679)
 
 ## Getting Started
 
