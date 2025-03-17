@@ -9,19 +9,19 @@ export default function FileUpload({ setAccessLogs }: { setAccessLogs: Dispatch<
 	const [uploadProgress, setUploadProgress] = useState(0);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
-	const handleDragEnter = (e) => {
+	const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging(true);
 	};
 
-	const handleDragLeave = (e) => {
+	const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging(false);
 	};
 
-	const handleDragOver = (e) => {
+	const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
 		if (!isDragging) {
@@ -29,18 +29,18 @@ export default function FileUpload({ setAccessLogs }: { setAccessLogs: Dispatch<
 		}
 	};
 
-	const handleDrop = (e) => {
+	const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging(false);
 
-		const files = e.dataTransfer.files;
+		const files = e.dataTransfer?.files;
 		if (files && files.length > 0) {
 			handleFile(files[0]);
 		}
 	};
 
-	const handleFileInputChange = (e) => {
+	const handleFileInputChange = (e: any) => {
 		if (e.target.files && e.target.files.length > 0) {
 			handleFile(e.target.files[0]);
 		}

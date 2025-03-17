@@ -57,6 +57,7 @@ export default function NetworkBackground() {
             .join("circle")
             .attr("r", d => d.r)
             .attr("fill", "rgba(26, 240, 115, 1)")
+            // @ts-ignore
             .call(d3.drag()
                 .on("start", dragstarted)
                 .on("drag", dragged)
@@ -101,18 +102,18 @@ export default function NetworkBackground() {
         window.addEventListener("resize", handleResize);
 
         // Drag functions
-        function dragstarted(event) {
+        function dragstarted(event: any) {
             if (!event.active) simulation.alphaTarget(0.3).restart();
             event.subject.fx = event.subject.x;
             event.subject.fy = event.subject.y;
         }
 
-        function dragged(event) {
+        function dragged(event: any) {
             event.subject.fx = event.x;
             event.subject.fy = event.y;
         }
 
-        function dragended(event) {
+        function dragended(event: any) {
             if (!event.active) simulation.alphaTarget(0);
             event.subject.fx = null;
             event.subject.fy = null;
