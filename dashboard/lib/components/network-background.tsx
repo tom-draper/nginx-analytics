@@ -57,7 +57,7 @@ export default function NetworkBackground() {
             .join("circle")
             .attr("r", d => d.r)
             .attr("fill", "rgba(26, 240, 115, 1)")
-            // @ts-ignore
+            // @ts-expect-error err
             .call(d3.drag()
                 .on("start", dragstarted)
                 .on("drag", dragged)
