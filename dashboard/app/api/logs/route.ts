@@ -8,7 +8,7 @@ const nginxErrorPath = process.env.NGINX_ERROR_PATH || defaultNginxErrorPath;
 
 const nginxAccessUrl = process.env.NGINX_ACCESS_URL;
 const nginxErrorUrl = process.env.NGINX_ERROR_URL;
-const authToken = process.env.AUTH_TOKEN;
+const authToken = process.env.NGINX_ANALYTICS_AUTH_TOKEN;
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);

@@ -95,7 +95,7 @@ func getArguments() Arguments {
 	// Determine auth token
 	authToken = *cmdAuthToken
 	if authToken == "" {
-		authToken = os.Getenv("AUTH_TOKEN")
+		authToken = os.Getenv("NGINX_ANALYTICS_AUTH_TOKEN")
 	}
 	if authToken == "" {
 		log.Println("Auth token not set in environment or command line argument. Connection will be insecure.")
