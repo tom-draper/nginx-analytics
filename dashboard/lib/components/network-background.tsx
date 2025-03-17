@@ -113,7 +113,6 @@ export default function NetworkBackground() {
         }
 
         function dragended(event) {
-            console.log(event);
             if (!event.active) simulation.alphaTarget(0);
             event.subject.fx = null;
             event.subject.fy = null;
