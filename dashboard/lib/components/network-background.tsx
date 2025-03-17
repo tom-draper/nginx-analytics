@@ -19,18 +19,24 @@ export default function NetworkBackground() {
 
         // Generate random nodes
         const nodeCount = 30;
-        const nodes = Array.from({ length: nodeCount }, () => ({
+        interface CustomNode extends d3.SimulationNodeDatum {
+            x: number;
+            y: number;
+            r: number;
+        }
+
+        const nodes: CustomNode[] = Array.from({ length: nodeCount }, () => ({
             x: Math.random() * width,
             y: Math.random() * height,
             r: Math.random() * 3 + 1, // Random radius between 2-5
         }));
 
         // Generate random links (connections between nodes)
-        const links: { source: number, target: number }[] = [];
+        const links: { source: CustomNode, target: CustomNode }[] = [];
         nodes.forEach((source, i) => {
             nodes.forEach((target, j) => {
                 if (i !== j && Math.random() < 0.02) {
-                    links.push({ source: i, target: j });
+                    links.push({ source, target });
                 }
             });
         });
@@ -40,7 +46,7 @@ export default function NetworkBackground() {
             .force("charge", d3.forceManyBody().strength(-30))
             .force("link", d3.forceLink(links).distance(100).strength(0.1))
             .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("collision", d3.forceCollide().radius(d => d.r * 2));
+            .force("collision", d3.forceCollide().radius(d => (d as CustomNode).r * 2));
 
         // Draw the links
         const link = svg.append("g")
