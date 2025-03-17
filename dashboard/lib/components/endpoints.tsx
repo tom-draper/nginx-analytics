@@ -67,8 +67,8 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
         return true;
     }
 
-    const selectAllStatus = () => {
-        setStatus(null)
+    const clearEndpointFilter = () => {
+        setEndpoint(null, null, null)
     }
 
     const selectStatusRange = (range: [number, number]) => {
@@ -133,6 +133,11 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
                 Endpoints
             </h2>
             <div className="absolute flex top-[14px] right-4 text-xs text-[var(--text-muted3)]">
+                {(filterPath !== null || filterMethod !== null || filterStatus !== null)  && (
+                    <button className="px-[0.5em] text-[var(--text)] cursor-pointer" onClick={clearEndpointFilter}>
+                        Clear
+                    </button>
+                )}
                 <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectSuccessStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [200, 299][i])) ? 'var(--highlight)' : '' }}>
                     Success
                 </button>

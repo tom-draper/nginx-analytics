@@ -60,6 +60,7 @@ export default function Home() {
     }
 
     const setEndpoint = (path: string | null, method: string | null, status: number | [number, number][] | null) => {
+        console.log(status, filter.status)
         setFilter((previous) => ({
             ...previous,
             path,
@@ -69,6 +70,7 @@ export default function Home() {
     }
 
     const setStatus = (status: number | [number, number][] | null) => {
+        console.log(status, filter.status)
         setFilter((previous) => ({
             ...previous,
             status
@@ -152,14 +154,14 @@ export default function Home() {
 
     return (
         <div className="">
-            <main className="p-12 pt-7">
+            <main className="sm:p-12 pt-7">
                 <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => {exportCSV(logs)}} />
 
                 <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} />
 
-                <div className="flex">
+                <div className="flex max-[950px]:flex-col">
                     {/* Left */}
-                    <div className="w-[27em]">
+                    <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
                             <SuccessRate data={filteredData} />
@@ -184,7 +186,7 @@ export default function Home() {
                     </div>
 
                     {/* Right */}
-                    <div className="w-full" style={{ width: 'calc(100vw - 48px - 48px - 416px)' }}>
+                    <div className="min-[950px]:w-[calc(100vw-48px-48px-416px)]">
                         <Activity data={filteredData} period={currentPeriod} />
 
                         <div className="flex max-xl:flex-col">

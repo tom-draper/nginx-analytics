@@ -15,6 +15,9 @@ export default function Errors() {
                 const res = await fetch(`/api/logs?type=error&position=${position}`);
                 if (!res.ok) {
                     console.log('Failed to fetch Nginx errors from server')
+                    if (interval && res.status === 404) {
+                        clearInterval(interval);
+                    }
                     return;
                 }
                 const data = await res.json();
