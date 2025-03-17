@@ -5,7 +5,7 @@ A modern, flexible and privacy-focused analytics solution for Nginx.
 ![Nginx Analytics](https://github.com/user-attachments/assets/b0fc1334-22e0-4d2c-9219-29d69a86a679)
 
 <p align="center">
-<a href="https://www.nginx-analytics.vercel.app/dashboard/demo">Demo</a>
+<a href="https://nginx-analytics.vercel.app/dashboard/demo">Demo</a>
 </p>
 
 ## Getting Started
