@@ -36,7 +36,7 @@ Follow the <a href="./dashboard/nginx/README.md">Nginx configuration guide</a>.
 
 #### Options 4: File Upload
 
-Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="">our deployment</a>.
+Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="https://nginx-analytics.vercel.app/dashboard">our deployment</a>.
 
 ### CLI
 
