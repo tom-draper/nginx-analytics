@@ -3,15 +3,11 @@
 import { useEffect, useState } from "react";
 import { parseNginxErrors } from "../parse";
 import { NginxError } from "../types";
-import { useSearchParams } from "next/navigation";
 
 
-export default function Errors() {
+export default function Errors({ fileUpload }: { fileUpload: boolean }) {
     const [errorLogs, setErrorLogs] = useState<string[]>([]);
     const [errors, setErrors] = useState<NginxError[]>([]);
-
-    const params = useSearchParams();
-    const upload = params.get('upload') === 'true'
 
     useEffect(() => {
         const fetchErrors = async () => {
@@ -38,7 +34,7 @@ export default function Errors() {
 
         let position = 0;
         let interval: NodeJS.Timeout;
-        if (!upload) {
+        if (!fileUpload) {
             fetchErrors();
             interval = setInterval(fetchErrors, 30000); // Polling every 30s
             return () => clearInterval(interval);

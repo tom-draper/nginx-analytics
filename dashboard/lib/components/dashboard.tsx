@@ -25,10 +25,12 @@ import Errors from "@/lib/components/errors";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
-import { useSearchParams } from "next/navigation";
+import NetworkBackground from "./network-background";
+import FileUpload from "./file-upload";
 
 
-export default function Dashboard({ accessLogs, setAccessLogs }: { accessLogs: string[], setAccessLogs: Dispatch<SetStateAction<string[]>> }) {
+export default function Dashboard({ fileUpload }: { fileUpload: boolean }) {
+    const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [logs, setLogs] = useState<NginxLog[]>([]);
     const [filteredData, setFilteredData] = useState<NginxLog[]>([]);
 
@@ -44,9 +46,6 @@ export default function Dashboard({ accessLogs, setAccessLogs }: { accessLogs: s
     const currentPeriod = useMemo(() => filter.period, [filter.period]);
 
     const monitorSystemResources = process.env.NEXT_PUBLIC_NGINX_ANALYTICS_MONITOR_SYSTEM_RESOURCES === 'true';
-
-    const params = useSearchParams();
-    const upload = params.get('upload') === 'true'
 
     const setPeriod = (period: Period) => {
         setFilter((previous) => ({
@@ -105,7 +104,7 @@ export default function Dashboard({ accessLogs, setAccessLogs }: { accessLogs: s
         };
 
         let position: number = 0;
-        if (!upload) {
+        if (!fileUpload) {
             fetchLogs();
             // setAccessLogs(generateNginxLogs({format: 'extended', count: 100000, startDate: new Date('2024-11-10T00:00:00Z'), endDate: new Date()}))
             const interval = setInterval(fetchLogs, 30000); // Polling every 30s
@@ -155,6 +154,16 @@ export default function Dashboard({ accessLogs, setAccessLogs }: { accessLogs: s
         setFilteredData(filteredData);
     }, [logs, filter, settings, locationMap]);
 
+    if (fileUpload && accessLogs.length === 0) {
+        return (
+            <div className="relative w-full h-screen bg-[var(--background)]">
+                <NetworkBackground />
+                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                    <FileUpload setAccessLogs={setAccessLogs}/>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="">
@@ -194,7 +203,7 @@ export default function Dashboard({ accessLogs, setAccessLogs }: { accessLogs: s
                         <Activity data={filteredData} period={currentPeriod} />
 
                         <div className="flex max-xl:flex-col">
-                            <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} />
+                            <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} fileUpload={fileUpload} />
                             <div className="xl:w-[27em]">
                                 <Device data={filteredData} />
                             </div>
@@ -211,7 +220,7 @@ export default function Dashboard({ accessLogs, setAccessLogs }: { accessLogs: s
                             </div>
                         </div>
 
-                        <Errors />
+                        <Errors fileUpload={fileUpload} />
                     </div>
                 </div>
             </main>

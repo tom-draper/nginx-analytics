@@ -3,7 +3,7 @@ import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { type Location } from '@/lib/location'
 
 
-export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void }) {
+export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation, fileUpload }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void, fileUpload: boolean }) {
     const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -86,7 +86,9 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
             }
         };
 
-        fetchData();
+        if (!fileUpload) {
+            fetchData();
+        }
     }, [data, locationMap, setLocationMap]);
 
     useEffect(() => {
