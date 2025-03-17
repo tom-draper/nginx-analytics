@@ -38,7 +38,7 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
         }
 
         setEndpoints(endpoints.sort((a, b) => b.count - a.count).slice(0, 50));
-    }, [data])
+    }, [data, ignoreParams])
 
     const selectEndpoint = (path: string, method: string, status: number | null) => {
         if (endpoints.length <= 1) {
@@ -161,7 +161,7 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
                             <span className="px-1">
                                 {endpoint.method}
                             </span>
-                            <span className="px-1 text-left break-words">
+                            <span className="px-1 text-left break-words break-all">
                                 {endpoint.path ?? ''}
                             </span>
                         </span>

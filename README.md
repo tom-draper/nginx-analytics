@@ -56,9 +56,13 @@ Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
 IP-location inference can be quickly set up, utilising MaxMind's free GeoLite database. Simply drop the `.mmdb` file in the root folder of the dashboard or agent deployment.
 
-#### Auth Token
+#### System Monitoring
 
-When using the agent, it's recommended to set a private auth token, by assigning a value to the `NGINX_ANALYTICS_AUTH_TOKEN` environment variable for both the agent and the dashboard/CLI deployment. When a request in made to the agent but the dashboard/CLI, the client will provide this auth token, and the agent will check that it matches the expected value. This will stop attackers from being able to access your log files by making requests to the agent.
+The dashboard has live system monitoring capabilities that are disabled by default.
+
+#### Authentication
+
+When using the agent, it's recommended to set a private auth token, by assigning a value to the `NGINX_ANALYTICS_AUTH_TOKEN` environment variable for both the agent and the dashboard/CLI deployment. When a request in made to the agent by the dashboard/CLI, the client will provide this auth token, and the agent will check that it matches the expected value. This will stop any attackers from being able to access your log files by making requests to the agent.
 
 #### Password Protection
 

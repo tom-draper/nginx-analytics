@@ -1,5 +1,4 @@
 'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -14,7 +13,6 @@ export default function PasswordForm() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-
     try {
       const response = await fetch('/api/auth', {
         method: 'POST',
@@ -23,9 +21,7 @@ export default function PasswordForm() {
         },
         body: JSON.stringify({ password }),
       });
-
       const data = await response.json();
-
       if (response.ok && data.success) {
         // document.cookie = 'auth=true; path=/; max-age=604800';
         router.push('/dashboard');
@@ -42,9 +38,9 @@ export default function PasswordForm() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[var(--background)] 0 p-4">
-      <div className="w-full max-w-md bg-white dark:bg-[var(--card-background)] border border-[var(--border-color)] rounded shadow-lg overflow-hidden">
-        <div className="p-8">
+    <div className="flex items-center justify-center p-4 pb-[10vh]">
+      <div className="w-md bg-opacity-80 backdrop-blur-sm border border-[var(--border-color)] rounded shadow-lg overflow-hidden">
+        <div className="p-8 pointer-events-auto">
           <div className="flex flex-col items-center mb-8">
             <div className="p-3 mb-4">
               <img src="logo.svg" alt="Nginx Analytics Logo" className="h-14" />
@@ -52,7 +48,6 @@ export default function PasswordForm() {
             <h1 className="text-xl font-bold text-gray-800 dark:text-white">Nginx Analytics</h1>
             {/* <p className="mt-2 text-gray-500 dark:text-gray-400 text-center">Please enter your password to access the dashboard</p> */}
           </div>
-
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <div className="relative">
@@ -63,7 +58,7 @@ export default function PasswordForm() {
                   className={`w-full px-4 py-3 rounded border border-[var(--border-color)] text-sm ${inputError
                     ? 'border-red-500 animate-shake dark:border-red-500'
                     : 'border-[var(--border-color)]'
-                    } bg-white dark:bg-[var(--card-background)] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--highlight)] transition-all`}
+                    } bg-[var(--card-background)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--highlight)] transition-all`}
                   placeholder="Enter password"
                   required
                 />
@@ -72,11 +67,10 @@ export default function PasswordForm() {
                 <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
               )}
             </div>
-
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full text-sm flex justify-center items-center py-3 px-4 bg-[var(--highlight)] text-[var(--background)] font-medium rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-70"
+              className="w-full text-sm flex justify-center items-center py-3 px-4 bg-[var(--highlight)] text-[var(--background)] font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-70 cursor-pointer"
             >
               {isLoading ? (
                 <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">

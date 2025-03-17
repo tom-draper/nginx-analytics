@@ -18,7 +18,6 @@ import { Period, periodStart } from "@/lib/period";
 import UsageTime from "@/lib/components/usage-time";
 import { Referrals } from "@/lib/components/referrals";
 import { ResponseSize } from "@/lib/components/response-size";
-
 import { SystemResources } from "@/lib/components/system-resources";
 import generateNginxLogs from "@/lib/demo";
 import { NginxLog } from "@/lib/types";
@@ -27,7 +26,7 @@ import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
 
-export default function Home() {
+export default function Home({ params }: { params: any }) {
     const [logs, setLogs] = useState<NginxLog[]>([]);
     const [filteredData, setFilteredData] = useState<NginxLog[]>([]);
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
@@ -151,6 +150,7 @@ export default function Home() {
         }
         setFilteredData(filteredData);
     }, [logs, filter, settings, locationMap]);
+
 
     return (
         <div className="">

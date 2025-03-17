@@ -87,6 +87,10 @@ const getSuccessRateLevel = (successRate: number | null) => {
         return null
     }
 
+    if (successRate === 0) {
+        return 1;
+    }
+
     return Math.ceil((successRate) * 10)
 }
 

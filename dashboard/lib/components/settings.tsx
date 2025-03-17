@@ -53,6 +53,7 @@ export function Settings({
                                 <h2 className="text-xl font-semibold">Settings</h2>
                                 <button
                                     onClick={exportCSV}
+                                    title="Export CSV"
                                     className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer focus:outline-none"
                                 >
                                     {/* <X size={20} /> */}
@@ -105,13 +106,13 @@ export function Settings({
 
                                 {/* Filters */}
                                 <div className="space-y-3 mb-4">
-                                    <h3 className="font-semibold text-lg">Active Filters</h3>
-                                    <div className="bg-gray-50 dark:bg-gray-900 rounded-md p-4 space-y-2">
+                                    <h3 className="font-semibold text-md">Active Filters</h3>
+                                    <div className="bg-[rgba(26,240,115,0.1)] rounded p-4 space-y-2">
                                         {Object.entries(filter).map(([key, value]) => (
                                             value ? (
                                                 <div key={key} className="flex items-center justify-between">
-                                                    <span className="capitalize font-medium text-gray-600 dark:text-gray-400">{key}:</span>
-                                                    <span className="bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-sm">{value}</span>
+                                                    <span className="capitalize font-medium">{key}:</span>
+                                                    <span className="bg-[var(--highlight)] text-[var(--background)] px-2 py-1 rounded text-sm">{value}</span>
                                                 </div>
                                             ) : null
                                         ))}

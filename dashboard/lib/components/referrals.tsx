@@ -51,7 +51,7 @@ export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: N
                                         <span className="pr-1 font-semibold">
                                             {endpoint.count.toLocaleString()}
                                         </span>
-                                        <span className="px-1 text-left break-words">
+                                        <span className="px-1 text-left break-words break-all">
                                             {endpoint.referrer ?? ''}
                                         </span>
                                     </span>

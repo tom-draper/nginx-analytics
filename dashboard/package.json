@@ -12,6 +12,7 @@
     "@types/chart.js": "^2.9.41",
     "chart.js": "^4.4.8",
     "chartjs-adapter-date-fns": "^3.0.0",
+    "d3": "^7.9.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.479.0",
     "maxmind": "^4.3.24",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/d3": "^7.4.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
