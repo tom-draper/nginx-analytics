@@ -3,7 +3,7 @@ import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { type Location } from '@/lib/location'
 
 
-export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation, fileUpload }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void, fileUpload: boolean }) {
+export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation, noFetch }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void, noFetch: boolean }) {
     const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -86,7 +86,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
             }
         };
 
-        if (!fileUpload) {
+        if (!noFetch) {
             fetchData();
         }
     }, [data, locationMap, setLocationMap]);
@@ -110,7 +110,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
     }, [data, locationMap])
 
     return (
-        <div className="card flex-2 px-4 py-3 m-3 relative">
+        <div className="card flex-2 px-4 py-3 m-3 relative min-h-53">
             <h2 className="font-semibold">
                 Location
             </h2>
@@ -142,7 +142,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
                             </div>
                         ) : (
                             <div className="flex-1 rounded h-36 mx-1 my-1 grid place-items-center" title={`No locations found`}>
-                                <div className="text-[var(--text-muted3)] pb-2">No locations found</div>
+                                <div className="text-[var(--text-muted3)] pb-6">No locations found</div>
                             </div>
                         )}
                     </div>

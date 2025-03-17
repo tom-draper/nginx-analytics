@@ -11,7 +11,7 @@ import { Version } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseNginxLogs } from "@/lib/parse";
-import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -29,7 +29,7 @@ import NetworkBackground from "./network-background";
 import FileUpload from "./file-upload";
 
 
-export default function Dashboard({ fileUpload }: { fileUpload: boolean }) {
+export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, demo: boolean }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [logs, setLogs] = useState<NginxLog[]>([]);
     const [filteredData, setFilteredData] = useState<NginxLog[]>([]);
@@ -85,6 +85,16 @@ export default function Dashboard({ fileUpload }: { fileUpload: boolean }) {
     }
 
     useEffect(() => {
+        if (fileUpload) {
+            return;
+        }
+
+        if (demo) {
+            const demoLogs = generateNginxLogs({format: 'extended', count: 120000, startDate: new Date('2020-01-01')});
+            setAccessLogs(demoLogs)
+            return;
+        }
+        
         const fetchLogs = async () => {
             try {
                 const res = await fetch(`/api/logs?type=access&position=${position}`);
@@ -104,12 +114,10 @@ export default function Dashboard({ fileUpload }: { fileUpload: boolean }) {
         };
 
         let position: number = 0;
-        if (!fileUpload) {
-            fetchLogs();
-            // setAccessLogs(generateNginxLogs({format: 'extended', count: 100000, startDate: new Date('2024-11-10T00:00:00Z'), endDate: new Date()}))
-            const interval = setInterval(fetchLogs, 30000); // Polling every 30s
-            return () => clearInterval(interval);
-        }
+        fetchLogs();
+        // setAccessLogs(generateNginxLogs({format: 'extended', count: 100000, startDate: new Date('2024-11-10T00:00:00Z'), endDate: new Date()}))
+        const interval = setInterval(fetchLogs, 30000); // Polling every 30s
+        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
@@ -159,7 +167,7 @@ export default function Dashboard({ fileUpload }: { fileUpload: boolean }) {
             <div className="relative w-full h-screen bg-[var(--background)]">
                 <NetworkBackground />
                 <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                    <FileUpload setAccessLogs={setAccessLogs}/>
+                    <FileUpload setAccessLogs={setAccessLogs} />
                 </div>
             </div>
         )
@@ -167,7 +175,7 @@ export default function Dashboard({ fileUpload }: { fileUpload: boolean }) {
 
     return (
         <div className="">
-            <main className="sm:p-12 pt-7">
+            <main className="sm:p-12 !pt-7">
                 <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => { exportCSV(logs) }} />
 
                 <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} />
@@ -203,7 +211,7 @@ export default function Dashboard({ fileUpload }: { fileUpload: boolean }) {
                         <Activity data={filteredData} period={currentPeriod} />
 
                         <div className="flex max-xl:flex-col">
-                            <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} fileUpload={fileUpload} />
+                            <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload || demo} />
                             <div className="xl:w-[27em]">
                                 <Device data={filteredData} />
                             </div>
@@ -220,7 +228,7 @@ export default function Dashboard({ fileUpload }: { fileUpload: boolean }) {
                             </div>
                         </div>
 
-                        <Errors fileUpload={fileUpload} />
+                        <Errors noFetch={fileUpload || demo} />
                     </div>
                 </div>
             </main>

@@ -9,7 +9,10 @@ export function Navigation({ filterPeriod, setFilterPeriod, setShowSettings }: {
         <nav className="mb-1">
             <div className="mx-3 flex flex-end justify-end">
                 <div className="text-sm grid place-items-center text-[var(--text-muted3)] px-2 font-semibold">
-                    <a href="" className="hover:text-[var(--highlight)]">Donate</a>
+                    <a
+                        target="_blank"
+                        href="https://www.buymeacoffee.com/tomdraper"
+                        className="hover:text-[var(--highlight)]">Donate</a>
                 </div>
                 <div className="grid place-items-center px-2 pr-4">
                     <button className="cursor-pointer" onClick={showSettings}>

@@ -5,11 +5,15 @@ import { parseNginxErrors } from "../parse";
 import { NginxError } from "../types";
 
 
-export default function Errors({ fileUpload }: { fileUpload: boolean }) {
+export default function Errors({ noFetch }: { noFetch: boolean }) {
     const [errorLogs, setErrorLogs] = useState<string[]>([]);
     const [errors, setErrors] = useState<NginxError[]>([]);
 
     useEffect(() => {
+        if (noFetch) {
+            return;
+        }
+
         const fetchErrors = async () => {
             try {
                 const res = await fetch(`/api/logs?type=error&position=${position}`);
@@ -33,12 +37,9 @@ export default function Errors({ fileUpload }: { fileUpload: boolean }) {
         };
 
         let position = 0;
-        let interval: NodeJS.Timeout;
-        if (!fileUpload) {
-            fetchErrors();
-            interval = setInterval(fetchErrors, 30000); // Polling every 30s
-            return () => clearInterval(interval);
-        }
+        fetchErrors();
+        const interval = setInterval(fetchErrors, 30000); // Polling every 30s
+        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
