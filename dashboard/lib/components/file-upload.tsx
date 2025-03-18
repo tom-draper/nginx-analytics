@@ -131,19 +131,20 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 			// Process each file sequentially
 			for (let i = 0; i < files.length; i++) {
 				setCurrentFileIndex(i);
-				const fileProgress = (i / files.length) * 100;
-				setUploadProgress(fileProgress);
+				// const fileProgress = (i / files.length) * 100;
+				// setUploadProgress(fileProgress);
 
 				// Process the current file
 				const logs = await processFile(files[i]);
 				if (files[i].name.includes('error')) {
-					errorLogs = [...errorLogs, ...logs];
+					errorLogs = errorLogs.concat(logs);
 				} else {
-					accessLogs = [...accessLogs, ...logs];
+					accessLogs = accessLogs.concat(logs);
 				}
 
 				// Update progress
-				setUploadProgress(((i + 1) / files.length) * 100);
+				const fileProgress = ((i + 1) / files.length) * 100;
+				setUploadProgress(fileProgress);
 			}
 
 			// Update the state with all processed content
@@ -152,12 +153,11 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 			// Also update the parent component
 			setAccessLogs(accessLogs);
 			setErrorLogs(errorLogs);
-
-			setTimeout(() => {
-				setIsUploading(false);
-				setUploadProgress(0);
-				setIsProcessed(true);
-			}, 500);
+			// setTimeout(() => {
+			// 	setIsUploading(false);
+			// 	setUploadProgress(0);
+			// 	setIsProcessed(true);
+			// }, 500);
 		} catch (error) {
 			console.error('Processing failed:', error);
 			setIsUploading(false);
@@ -172,7 +172,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 	};
 
 	const totalSize = files.reduce((total, file) => total + file.size, 0);
-	const formattedTotalSize = (totalSize / 1024).toFixed(2);
+	const formattedTotalSize = (totalSize / 1024).toFixed(1);
 
 	return (
 		<div className="flex flex-col items-center justify-center p-4 pb-[10vh] w-full">
@@ -248,8 +248,9 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 
 					{/* File List */}
 					{files.length > 0 && !isProcessed && !isUploading && (
-						<div className="mb-6 max-h-48 overflow-y-auto">
+						<>
 							<h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Selected Files:</h3>
+						<div className="mb-6 max-h-42 overflow-y-auto">
 							<ul className="space-y-2">
 								{files.map((file, index) => (
 									<li key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded">
@@ -264,7 +265,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 												e.stopPropagation();
 												removeFile(index);
 											}}
-											className="text-[var(--error)] opacity-60 hover:text-red-600 text-xs cursor-pointer"
+											className="text-[var(--error)] opacity-80 hover:opacity-50 text-xs cursor-pointer"
 										>
 											<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-4">
 												<path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -274,6 +275,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 								))}
 							</ul>
 						</div>
+						</>
 					)}
 
 					{files.length > 0 && !isUploading && !isProcessed && (

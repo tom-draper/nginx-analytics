@@ -185,6 +185,25 @@ body {
 }
 
 
+/* styles/globals.css or inside a <style> tag */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a; /* Dark background */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #444; /* Darker scrollbar */
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #666; /* Slightly lighter on hover */
+}
+
 
 .level-none {
   background: oklch(0.967 0.003 264.542);

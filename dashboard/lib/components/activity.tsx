@@ -240,7 +240,26 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
     useEffect(() => {
         const points: { [id: string]: { requests: number; users: Set<string> } } = {};
 
+        const start = periodStart(period);
         const getTimeId = getTimeIdGetter(period, data);
+        const stepSize = getStepSize(period, data);
+        if (start !== null) {
+            const now = new Date();
+            for (let i = getTimeId(start); i < now.getTime(); i += stepSize) {
+                points[i] = { requests: 0, users: new Set() };
+            }
+        } else {
+            const range = getDateRange(data);
+            if (!range) {
+                return;
+            }
+            const start = getTimeId(new Date(range.start))
+            const end = getTimeId(new Date(range.end));
+            for (let i = start; i < end; i += stepSize) {
+                points[i] = { requests: 0, users: new Set() };
+            }
+        }
+
         for (const row of data) {
             if (!row.timestamp) {
                 continue;
@@ -337,6 +356,9 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                                 const requests = value + users;
                                 return ` ${requests.toLocaleString()} requests`;
                             }
+                        },
+                        afterfit: function (scale) {
+                            console.log('scale', scale);
                         }
                     }
                 }
@@ -360,6 +382,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         const start = periodStart(period);
         const getTimeId = getTimeIdGetter(period, data);
         const stepSize = getStepSize(period, data);
+        console.log(period, stepSize)
         if (start !== null) {
             const now = new Date();
             for (let i = getTimeId(start); i < now.getTime(); i += stepSize) {
@@ -376,6 +399,8 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                 points[i] = { success: 0, total: 0 }
             }
         }
+
+        console.log('length', Object.keys(points).length)
 
         for (const row of data) {
             if (!row.timestamp) {

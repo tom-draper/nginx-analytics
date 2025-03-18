@@ -1,213 +1,352 @@
 "use client";
 
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState, useMemo } from "react";
 import { parseNginxErrors } from "../parse";
 import { NginxError } from "../types";
-import React from "react";
 import { Period, periodStart } from "../period";
 
-export default function Errors({ errorLogs, setErrorLogs, period, noFetch }: { errorLogs: string[], setErrorLogs: Dispatch<SetStateAction<string[]>>, period: Period, noFetch: boolean }) {
+// Separate the sorting logic into a custom hook for better reusability
+const useSortedData = <T extends Record<string, any>>(
+    data: T[],
+    defaultSortKey: keyof T,
+    defaultDirection: "asc" | "desc" = "desc"
+) => {
+    const [sortConfig, setSortConfig] = useState<{
+        key: keyof T;
+        direction: "asc" | "desc";
+    }>({
+        key: defaultSortKey,
+        direction: defaultDirection,
+    });
+
+    const sortedData = useMemo(() => {
+        return [...data].sort((a, b) => {
+            const { key, direction } = sortConfig;
+
+            // Handle dates specially
+            if (key === "timestamp") {
+                const dateA = new Date(a[key]).getTime();
+                const dateB = new Date(b[key]).getTime();
+                return direction === "asc" ? dateA - dateB : dateB - dateA;
+            }
+
+            // Handle undefined values
+            if (a[key] === undefined) return direction === "asc" ? -1 : 1;
+            if (b[key] === undefined) return direction === "asc" ? 1 : -1;
+
+            // Standard comparison
+            if (a[key] < b[key]) return direction === "asc" ? -1 : 1;
+            if (a[key] > b[key]) return direction === "asc" ? 1 : -1;
+            return 0;
+        });
+    }, [data, sortConfig]);
+
+    const requestSort = (key: keyof T) => {
+        setSortConfig((prevConfig) => ({
+            key,
+            direction: prevConfig.key === key && prevConfig.direction === "desc" ? "asc" : "desc",
+        }));
+    };
+
+    return { sortedData, sortConfig, requestSort };
+};
+
+// Column header component for better DRY
+const SortableColumnHeader = ({
+    label,
+    fieldName,
+    currentSort,
+    onSort
+}: {
+    label: string;
+    fieldName: keyof NginxError;
+    currentSort: { key: keyof NginxError; direction: "asc" | "desc" };
+    onSort: (field: keyof NginxError) => void;
+}) => (
+    <th
+        className="py-2 text-left border-b border-[var(--border-color)] cursor-pointer"
+        onClick={() => onSort(fieldName)}
+    >
+        {label} {currentSort.key === fieldName && (currentSort.direction === "asc" ? "↑" : "↓")}
+    </th>
+);
+
+// Error row component
+const ErrorRow = ({
+    error,
+    index,
+    expandedError,
+    setExpandedError,
+    formatDate,
+    getSeverityColor
+}: {
+    error: NginxError;
+    index: number;
+    expandedError: number | null;
+    setExpandedError: (index: number | null) => void;
+    formatDate: (date: Date) => string;
+    getSeverityColor: (level: string) => string;
+}) => {
+    const isExpanded = expandedError === index;
+
+    return (
+        <>
+            <tr
+                className={`cursor-pointer hover:bg-opacity-10 border-b  border-[var(--border-color)] last:border-none ${isExpanded ? 'bg-opacity-10' : ''}`}
+                onClick={() => setExpandedError(isExpanded ? null : index)}
+            >
+                <td className="py-2 whitespace-nowrap">
+                    {formatDate(error.timestamp)}
+                </td>
+                <td className="py-2 px-4">
+                    <span className={`px-2 py-1 rounded text-xs ${getSeverityColor(error.level)}`}>
+                        {error.level}
+                    </span>
+                </td>
+                <td className="py-2">
+                    <div className="truncate max-w-2xl flex items-center">
+                        {error.message}
+                        {/* <span className="ml-2 text-[var(--text-muted)] text-xs">
+                            {isExpanded ? '▲' : '▼'}
+                        </span> */}
+                    </div>
+                </td>
+            </tr>
+            {isExpanded && (
+                <tr>
+                    <td colSpan={4} className="p-2 bg-opacity-5">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div><strong>PID:</strong> {error.pid}</div>
+                            <div><strong>TID:</strong> {error.tid}</div>
+                            <div><strong>CID:</strong> {error.cid}</div>
+                            {error.clientAddress && (
+                                <div><strong>Client:</strong> {error.clientAddress}</div>
+                            )}
+                            {error.serverAddress && (
+                                <div><strong>Server:</strong> {error.serverAddress}</div>
+                            )}
+                            {error.host && (
+                                <div><strong>Host:</strong> {error.host}</div>
+                            )}
+                            {error.request && (
+                                <div className="col-span-2">
+                                    <strong>Request:</strong> {error.request}
+                                </div>
+                            )}
+                            {error.referrer && (
+                                <div className="col-span-2">
+                                    <strong>Referrer:</strong> {error.referrer}
+                                </div>
+                            )}
+                            <div className="col-span-2">
+                                <strong>Full Message:</strong>
+                                <div className="mt-1 p-2 bg-opacity-10 rounded whitespace-pre-wrap">
+                                    {error.message}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            )}
+        </>
+    );
+};
+
+export default function Errors({
+    errorLogs,
+    setErrorLogs,
+    period,
+    noFetch
+}: {
+    errorLogs: string[];
+    setErrorLogs: Dispatch<SetStateAction<string[]>>;
+    period: Period;
+    noFetch: boolean;
+}) {
     const [errors, setErrors] = useState<NginxError[]>([]);
     const [expandedError, setExpandedError] = useState<number | null>(null);
     const [filtering, setFiltering] = useState<string>("");
-    const [sortBy, setSortBy] = useState<keyof NginxError>("timestamp");
-    const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
 
+    // Process errors on mount and when logs or period changes
     useEffect(() => {
-        if (noFetch) {
-            return;
-        }
+        const start = periodStart(period);
+        const parsedErrors = parseNginxErrors(errorLogs).filter(error =>
+            start === null || error.timestamp >= start
+        );
+        setErrors(parsedErrors);
+    }, [errorLogs, period]);
+
+    // Data fetching effect
+    useEffect(() => {
+        if (noFetch) return;
 
         let position = 0;
+        let isMounted = true;
+
         const fetchErrors = async () => {
+            if (!isMounted) return;
+
+            setIsLoading(true);
+            setFetchError(null);
+
             try {
                 const response = await fetch(`/api/logs?type=error&position=${position}`);
+
+                if (!isMounted) return;
+
                 if (!response.ok) {
-                    console.log('Failed to fetch Nginx errors from server')
-                    if (intervalId && response.status === 404) {
-                        clearInterval(intervalId);
-                    }
+                    console.log('Failed to fetch Nginx errors from server');
+                    setFetchError(`Error ${response.status}: ${response.statusText}`);
                     return;
                 }
+
                 const data = await response.json();
 
-                if (data.logs) {
-                    setErrorLogs((prevLogs) => [...prevLogs, ...data.logs]);
+                if (data.logs && data.logs.length > 0) {
+                    setErrorLogs(prevLogs => [...prevLogs, ...data.logs]);
                     position = parseInt(data.position);
                 }
             } catch (error) {
-                console.error("Error fetching system resources:", error);
+                console.error("Error fetching logs:", error);
+                setFetchError("Network error occurred while fetching logs");
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         };
 
         fetchErrors();
-        const intervalId = setInterval(fetchErrors, 30000); // Polling every 30s
-        return () => clearInterval(intervalId);
+        const intervalId = setInterval(fetchErrors, 30000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
     }, [setErrorLogs, noFetch]);
 
-    useEffect(() => {
-        const start = periodStart(period);
-        const parsedErrors = parseNginxErrors(errorLogs).filter(error => start === null || error.timestamp >= start);
-        setErrors(parsedErrors);
-    }, [errorLogs, period]);
+    // Filter errors based on search input
+    const filteredErrors = useMemo(() => {
+        if (!filtering) return errors;
+        const lowercaseFilter = filtering.toLowerCase();
+        return errors.filter(error =>
+            JSON.stringify(error).toLowerCase().includes(lowercaseFilter)
+        );
+    }, [errors, filtering]);
 
-    const handleSort = (field: keyof NginxError) => {
-        if (sortBy === field) {
-            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-        } else {
-            setSortBy(field);
-            setSortDirection("desc");
-        }
-    };
+    // Use custom sort hook
+    const { sortedData: sortedErrors, sortConfig, requestSort } = useSortedData<NginxError>(
+        filteredErrors,
+        "timestamp"
+    );
 
-    const filteredErrors = errors.filter(error => {
-        if (!filtering) return true;
-        return JSON.stringify(error).toLowerCase().includes(filtering.toLowerCase());
-    });
-
-    const sortedErrors = [...filteredErrors].sort((a, b) => {
-        if (sortBy === "timestamp") {
-            const dateA = new Date(a.timestamp).getTime();
-            const dateB = new Date(b.timestamp).getTime();
-            return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
-        }
-
-        if (a[sortBy] === undefined) {
-            return sortDirection === "asc" ? -1 : 1;
-        }
-        if (b[sortBy] === undefined) {
-            return sortDirection === "asc" ? 1 : -1;
-        }
-
-        if (a[sortBy] < b[sortBy]) {
-            return sortDirection === "asc" ? -1 : 1;
-        }
-        if (a[sortBy] > b[sortBy]) {
-            return sortDirection === "asc" ? 1 : -1;
-        }
-        return 0;
-    });
-
+    // Helper functions
     const getSeverityColor = (level: string) => {
         switch (level.toLowerCase()) {
-            case "error": return "bg-red-100 text-red-800";
-            case "warn": case "warning": return "bg-yellow-100 text-yellow-800";
-            case "info": return "bg-blue-100 text-blue-800";
+            case "error": return "bg-[var(--error)] text-[var(--card-background)]";
+            case "crit": case "critical": return "bg-[var(--error)] text-[var(--card-background)]";
+            case "alert": return "bg-[var(--warn)] text-[var(--card-background)]";
+            case "warn": case "warning": return "bg-[var(--warn)] text-[var(--card-background)]";
+            case "notice": return "bg-[var(--info)] text-[var(--card-background)]";
+            case "info": return "bg-[var(--info)] text-[var(--card-background)]";
+            case "debug": return "bg-[var(--info)] text-[var(--card-background)]";
             default: return "bg-gray-100 text-gray-800";
         }
     };
 
     const formatDate = (date: Date) => {
-        return new Date(date).toLocaleString();
+        return new Intl.DateTimeFormat('default', {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        }).format(new Date(date));
     };
 
-    if (errors.length === 0) {
+    if (errors.length === 0 && !isLoading && !fetchError) {
         return null;
     }
 
     return (
-        <div className="card  px-4 py-3 m-3 mt-6 relative">
+        <div className="card px-4 py-3 m-3 mt-6 relative">
             <h2 className="font-semibold mb-2">
                 Errors
             </h2>
+
+            {/* Status indicators */}
+            {isLoading && (
+                <div className="text-sm text-blue-500 absolute top-3 right-52">
+                    <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mr-2 animate-pulse"></span>
+                    Fetching logs...
+                </div>
+            )}
+
+            {fetchError && (
+                <div className="text-sm text-red-500 absolute top-3 right-52">
+                    <span className="inline-block h-2 w-2 rounded-full bg-red-500 mr-2"></span>
+                    {fetchError}
+                </div>
+            )}
+
+            {/* Filter input */}
             {errors.length > 1 && (
-                <div className="absolute top-3 right-3 flex justify-between items-center mb-4">
+                <div className="absolute top-3 right-3 flex justify-between items-center">
                     <div className="flex space-x-2">
                         <input
                             type="text"
                             placeholder={`Filter ${errors.length} errors...`}
-                            className="px-3 py-1 border border-[var(--border-color)] rounded text-sm !text-[var(--text-muted)] opacity-100"
+                            className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-text-[var(--text-muted)] opacity-100 bg-transparent outline-none"
                             value={filtering}
                             onChange={(e) => setFiltering(e.target.value)}
+                            aria-label="Filter errors"
                         />
                     </div>
                 </div>
             )}
 
-            {filteredErrors.length > 0 ? (
+            {/* Error table */}
+            {errors.length > 0 ? (
                 <div className="overflow-auto text-sm">
                     <table className="w-full border-collapse">
                         <thead>
-                            <tr className="">
-                                <th className="py-2 text-left border-b border-[var(--border-color)] cursor-pointer" onClick={() => handleSort("timestamp")}>
-                                    Timestamp {sortBy === "timestamp" && (sortDirection === "asc" ? "↑" : "↓")}
+                            <tr>
+                                <th
+                                    className="py-2 text-left border-b border-[var(--border-color)] cursor-pointer"
+                                    onClick={() => requestSort("timestamp")}
+                                >
+                                    Timestamp {sortConfig.key === "timestamp" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                                 </th>
-                                <th className="p-2 text-left border-b border-[var(--border-color)] cursor-pointer" onClick={() => handleSort("level")}>
-                                    Level {sortBy === "level" && (sortDirection === "asc" ? "↑" : "↓")}
+                                <th
+                                    className="py-2 px-4 text-left border-b border-[var(--border-color)] cursor-pointer"
+                                    onClick={() => requestSort("level")}
+                                >
+                                    Level {sortConfig.key === "level" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                                 </th>
                                 <th className="py-2 text-left border-b border-[var(--border-color)]">Message</th>
                             </tr>
                         </thead>
                         <tbody>
                             {sortedErrors.map((error, index) => (
-                                <React.Fragment key={index}>
-                                    <tr className="cursor-pointer" onClick={() => setExpandedError(expandedError === index ? null : index)}>
-                                        <td className="py-2 border-b border-[var(--border-color)] whitespace-nowrap">{formatDate(error.timestamp)}</td>
-                                        <td className="p-2 border-b border-[var(--border-color)]">
-                                            <span className={`px-2 py-1 rounded text-xs ${getSeverityColor(error.level)}`}>
-                                                {error.level}
-                                            </span>
-                                        </td>
-                                        <td className="py-2 border-b border-[var(--border-color)]">
-                                            <div className="truncate max-w-2xl">{error.message}</div>
-                                        </td>
-                                    </tr>
-                                    {expandedError === index && (
-                                        <tr>
-                                            <td colSpan={4} className="p-2 border-b border-[var(--border-color)]">
-                                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <div>
-                                                        <strong>PID:</strong> {error.pid}
-                                                    </div>
-                                                    <div>
-                                                        <strong>TID:</strong> {error.tid}
-                                                    </div>
-                                                    <div>
-                                                        <strong>CID:</strong> {error.cid}
-                                                    </div>
-                                                    {error.clientAddress && (
-                                                        <div>
-                                                            <strong>Client:</strong> {error.clientAddress}
-                                                        </div>
-                                                    )}
-                                                    {error.serverAddress && (
-                                                        <div>
-                                                            <strong>Server:</strong> {error.serverAddress}
-                                                        </div>
-                                                    )}
-                                                    {error.host && (
-                                                        <div>
-                                                            <strong>Host:</strong> {error.host}
-                                                        </div>
-                                                    )}
-                                                    {error.request && (
-                                                        <div className="col-span-2">
-                                                            <strong>Request:</strong> {error.request}
-                                                        </div>
-                                                    )}
-                                                    {error.referrer && (
-                                                        <div className="col-span-2">
-                                                            <strong>Referrer:</strong> {error.referrer}
-                                                        </div>
-                                                    )}
-                                                    <div className="col-span-2">
-                                                        <strong>Full Message:</strong>
-                                                        <div className="mt-1 p-2 rounded whitespace-pre-wrap">
-                                                            {error.message}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </React.Fragment>
+                                <ErrorRow
+                                    key={`${error.timestamp}-${index}`}
+                                    error={error}
+                                    index={index}
+                                    expandedError={expandedError}
+                                    setExpandedError={setExpandedError}
+                                    formatDate={formatDate}
+                                    getSeverityColor={getSeverityColor}
+                                />
                             ))}
                         </tbody>
                     </table>
                 </div>
             ) : (
-                <div className="text-center py-4 text-gray-500">
-                    No errors match your filter criteria
+                <div className="text-center py-4 text-[var(--text-muted)]">
+                    {filtering ? "No errors match your filter criteria" : "No errors found in the selected time period"}
                 </div>
             )}
         </div>
