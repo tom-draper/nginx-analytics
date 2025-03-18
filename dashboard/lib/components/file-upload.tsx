@@ -148,7 +148,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 
 			// Update the state with all processed content
 			setProcessedContent(accessLogs);
-			
+
 			// Also update the parent component
 			setAccessLogs(accessLogs);
 			setErrorLogs(errorLogs);
@@ -259,17 +259,16 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 											</svg>
 											<span className="text-xs truncate text-gray-700 dark:text-gray-300">{file.name}</span>
 										</div>
-										<button 
+										<button
 											onClick={(e) => {
 												e.stopPropagation();
 												removeFile(index);
 											}}
-											className="text-[var(--error)] hover:text-red-700 text-xs pointer-cursor"
+											className="text-[var(--error)] opacity-60 hover:text-red-600 text-xs cursor-pointer"
 										>
-											<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="size-4">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-</svg>
-
+											<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-4">
+												<path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+											</svg>
 										</button>
 									</li>
 								))}
@@ -308,7 +307,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 							)}
 						</div>
 					)}
-					
+
 					{isProcessed && processedContent.length > 0 && (
 						<div className="mt-6">
 							<h2 className="text-lg font-medium text-gray-800 dark:text-white mb-2">
@@ -324,7 +323,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 									)}
 								</pre>
 							</div>
-							
+
 							<div className="mt-4">
 								<button
 									onClick={() => {
@@ -340,7 +339,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 							</div>
 						</div>
 					)}
-					
+
 					{isProcessed && processedContent.length === 0 && (
 						<div className="mt-6 text-center">
 							<p className="text-red-500">No content found in the files. Please try other files.</p>

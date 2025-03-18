@@ -222,7 +222,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                         <div className="w-inherit flex max-xl:flex-col">
                             <div className="max-xl:!w-full flex-1" style={{ width: 'calc(100vw - 48px - 48px - 416px - 28em)' }}>
                                 <UsageTime data={filteredData} />
-                                <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} noFetch={fileUpload || demo} />
+                                <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload || demo} />
                             </div>
                             <div>
                                 <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />

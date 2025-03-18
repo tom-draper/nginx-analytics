@@ -4,8 +4,9 @@ import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { parseNginxErrors } from "../parse";
 import { NginxError } from "../types";
 import React from "react";
+import { Period, periodStart } from "../period";
 
-export default function Errors({ errorLogs, setErrorLogs, noFetch }: { errorLogs: string[], setErrorLogs: Dispatch<SetStateAction<string[]>>, noFetch: boolean }) {
+export default function Errors({ errorLogs, setErrorLogs, period, noFetch }: { errorLogs: string[], setErrorLogs: Dispatch<SetStateAction<string[]>>, period: Period, noFetch: boolean }) {
     const [errors, setErrors] = useState<NginxError[]>([]);
     const [expandedError, setExpandedError] = useState<number | null>(null);
     const [filtering, setFiltering] = useState<string>("");
@@ -45,11 +46,10 @@ export default function Errors({ errorLogs, setErrorLogs, noFetch }: { errorLogs
     }, [setErrorLogs, noFetch]);
 
     useEffect(() => {
-        const parsedErrors = parseNginxErrors(errorLogs);
-        if (parsedErrors.length) {
-            setErrors(parsedErrors);
-        }
-    }, [errorLogs]);
+        const start = periodStart(period);
+        const parsedErrors = parseNginxErrors(errorLogs).filter(error => start === null || error.timestamp >= start);
+        setErrors(parsedErrors);
+    }, [errorLogs, period]);
 
     const handleSort = (field: keyof NginxError) => {
         if (sortBy === field) {
@@ -107,57 +107,50 @@ export default function Errors({ errorLogs, setErrorLogs, noFetch }: { errorLogs
 
     return (
         <div className="card  px-4 py-3 m-3 mt-6 relative">
-            <h2 className="font-semibold mb-4">
-                Errors ({filteredErrors.length})
+            <h2 className="font-semibold mb-2">
+                Errors
             </h2>
-            <div className="absolute top-3 right-3 flex justify-between items-center mb-4">
-                <div className="flex space-x-2">
-                    <input
-                        type="text"
-                        placeholder="Filter errors..."
-                        className="px-2 py-1 border border-[var(--border-color)] rounded text-sm"
-                        value={filtering}
-                        onChange={(e) => setFiltering(e.target.value)}
-                    />
+            {errors.length > 1 && (
+                <div className="absolute top-3 right-3 flex justify-between items-center mb-4">
+                    <div className="flex space-x-2">
+                        <input
+                            type="text"
+                            placeholder={`Filter ${errors.length} errors...`}
+                            className="px-3 py-1 border border-[var(--border-color)] rounded text-sm !text-[var(--text-muted)] opacity-100"
+                            value={filtering}
+                            onChange={(e) => setFiltering(e.target.value)}
+                        />
+                    </div>
                 </div>
-            </div>
+            )}
 
             {filteredErrors.length > 0 ? (
-                <div className="overflow-auto max-h-96 text-sm">
+                <div className="overflow-auto text-sm">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="">
-                                <th className="p-2 text-left border-b border-[var(--border-color)] cursor-pointer" onClick={() => handleSort("timestamp")}>
+                                <th className="py-2 text-left border-b border-[var(--border-color)] cursor-pointer" onClick={() => handleSort("timestamp")}>
                                     Timestamp {sortBy === "timestamp" && (sortDirection === "asc" ? "↑" : "↓")}
                                 </th>
                                 <th className="p-2 text-left border-b border-[var(--border-color)] cursor-pointer" onClick={() => handleSort("level")}>
                                     Level {sortBy === "level" && (sortDirection === "asc" ? "↑" : "↓")}
                                 </th>
-                                <th className="p-2 text-left border-b border-[var(--border-color)]">Message</th>
-                                {/* <th className="p-2 text-left border-b border-[var(--border-color)]">Actions</th> */}
+                                <th className="py-2 text-left border-b border-[var(--border-color)]">Message</th>
                             </tr>
                         </thead>
                         <tbody>
                             {sortedErrors.map((error, index) => (
                                 <React.Fragment key={index}>
                                     <tr className="cursor-pointer" onClick={() => setExpandedError(expandedError === index ? null : index)}>
-                                        <td className="p-2 border-b border-[var(--border-color)] whitespace-nowrap">{formatDate(error.timestamp)}</td>
+                                        <td className="py-2 border-b border-[var(--border-color)] whitespace-nowrap">{formatDate(error.timestamp)}</td>
                                         <td className="p-2 border-b border-[var(--border-color)]">
                                             <span className={`px-2 py-1 rounded text-xs ${getSeverityColor(error.level)}`}>
                                                 {error.level}
                                             </span>
                                         </td>
-                                        <td className="p-2 border-b border-[var(--border-color)]">
+                                        <td className="py-2 border-b border-[var(--border-color)]">
                                             <div className="truncate max-w-2xl">{error.message}</div>
                                         </td>
-                                        {/* <td className="p-2 border-b border-[var(--border-color)] whitespace-nowrap">
-                                            <button
-                                                className="text-[var(--info)] hover:text-blue-800"
-                                                onClick={() => setExpandedError(expandedError === index ? null : index)}
-                                            >
-                                                {expandedError === index ? "Hide Details" : "Show Details"}
-                                            </button>
-                                        </td> */}
                                     </tr>
                                     {expandedError === index && (
                                         <tr>
