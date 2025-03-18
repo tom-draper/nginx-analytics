@@ -71,9 +71,20 @@ export default function Errors({ errorLogs, setErrorLogs, noFetch }: { errorLogs
             const dateB = new Date(b.timestamp).getTime();
             return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
         }
-        
-        if (a[sortBy] < b[sortBy]) return sortDirection === "asc" ? -1 : 1;
-        if (a[sortBy] > b[sortBy]) return sortDirection === "asc" ? 1 : -1;
+
+        if (a[sortBy] === undefined) {
+            return sortDirection === "asc" ? -1 : 1;
+        }
+        if (b[sortBy] === undefined) {
+            return sortDirection === "asc" ? 1 : -1;
+        }
+
+        if (a[sortBy] < b[sortBy]) {
+            return sortDirection === "asc" ? -1 : 1;
+        }
+        if (a[sortBy] > b[sortBy]) {
+            return sortDirection === "asc" ? 1 : -1;
+        }
         return 0;
     });
 

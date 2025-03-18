@@ -184,7 +184,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 						</div>
 						<h1 className="text-xl font-bold text-gray-800 dark:text-white">Nginx Analytics</h1>
 						<p className="mt-2 text-gray-500 dark:text-gray-400 text-center">
-							Upload your Nginx log files (.log or .gz)
+							Upload your Nginx log files
 						</p>
 					</div>
 
@@ -264,9 +264,12 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 												e.stopPropagation();
 												removeFile(index);
 											}}
-											className="text-red-500 hover:text-red-700 text-xs"
+											className="text-[var(--error)] hover:text-red-700 text-xs pointer-cursor"
 										>
-											Remove
+											<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="size-4">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+</svg>
+
 										</button>
 									</li>
 								))}
