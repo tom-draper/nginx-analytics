@@ -49,34 +49,76 @@ function getMinuteId(date: Date) {
     return new Date(date).setSeconds(0, 0); // Changed to use setSeconds instead
 }
 
-const getStepSize = (period: Period) => {
+const getStepSize = (period: Period, data: NginxLog[]) => {
     switch (period) {
         case '24 hours':
             return 300000; // 5 minutes
         case 'week':
             return 3600000; // hour
+        case 'all time':
+            const range = getDateRange(data);
+            if (!range) {
+                return 8.64e+7; // day
+            }
+
+            const diff = range.end - range.start;
+            if (diff <= 86400000) {
+                return 300000; // 5 minutes
+            } else if (diff <= 604800000) {
+                return 3600000; // hour
+            } else {
+                return 8.64e+7; // day
+            }
         default:
             return 8.64e+7; // day
     }
 }
 
-const getTimeIdGetter = (period: Period) => {
+const getTimeIdGetter = (period: Period, data: NginxLog[]) => {
     switch (period) {
         case '24 hours':
             return get5MinuteId
         case 'week':
             return getHourId
+        case 'all time':
+            const range = getDateRange(data);
+            if (!range) {
+                return getDayId;
+            }
+
+            const diff = range.end - range.start;
+            if (diff <= 86400000) {
+                return get5MinuteId;
+            } else if (diff <= 604800000) {
+                return getHourId;
+            } else {
+                return getDayId;
+            }
         default:
             return getDayId
     }
 }
 
-const getTimeUnit = (period: Period) => {
+const getTimeUnit = (period: Period, data: NginxLog[]) => {
     switch (period) {
         case '24 hours':
             return 'minute'
         case 'week':
             return 'hour'
+        case 'all time':
+            const range = getDateRange(data);
+            if (!range) {
+                return 'day';
+            }
+
+            const diff = range.end - range.start;
+            if (diff <= 86400000) {
+                return 'minute';
+            } else if (diff <= 604800000) {
+                return 'hour';
+            } else {
+                return 'day';
+            }
         default:
             return 'day'
     }
@@ -94,6 +136,29 @@ const getSuccessRateLevel = (successRate: number | null) => {
     return Math.ceil((successRate) * 10)
 }
 
+const getDateRange = (data: NginxLog[]) => {
+    if (!data || data.length === 0) {
+        return null; // Handle empty or null input
+    }
+
+    const range = { start: Infinity, end: -Infinity }
+
+    for (const row of data) {
+        if (!row.timestamp) {
+            continue
+        }
+        const time = row.timestamp.getTime()
+        if (time < range.start) {
+            range.start = time;
+        }
+        if (time > range.end) {
+            range.end = time
+        }
+    }
+
+    return range;
+}
+
 export default function Activity({ data, period }: { data: NginxLog[], period: Period }) {
     const [plotData, setPlotData] = useState<ChartData<"bar"> | null>(null)
     const [plotOptions, setPlotOptions] = useState<object | null>(null)
@@ -104,7 +169,9 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
 
     // Function to sample success rates based on container width
     const calculateDisplayRates = (rates: { timestamp: number, value: number | null }[], width: number) => {
-        if (width === 0 || rates.length === 0) return rates;
+        if (width === 0 || rates.length === 0) {
+            return rates;
+        }
 
         // Calculate how many divs we can fit based on container width
         // Assume each div needs minimum 3px (2px + 0.5px margin on each side)
@@ -173,7 +240,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
     useEffect(() => {
         const points: { [id: string]: { requests: number; users: Set<string> } } = {};
 
-        const getTimeId = getTimeIdGetter(period);
+        const getTimeId = getTimeIdGetter(period, data);
         for (const row of data) {
             if (!row.timestamp) {
                 continue;
@@ -223,7 +290,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                     type: 'time',
                     display: false,
                     time: {
-                        unit: getTimeUnit(period),
+                        unit: getTimeUnit(period, data),
                     },
                     title: {
                         display: false,
@@ -286,37 +353,15 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         return `Success rate: ${((successRate.value === 0 || successRate.value === 1) ? (successRate.value * 100).toFixed(0) : (successRate.value * 100).toFixed(1))}%\n${time}`;
     }
 
-    const getDateRange = (data: NginxLog[]) => {
-        if (!data || data.length === 0) {
-            return null; // Handle empty or null input
-        }
-
-        const range = { start: Infinity, end: -Infinity }
-
-        for (const row of data) {
-            if (!row.timestamp) {
-                continue
-            }
-            const time = row.timestamp.getTime()
-            if (time < range.start) {
-                range.start = time;
-            }
-            if (time > range.end) {
-                range.end = time
-            }
-        }
-
-        return range;
-    }
 
     useEffect(() => {
         const points: { [id: string]: { success: number, total: number } } = {}
 
         const start = periodStart(period);
-        const getTimeId = getTimeIdGetter(period);
+        const getTimeId = getTimeIdGetter(period, data);
+        const stepSize = getStepSize(period, data);
         if (start !== null) {
             const now = new Date();
-            const stepSize = getStepSize(period);
             for (let i = getTimeId(start); i < now.getTime(); i += stepSize) {
                 points[i] = { success: 0, total: 0 }
             }
@@ -327,7 +372,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             }
             const start = getTimeId(new Date(range.start))
             const end = getTimeId(new Date(range.end));
-            const stepSize = getStepSize(period);
             for (let i = start; i < end; i += stepSize) {
                 points[i] = { success: 0, total: 0 }
             }

@@ -58,11 +58,11 @@ Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
 #### Locations
 
-IP-location inference can be quickly set up, utilising MaxMind's free GeoLite database. Simply drop the `.mmdb` file in the root folder of the dashboard or agent deployment.
+IP-location inference can be quickly set up, utilising MaxMind's free GeoLite2 database. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
 
 #### System Monitoring
 
-The dashboard has live system monitoring capabilities that are disabled by default.
+The dashboard has live system monitoring capabilities that are disabled by default. Enable them by setting `NGINX_ANALYTICS_SYSTEM_MONITORING=true` in the environment variables of the agent or dashboard deployment.
 
 #### Authentication
 

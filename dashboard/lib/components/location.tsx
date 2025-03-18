@@ -141,8 +141,8 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
                                 <div className="spinner"></div>
                             </div>
                         ) : (
-                            <div className="flex-1 rounded h-36 mx-1 my-1 grid place-items-center" title={`No locations found`}>
-                                <div className="text-[var(--text-muted3)] pb-6">No locations found</div>
+                            <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center" title={`No locations found`}>
+                                <div className="text-[var(--text-muted3)] pb-2">No locations found</div>
                             </div>
                         )}
                     </div>

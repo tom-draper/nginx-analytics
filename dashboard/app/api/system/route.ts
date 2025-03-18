@@ -8,6 +8,14 @@ import { SystemInfo } from '@/lib/types';
 const execAsync = promisify(exec);
 
 export async function GET() {
+    const allow = process.env.NGINX_ANALYTICS_MONITOR_SYSTEM === 'true';
+    if (!allow) {
+        return NextResponse.json(
+            { error: 'System monitoring is disabled' },
+            { status: 403 }
+        );
+    }
+
     try {
         const systemInfo = await getSystemInfo();
         return NextResponse.json(systemInfo);

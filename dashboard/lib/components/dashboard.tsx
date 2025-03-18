@@ -34,6 +34,8 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
     const [logs, setLogs] = useState<NginxLog[]>([]);
     const [filteredData, setFilteredData] = useState<NginxLog[]>([]);
 
+    const [errorLogs, setErrorLogs] = useState<string[]>([]);
+
     const [locationMap, setLocationMap] = useState<Map<string, LocationType>>(new Map());
 
     const [settings, setSettings] = useState<SettingsType>(newSettings());
@@ -44,8 +46,6 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
     const [filter, setFilter] = useState<Filter>(newFilter());
 
     const currentPeriod = useMemo(() => filter.period, [filter.period]);
-
-    const monitorSystemResources = process.env.NEXT_PUBLIC_NGINX_ANALYTICS_MONITOR_SYSTEM_RESOURCES === 'true';
 
     const setPeriod = (period: Period) => {
         setFilter((previous) => ({
@@ -118,7 +118,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         // setAccessLogs(generateNginxLogs({format: 'extended', count: 100000, startDate: new Date('2024-11-10T00:00:00Z'), endDate: new Date()}))
         const interval = setInterval(fetchLogs, 30000); // Polling every 30s
         return () => clearInterval(interval);
-    }, []);
+    }, [demo, fileUpload]);
 
     useEffect(() => {
         const logs = parseNginxLogs(accessLogs)
@@ -167,7 +167,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
             <div className="relative w-full h-screen bg-[var(--background)]">
                 <NetworkBackground />
                 <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                    <FileUpload setAccessLogs={setAccessLogs} />
+                    <FileUpload setAccessLogs={setAccessLogs} setErrorLogs={setErrorLogs} />
                 </div>
             </div>
         )
@@ -217,18 +217,18 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                             </div>
                         </div>
 
-                        {monitorSystemResources && <SystemResources />}
+                        <SystemResources />
 
                         <div className="w-inherit flex max-xl:flex-col">
                             <div className="max-xl:!w-full flex-1" style={{ width: 'calc(100vw - 48px - 48px - 416px - 28em)' }}>
                                 <UsageTime data={filteredData} />
+                                <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} noFetch={fileUpload || demo} />
                             </div>
                             <div>
                                 <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                             </div>
                         </div>
 
-                        <Errors noFetch={fileUpload || demo} />
                     </div>
                 </div>
             </main>

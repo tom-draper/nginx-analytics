@@ -3,6 +3,14 @@ import { LogSizes } from '@/lib/types';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
+    const allow = process.env.NGINX_ANALYTICS_MONITOR_SYSTEM === 'true';
+    if (!allow) {
+        return NextResponse.json(
+            { error: 'System monitoring is disabled' },
+            { status: 403 }
+        );
+    }
+
     try {
         const path = process.env.NGINX_ACCESS_PATH || '/var/logs/nginx/access.log';
 

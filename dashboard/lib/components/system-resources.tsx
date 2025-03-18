@@ -26,12 +26,17 @@ export function SystemResources() {
         const fetchData = async () => {
             setLoadingResources(true);
             try {
-                const res = await fetch(`/api/system`);
-                if (!res.ok) {
+                const response = await fetch(`/api/system`);
+                if (!response.ok) {
                     setLoadingResources(false);
-                    throw new Error("Failed to fetch system resources");
+                    if (intervalId && response.status === 403) {
+                        clearInterval(intervalId);
+                        return;
+                    } else {
+                        throw new Error("Failed to fetch system resources");
+                    }
                 }
-                const data = await res.json();
+                const data = await response.json();
                 setResources(data);
 
                 // Update history data with new readings
@@ -71,7 +76,12 @@ export function SystemResources() {
                 const response = await fetch(`/api/logs/size`);
                 if (!response.ok) {
                     setLoadingLogSizes(false);
-                    throw new Error("Failed to fetch log sizes");
+                    if (intervalId && response.status === 403) {
+                        clearInterval(intervalId);
+                        return;
+                    } else {
+                        throw new Error("Failed to fetch log sizes");
+                    }
                 }
                 const data = await response.json();
 
@@ -88,6 +98,10 @@ export function SystemResources() {
 
         return () => clearInterval(intervalId);
     }, []);
+
+    if (!resources) {
+        return null;
+    }
 
     return (
         <>

@@ -18,7 +18,7 @@ export default function NetworkBackground() {
             .attr("height", height);
 
         // Generate random nodes
-        const nodeCount = 30;
+        const nodeCount = 40;
         interface CustomNode extends d3.SimulationNodeDatum {
             x: number;
             y: number;

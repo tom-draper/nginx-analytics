@@ -93,7 +93,7 @@ export default function UsageTime({ data }: { data: NginxLog[] }) {
     }];
 
     return (
-        <div className="card px-4 py-3 m-3" style={{ height: 'calc(100% - 1.5rem)' }}>
+        <div className="card px-4 py-3 m-3">
             <h2 className="font-semibold">Usage Time</h2>
             <div className="relative w-full pt-2 h-[600px]">
                 {plotData && <PolarArea
