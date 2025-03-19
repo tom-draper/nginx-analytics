@@ -1,10 +1,10 @@
+import { systemMonitoringEnabled } from '@/lib/environment';
 import { getLogFileSizes, getLogSizeSummary } from '@/lib/file-utils'; // Adjust the import path as needed
 import { LogSizes } from '@/lib/types';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-    const allow = process.env.NGINX_ANALYTICS_MONITOR_SYSTEM === 'true';
-    if (!allow) {
+    if (!systemMonitoringEnabled) {
         return NextResponse.json(
             { error: 'System monitoring is disabled' },
             { status: 403 }
@@ -28,7 +28,13 @@ export async function GET() {
 }
 
 const getLogPath = () => {
-    const path = process.env.NGINX_ACCESS_DIR || process.env.NGINX_ERROR_DIR || getParentDir(process.env.NGINX_ACCESS_PATH) || getParentDir(process.env.NGINX_ERROR_PATH) || '/var/logs/nginx';
+    const path = (
+        process.env.NGINX_ACCESS_DIR || 
+        process.env.NGINX_ERROR_DIR || 
+        getParentDir(process.env.NGINX_ACCESS_PATH) || 
+        getParentDir(process.env.NGINX_ERROR_PATH) || 
+        '/var/logs/nginx'
+    );
     return path;
 }
 

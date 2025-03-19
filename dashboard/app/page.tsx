@@ -1,14 +1,10 @@
 import PasswordForm from '@/lib/components/password-form';
 import { redirect } from 'next/navigation';
 import NetworkBackground from '@/lib/components/network-background';
-import { getPassword, usingFileUpload } from '@/lib/environment';
+import { password, usingFileUpload } from '@/lib/environment';
 
 export default function Home() {
-  // Check if the password is set at the server level
-  const password = getPassword();
-
-  if (!password || usingFileUpload()) {
-    // Redirect to /dashboard if the password is not set
+  if (!password || usingFileUpload) {
     redirect('/dashboard');
   }
 

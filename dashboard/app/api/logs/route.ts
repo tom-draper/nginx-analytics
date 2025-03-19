@@ -3,22 +3,11 @@ import fs from "fs";
 import path from "path";
 import zlib from "zlib";
 import { promisify } from "util";
-import { defaultNginxAccessDir, defaultNginxErrorDir, defaultNginxAccessPath, defaultNginxErrorPath } from "@/lib/consts";
+import { authToken, nginxAccessDir, nginxAccessPath, nginxAccessUrl, nginxErrorDir, nginxErrorPath, nginxErrorUrl } from "@/lib/environment";
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
 const gunzip = promisify(zlib.gunzip);
-
-const nginxAccessDir = process.env.NGINX_ACCESS_DIR || defaultNginxAccessDir;
-const nginxErrorDir = process.env.NGINX_ERROR_DIR || process.env.NGINX_ACCESS_DIR || defaultNginxErrorDir;
-
-const nginxAccessPath = process.env.NGINX_ACCESS_PATH || defaultNginxAccessPath;
-const nginxErrorPath = process.env.NGINX_ERROR_PATH || defaultNginxErrorPath;
-
-const nginxAccessUrl = process.env.NGINX_ACCESS_URL;
-const nginxErrorUrl = process.env.NGINX_ERROR_URL;
-
-const authToken = process.env.NGINX_ANALYTICS_AUTH_TOKEN;
 
 interface FilePosition {
     filename: string;
@@ -141,7 +130,7 @@ async function readNormalLogFile(filePath: string, position: number, fileSize: n
             });
         } catch (error) {
             console.error(`Unexpected error in readNormalLogFile:`, error);
-            reject(new Error(`Unexpected error in readNormalLogFile: ${error.message}`));
+            reject(new Error(`Unexpected error in readNormalLogFile: ${error}`));
         }
     });
 }

@@ -4,12 +4,12 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import si from 'systeminformation';
 import { SystemInfo } from '@/lib/types';
+import { systemMonitoringEnabled } from '@/lib/environment';
 
 const execAsync = promisify(exec);
 
 export async function GET() {
-    const allow = process.env.NGINX_ANALYTICS_MONITOR_SYSTEM === 'true';
-    if (!allow) {
+    if (!systemMonitoringEnabled) {
         return NextResponse.json(
             { error: 'System monitoring is disabled' },
             { status: 403 }
