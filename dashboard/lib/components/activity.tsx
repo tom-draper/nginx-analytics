@@ -197,6 +197,8 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             sampled.push(rates[rates.length - 1]);
         }
 
+        console.log(`Sampled success rates ${rates.length} -> ${sampled.length}`);
+
         return sampled;
     };
 
@@ -234,6 +236,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
     // Update display rates when success rates or container width change
     useEffect(() => {
         const updatedDisplayRates = calculateDisplayRates(successRates, containerWidth);
+        console.log('displayRates', updatedDisplayRates)
         setDisplayRates(updatedDisplayRates);
     }, [successRates, containerWidth]);
 
@@ -255,7 +258,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             }
             const start = getTimeId(new Date(range.start))
             const end = getTimeId(new Date(range.end));
-            for (let i = start; i < end; i += stepSize) {
+            for (let i = start; i <= end; i += stepSize) {
                 points[i] = { requests: 0, users: new Set() };
             }
         }
@@ -281,6 +284,8 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             requests: y.requests - y.users.size,
             users: y.users.size
         }));
+
+        console.log('activity', values)
 
         setPlotData({
             datasets: [
@@ -308,17 +313,17 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                 x: {
                     type: 'time',
                     display: false,
-                    time: {
-                        unit: getTimeUnit(period, data),
-                    },
-                    title: {
-                        display: false,
-                        text: 'Time'
-                    },
+                    // time: {
+                    //     unit: getTimeUnit(period, data),
+                    // },
+                    // title: {
+                    //     display: false,
+                    //     text: 'Time'
+                    // },
                     grid: {
                         display: false
                     },
-                    min: periodStart(period),
+                    // min: periodStart(period),
                     max: period === 'all time' ? undefined : new Date()
                 },
                 y: {
@@ -379,7 +384,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         const start = periodStart(period);
         const getTimeId = getTimeIdGetter(period, data);
         const stepSize = getStepSize(period, data);
-        console.log(period, stepSize)
         if (start !== null) {
             const now = new Date();
             for (let i = getTimeId(start); i < now.getTime(); i += stepSize) {
@@ -392,28 +396,22 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             }
             const start = getTimeId(new Date(range.start))
             const end = getTimeId(new Date(range.end));
-            for (let i = start; i < end; i += stepSize) {
+            for (let i = start; i <= end; i += stepSize) {
                 points[i] = { success: 0, total: 0 }
             }
         }
 
-        console.log('length', Object.keys(points).length)
-
         for (const row of data) {
-            if (!row.timestamp) {
+            if (!row.timestamp || !row.status) {
                 continue;
             }
 
             const timeId = getTimeId(row.timestamp);
 
-            if (!row.status) {
-                continue;
-            }
-            const success = row.status >= 200 && row.status <= 399;
-
             if (!points[timeId]) {
                 points[timeId] = { success: 0, total: 0 }
             }
+            const success = row.status >= 200 && row.status <= 399;
             if (success) {
                 points[timeId].success++
             }
@@ -421,6 +419,8 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         }
 
         const values = Object.entries(points).sort(([timeId1, _], [timeId2, __]) => Number(timeId2) - Number(timeId1)).map(([timeId, value]) => ({ timestamp: Number(timeId), value: value.total ? value.success / value.total : null })).reverse()
+
+        console.log('values', values)
 
         setSuccessRates(values);
     }, [data, period]);
@@ -431,7 +431,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                 Activity
             </h2>
 
-            <div className="relative w-full h-full pt-2" style={{ height: '200px' }}>
+            <div className="relative w-full h-[200px] pt-2">
                 {plotData && plotOptions && <Bar
                     data={plotData}
                     options={plotOptions}
