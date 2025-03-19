@@ -90,35 +90,56 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         }
 
         if (demo) {
-            const demoLogs = generateNginxLogs({format: 'extended', count: 120000, startDate: new Date('2020-01-01')});
+            const demoLogs = generateNginxLogs({ format: 'extended', count: 120000, startDate: new Date('2020-01-01') });
             setAccessLogs(demoLogs)
             return;
         }
-        
+
+        // Store positions in a closure variable within the effect
+        let positions: Array<{ filename: string, position: number }> | null = null;
+
         const fetchLogs = async () => {
             try {
-                const res = await fetch(`/api/logs?type=access&position=${position}`);
-                if (!res.ok) {
+                const url = getUrl(positions);
+                const response = await fetch(url);
+                if (!response.ok) {
+                    if (response.status === 403 || response.status === 404) {
+                        clearInterval(interval);
+                        return;
+                    }
                     throw new Error("Failed to fetch logs");
                 }
-                const data = await res.json();
 
-                console.log('data', data);
+                const data = await response.json();
+
                 if (data.logs) {
+                    console.log(data);
                     setAccessLogs((prevLogs) => [...prevLogs, ...data.logs]);
-                    position = parseInt(data.position);
+
+                    if (data.positions) {
+                        positions = data.positions;
+                    }
                 }
             } catch (error) {
                 console.error("Error fetching logs:", error);
             }
         };
 
-        let position: number = 0;
         fetchLogs();
-        // setAccessLogs(generateNginxLogs({format: 'extended', count: 100000, startDate: new Date('2024-11-10T00:00:00Z'), endDate: new Date()}))
         const interval = setInterval(fetchLogs, 30000); // Polling every 30s
         return () => clearInterval(interval);
     }, [demo, fileUpload]);
+
+    const getUrl = (positions: {
+        filename: string;
+        position: number;
+    }[] | null) => {
+        let url = '/api/logs?type=access';
+        if (positions) {
+            url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
+        }
+        return url;
+    }
 
     useEffect(() => {
         const logs = parseNginxLogs(accessLogs)

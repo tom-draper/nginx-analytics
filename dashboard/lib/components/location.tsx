@@ -6,6 +6,7 @@ import { type Location } from '@/lib/location'
 export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation, noFetch }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void, noFetch: boolean }) {
     const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
     const [loading, setLoading] = useState(false);
+    const [endpointDisabled, setEndpointDisabled] = useState(false);
 
     const fetchLocations = async (ipAddresses: string[]) => {
         const response = await fetch('/api/location', {
@@ -14,10 +15,15 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
         });
 
         if (!response.ok) {
+            if (response.status === 403 || response.status === 404) {
+                setEndpointDisabled(true);
+                return;
+            }
             console.log('Failed to fetch locations');
             setLoading(false);
             return [];
         }
+
         const data = await response.json();
         return data.locations;
     }
@@ -86,10 +92,10 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
             }
         };
 
-        if (!noFetch) {
+        if (!noFetch && !endpointDisabled) {
             fetchData();
         }
-    }, [data, locationMap, setLocationMap]);
+    }, [data, locationMap, setLocationMap, noFetch, endpointDisabled]);
 
     useEffect(() => {
         const locationCount: { [location: string]: number } = {};

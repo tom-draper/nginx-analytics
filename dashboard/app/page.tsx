@@ -1,15 +1,13 @@
-// app/page.js (Server Component)
 import PasswordForm from '@/lib/components/password-form';
 import { redirect } from 'next/navigation';
 import NetworkBackground from '@/lib/components/network-background';
+import { getPassword, usingFileUpload } from '@/lib/environment';
 
 export default function Home() {
   // Check if the password is set at the server level
-  const password = process.env.NGINX_ANALYTICS_PASSWORD;
+  const password = getPassword();
 
-  const fileUpload = !process.env.NGINX_ACCESS_PATH && !process.env.NGINX_ERROR_PATH && !process.env.NGINX_ACCESS_URL && !process.env.NGINX_ERROR_URL;
-
-  if (!password || fileUpload) {
+  if (!password || usingFileUpload()) {
     // Redirect to /dashboard if the password is not set
     redirect('/dashboard');
   }

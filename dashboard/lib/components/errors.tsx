@@ -106,9 +106,6 @@ const ErrorRow = ({
                 <td className="py-2">
                     <div className="truncate max-w-2xl flex items-center">
                         {error.message}
-                        {/* <span className="ml-2 text-[var(--text-muted)] text-xs">
-                            {isExpanded ? '▲' : '▼'}
-                        </span> */}
                     </div>
                 </td>
             </tr>
@@ -169,7 +166,6 @@ export default function Errors({
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
 
-    // Process errors on mount and when logs or period changes
     useEffect(() => {
         const start = periodStart(period);
         const parsedErrors = parseNginxErrors(errorLogs).filter(error =>
@@ -178,54 +174,64 @@ export default function Errors({
         setErrors(parsedErrors);
     }, [errorLogs, period]);
 
-    // Data fetching effect
     useEffect(() => {
-        if (noFetch) return;
+        if (noFetch) {
+            return;
+        }
 
-        let position = 0;
-        let isMounted = true;
+
+        let positions: Array<{ filename: string, position: number }> | null = null;
 
         const fetchErrors = async () => {
-            if (!isMounted) return;
-
             setIsLoading(true);
             setFetchError(null);
 
             try {
-                const response = await fetch(`/api/logs?type=error&position=${position}`);
-
-                if (!isMounted) return;
+                const url = getUrl(positions);
+                const response = await fetch(url);
 
                 if (!response.ok) {
-                    console.log('Failed to fetch Nginx errors from server');
+                    if (response.status === 403 || response.status === 404) {
+                        clearInterval(interval);
+                        return;
+                    }
                     setFetchError(`Error ${response.status}: ${response.statusText}`);
-                    return;
+                    throw new Error("Failed to error logs");
                 }
 
                 const data = await response.json();
 
                 if (data.logs && data.logs.length > 0) {
+                    console.log(data)
                     setErrorLogs(prevLogs => [...prevLogs, ...data.logs]);
-                    position = parseInt(data.position);
+
+                    if (data.positions) {
+                        positions = data.positions;
+                    }
                 }
             } catch (error) {
-                console.error("Error fetching logs:", error);
+                console.error("Error fetching error logs:", error);
                 setFetchError("Network error occurred while fetching logs");
-            } finally {
-                if (isMounted) {
-                    setIsLoading(false);
-                }
-            }
+            } 
+
+            setIsLoading(false);
         };
 
         fetchErrors();
-        const intervalId = setInterval(fetchErrors, 30000);
-
-        return () => {
-            isMounted = false;
-            clearInterval(intervalId);
-        };
+        const interval = setInterval(fetchErrors, 30000);
+        return () => { clearInterval(interval) };
     }, [setErrorLogs, noFetch]);
+
+    const getUrl = (positions: {
+        filename: string;
+        position: number;
+    }[] | null) => {
+        let url = '/api/logs?type=error';
+        if (positions) {
+            url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
+        }
+        return url;
+    }
 
     // Filter errors based on search input
     const filteredErrors = useMemo(() => {
@@ -278,19 +284,12 @@ export default function Errors({
             </h2>
 
             {/* Status indicators */}
-            {isLoading && (
+            {/* {isLoading && (
                 <div className="text-sm text-blue-500 absolute top-3 right-52">
                     <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mr-2 animate-pulse"></span>
                     Fetching logs...
                 </div>
-            )}
-
-            {fetchError && (
-                <div className="text-sm text-red-500 absolute top-3 right-52">
-                    <span className="inline-block h-2 w-2 rounded-full bg-red-500 mr-2"></span>
-                    {fetchError}
-                </div>
-            )}
+            )} */}
 
             {/* Filter input */}
             {errors.length > 1 && (
@@ -345,9 +344,21 @@ export default function Errors({
                     </table>
                 </div>
             ) : (
-                <div className="text-center py-4 text-[var(--text-muted)]">
-                    {filtering ? "No errors match your filter criteria" : "No errors found in the selected time period"}
-                </div>
+                <>
+
+                    {fetchError ? (
+                        <div className="text-sm text-red-500 text-center mb-4">
+                            <span className="inline-block h-2 w-2 rounded-full bg-red-500 mr-2"></span>
+                            {fetchError}
+                        </div>
+                    ) : (
+                        <div className="text-center py-4 text-[var(--text-muted)]">
+                            {filtering ? "No errors match your filter criteria" : "No errors found in the selected time period"}
+                        </div>
+                    )}
+                </>
+
+
             )}
         </div>
     );

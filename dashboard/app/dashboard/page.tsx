@@ -1,7 +1,6 @@
 import Dashboard from "@/lib/components/dashboard";
+import { usingFileUpload } from "@/lib/environment";
 
 export default function Home() {
-    const fileUpload = !process.env.NGINX_ACCESS_PATH && !process.env.NGINX_ERROR_PATH && !process.env.NGINX_ACCESS_URL && !process.env.NGINX_ERROR_URL;
-
-    return <Dashboard fileUpload={fileUpload} demo={false} />
+    return <Dashboard fileUpload={usingFileUpload()} demo={false} />
 }

@@ -236,7 +236,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
     // Update display rates when success rates or container width change
     useEffect(() => {
         const updatedDisplayRates = calculateDisplayRates(successRates, containerWidth);
-        console.log('displayRates', updatedDisplayRates)
         setDisplayRates(updatedDisplayRates);
     }, [successRates, containerWidth]);
 
@@ -284,8 +283,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             requests: y.requests - y.users.size,
             users: y.users.size
         }));
-
-        console.log('activity', values)
 
         setPlotData({
             datasets: [
@@ -419,8 +416,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         }
 
         const values = Object.entries(points).sort(([timeId1, _], [timeId2, __]) => Number(timeId2) - Number(timeId1)).map(([timeId, value]) => ({ timestamp: Number(timeId), value: value.total ? value.success / value.total : null })).reverse()
-
-        console.log('values', values)
 
         setSuccessRates(values);
     }, [data, period]);
