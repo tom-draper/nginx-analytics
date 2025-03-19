@@ -357,9 +357,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                                 return ` ${requests.toLocaleString()} requests`;
                             }
                         },
-                        afterfit: function (scale) {
-                            console.log('scale', scale);
-                        }
                     }
                 }
             }
