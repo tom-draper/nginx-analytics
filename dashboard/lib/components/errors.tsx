@@ -179,19 +179,19 @@ export default function Errors({
             return;
         }
 
-
         let positions: Array<{ filename: string, position: number }> | null = null;
+        let firstRequest = true;
 
         const fetchErrors = async () => {
             setIsLoading(true);
             setFetchError(null);
 
             try {
-                const url = getUrl(positions);
+                const url = getUrl(positions, firstRequest);
                 const response = await fetch(url);
 
                 if (!response.ok) {
-                    if (response.status === 403 || response.status === 404) {
+                    if (interval && (response.status === 403 || response.status === 404)) {
                         clearInterval(interval);
                         return;
                     }
@@ -208,6 +208,7 @@ export default function Errors({
                     if (data.positions) {
                         positions = data.positions;
                     }
+                    firstRequest = false;
                 }
             } catch (error) {
                 console.error("Error fetching error logs:", error);
@@ -225,8 +226,8 @@ export default function Errors({
     const getUrl = (positions: {
         filename: string;
         position: number;
-    }[] | null) => {
-        let url = '/api/logs?type=error';
+    }[] | null, firstRequest: boolean) => {
+        let url = `/api/logs?type=error&firstRequest=${firstRequest}`;
         if (positions) {
             url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
         }

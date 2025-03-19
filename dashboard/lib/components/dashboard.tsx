@@ -97,13 +97,14 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
 
         // Store positions in a closure variable within the effect
         let positions: Array<{ filename: string, position: number }> | null = null;
+        let firstRequest = true
 
         const fetchLogs = async () => {
             try {
-                const url = getUrl(positions);
+                const url = getUrl(positions, firstRequest);
                 const response = await fetch(url);
                 if (!response.ok) {
-                    if (response.status === 403 || response.status === 404) {
+                    if (interval && (response.status === 403 || response.status === 404)) {
                         clearInterval(interval);
                         return;
                     }
@@ -119,6 +120,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                     if (data.positions) {
                         positions = data.positions;
                     }
+                    firstRequest = false;
                 }
             } catch (error) {
                 console.error("Error fetching logs:", error);
@@ -133,8 +135,8 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
     const getUrl = (positions: {
         filename: string;
         position: number;
-    }[] | null) => {
-        let url = '/api/logs?type=access';
+    }[] | null, firstRequest: boolean) => {
+        let url = `/api/logs?type=access&firstRequest=${firstRequest}`;
         if (positions) {
             url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
         }

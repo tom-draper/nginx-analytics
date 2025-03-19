@@ -11,12 +11,10 @@ export async function GET() {
         );
     }
 
+    const path = getLogPath();
+
     try {
-        const path = process.env.NGINX_ACCESS_PATH || '/var/logs/nginx/access.log';
-
-        const logDirectory = path.substring(0, path?.lastIndexOf('/'));
-
-        const files = await getLogFileSizes(logDirectory);
+        const files = await getLogFileSizes(path);
         const summary = getLogSizeSummary(files);
         const logSizes: LogSizes = {files, summary}
 
@@ -27,4 +25,17 @@ export async function GET() {
             message: 'Failed to get log sizes',
         }, { status: 500 });
     }
+}
+
+const getLogPath = () => {
+    const path = process.env.NGINX_ACCESS_DIR || process.env.NGINX_ERROR_DIR || getParentDir(process.env.NGINX_ACCESS_PATH) || getParentDir(process.env.NGINX_ERROR_PATH) || '/var/logs/nginx';
+    return path;
+}
+
+const getParentDir = (path: string | undefined) => {
+    if (!path) {
+        return null;
+    }
+
+    return path.substring(0, path.lastIndexOf("/"));
 }

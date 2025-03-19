@@ -29,12 +29,11 @@ export function SystemResources() {
                 const response = await fetch(`/api/system`);
                 if (!response.ok) {
                     setLoadingResources(false);
-                    if (intervalId && response.status === 403) {
-                        clearInterval(intervalId);
+                    if (interval && response.status === 403) {
+                        clearInterval(interval);
                         return;
-                    } else {
-                        throw new Error("Failed to fetch system resources");
                     }
+                    throw new Error("Failed to fetch system resources");
                 }
                 const data = await response.json();
                 setResources(data);
@@ -62,11 +61,8 @@ export function SystemResources() {
         };
 
         fetchData();
-
-        // Refresh data every 2 seconds
-        const intervalId = setInterval(fetchData, 2000);
-
-        return () => clearInterval(intervalId);
+        const interval = setInterval(fetchData, 2000);
+        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
@@ -76,13 +72,13 @@ export function SystemResources() {
                 const response = await fetch(`/api/logs/size`);
                 if (!response.ok) {
                     setLoadingLogSizes(false);
-                    if (intervalId && response.status === 403) {
-                        clearInterval(intervalId);
+                    if (interval && response.status === 403) {
+                        clearInterval(interval);
                         return;
-                    } else {
-                        throw new Error("Failed to fetch log sizes");
                     }
+                    throw new Error("Failed to fetch log sizes");
                 }
+
                 const data = await response.json();
 
                 setLogSizes(data);
@@ -93,10 +89,8 @@ export function SystemResources() {
         };
 
         fetchData();
-
-        const intervalId = setInterval(fetchData, 600_000);
-
-        return () => clearInterval(intervalId);
+        const interval = setInterval(fetchData, 600_000);
+        return () => clearInterval(interval);
     }, []);
 
     if (!resources) {
