@@ -1,25 +1,26 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/tom-draper/nginx-analytics/agent/routes"
 	"github.com/joho/godotenv"
 )
 
 const defaultPort string = "3000"
+const defaultNginxAccessDir string = "/var/log/nginx"
+const defaultNginxErrorDir string = "/var/log/nginx"
 const defaultNginxAccessPath string = "/var/log/nginx/access.log"
 const defaultNginxErrorPath string = "/var/log/nginx/error.log"
+const defaultSystemMonitoring bool = false
 
 var startTime = time.Now()
 
@@ -29,32 +30,63 @@ func main() {
 	args := getArguments()
 
 	// Define HTTP routes
-	http.HandleFunc("/logs/access", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Accessing access.log")
-		if authToken != "" && !isAuthenticated(r) {
-			log.Println("Forbidden: Invalid auth token")
-			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
-			return
+	// setupRoute creates a route handler with common middleware
+	setupRoute := func(path string, method string, logMessage string, handler func(http.ResponseWriter, *http.Request)) {
+		http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+			log.Println(logMessage)
+			
+			// Check HTTP method
+			if r.Method != method {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+
+			// Check authentication
+			if authToken != "" && !isAuthenticated(r) {
+				log.Println("Forbidden: Invalid auth token")
+				http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
+				return
+			}
+
+			handler(w, r)
+		})
+	}
+
+	// Set up routes with common middleware
+	setupRoute("/logs/access", http.MethodGet, "Accessing access.log", func(w http.ResponseWriter, r *http.Request) {
+		if args.nginxAccessDir != "" {
+			routes.ServeLogs(w, r, args.nginxAccessDir)
+		} else {
+			routes.ServeLog(w, r, args.nginxAccessPath)
 		}
-		serveLog(w, r, args.nginxAccessPath)
 	})
 
-	http.HandleFunc("/logs/error", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Accessing error.log")
-		if authToken != "" && !isAuthenticated(r) {
-			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
-			return
+	setupRoute("/logs/error", http.MethodGet, "Accessing error.log", func(w http.ResponseWriter, r *http.Request) {
+		if args.nginxErrorDir != "" {
+			routes.ServeLogs(w, r, args.nginxErrorDir)
+		} else {
+			routes.ServeLog(w, r, args.nginxErrorPath)
 		}
-		serveLog(w, r, args.nginxErrorPath)
 	})
 
-	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Checking status")
-		if authToken != "" && !isAuthenticated(r) {
-			http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
-			return
+	setupRoute("/logs/size", http.MethodGet, "Accessing log size", func(w http.ResponseWriter, r *http.Request) {
+		if args.nginxAccessDir != "" {
+			routes.ServeLogsSize(w, r, args.nginxAccessDir)
+		} else {
+			routes.ServeLogSize(w, r, args.nginxAccessPath)
 		}
-		checkServerStatus(w, args.nginxAccessPath, args.nginxErrorPath)
+	})
+
+	setupRoute("/location", http.MethodPost, "Getting locations", func(w http.ResponseWriter, r *http.Request) {
+		routes.ServeLocation(w, r)
+	})
+
+	setupRoute("/status", http.MethodGet, "Checking status", func(w http.ResponseWriter, r *http.Request) {
+		routes.ServeServerStatus(w, args.nginxAccessPath, args.nginxErrorPath, startTime)
+	})
+
+	setupRoute("/system", http.MethodGet, "Monitoring system", func(w http.ResponseWriter, r *http.Request) {
+		routes.ServeSystemResources(w, args.systemMonitoring)
 	})
 
 	// Handle graceful shutdown
@@ -75,16 +107,22 @@ func main() {
 
 type Arguments struct {
 	port            string
+	nginxAccessDir  string
+	nginxErrorDir   string
 	nginxAccessPath string
 	nginxErrorPath  string
+	systemMonitoring bool
 }
 
 func getArguments() Arguments {
 	// Define command-line flags
 	cmdAuthToken := flag.String("auth-token", "", "Authentication token (recommended)")
 	cmdPort := flag.String("port", "", fmt.Sprintf("Port to run the server on (default %s)", defaultPort))
-	cmdNginxAccessPath := flag.String("nginx-access-path", "", fmt.Sprintf("Path to the Nginx access.log file (default %s)", defaultNginxAccessPath))
-	cmdNginxErrorPath := flag.String("nginx-error-path", "", fmt.Sprintf("Path to the Nginx error.log file (default %s)", defaultNginxErrorPath))
+	cmdNginxAccessDir := flag.String("nginx-access-dir", "", fmt.Sprintf("Directory containing Nginx access.log file"))
+	cmdNginxErrorDir := flag.String("nginx-error-dir", "", fmt.Sprintf("Directory containing Nginx error.log file"))
+	cmdNginxAccessPath := flag.String("nginx-access-path", "", fmt.Sprintf("Path to the Nginx access.log file"))
+	cmdNginxErrorPath := flag.String("nginx-error-path", "", fmt.Sprintf("Path to the Nginx error.log file"))
+	cmdSystemMonitoring := flag.String("system-monitoring", "", fmt.Sprintf("System resource monitoring toggle (default %b)", defaultSystemMonitoring))
 	flag.Parse()
 
 	// Load environment variables from .env file
@@ -110,13 +148,24 @@ func getArguments() Arguments {
 		}
 	}
 
+	// Determine access log directory
+	nginxAccessDir := *cmdNginxAccessDir
+	if nginxAccessDir == "" {
+		nginxAccessDir = os.Getenv("NGINX_ACCESS_DIR")
+	}
+	log.Println("Nginx access.log directory: " + nginxAccessDir)
+
+	// Determine error log directory
+	nginxErrorDir := *cmdNginxErrorDir
+	if nginxErrorDir == "" {
+		nginxErrorDir = os.Getenv("NGINX_ERROR_DIR")
+	}
+	log.Println("Nginx error.log directory: " + nginxErrorDir)
+
 	// Determine access log path
 	nginxAccessPath := *cmdNginxAccessPath
 	if nginxAccessPath == "" {
 		nginxAccessPath = os.Getenv("NGINX_ACCESS_PATH")
-		if nginxAccessPath == "" {
-			nginxAccessPath = defaultNginxAccessPath
-		}
 	}
 	log.Println("Nginx access.log path: " + nginxAccessPath)
 
@@ -124,13 +173,16 @@ func getArguments() Arguments {
 	nginxErrorPath := *cmdNginxErrorPath
 	if nginxErrorPath == "" {
 		nginxErrorPath = os.Getenv("NGINX_ERROR_PATH")
-		if nginxErrorPath == "" {
-			nginxErrorPath = defaultNginxErrorPath
-		}
 	}
 	log.Println("Nginx error.log path: " + nginxErrorPath)
 
-	return Arguments{port, nginxAccessPath, nginxErrorPath}
+	systemMonitoring := defaultSystemMonitoring
+	if *cmdSystemMonitoring != "" {
+		systemMonitoring = os.Getenv("NGINX_ANALYTICS_SYSTEM_MONITORING") == "true"
+	}
+	log.Printf("System monitoring enabled: %v", systemMonitoring)
+
+	return Arguments{port, nginxAccessDir, nginxErrorDir, nginxAccessPath, nginxErrorPath, systemMonitoring}
 }
 
 func isAuthenticated(r *http.Request) bool {
@@ -145,190 +197,4 @@ func isAuthenticated(r *http.Request) bool {
 
 	providedAuthToken := strings.TrimPrefix(authHeader, "Bearer ")
 	return providedAuthToken == authToken
-}
-
-func streamLog(w http.ResponseWriter, filePath string) {
-	// Set headers for SSE (Server-Sent Events)
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	// Open the log file
-	file, err := os.Open(filePath)
-	if err != nil {
-		http.Error(w, "Failed to open log file", http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
-
-	// Stream the full content first (sending existing log entries)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		// Send each log line as SSE data
-		fmt.Fprintf(w, "data: %s\n\n", scanner.Text())
-		if flusher, ok := w.(http.Flusher); ok {
-			flusher.Flush()
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		http.Error(w, fmt.Sprintf("Error reading log file: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	// Stream new log lines in real-time (tail -f equivalent)
-	reader := bufio.NewReader(file)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			// EOF reached, wait and retry
-			if err.Error() == "EOF" {
-				time.Sleep(500 * time.Millisecond) // Retry after waiting
-				continue
-			}
-			http.Error(w, fmt.Sprintf("Error reading log file: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		// Send each new log line as SSE data
-		fmt.Fprintf(w, "data: %s\n\n", line)
-		if flusher, ok := w.(http.Flusher); ok {
-			flusher.Flush()
-		}
-	}
-}
-
-func serveLog(w http.ResponseWriter, r *http.Request, filePath string) {
-	// Get 'position' from the query parameters
-	positionStr := r.URL.Query().Get("position")
-	var position int64 = 0
-
-	if positionStr != "" {
-		value, err := strconv.ParseInt(positionStr, 10, 64)
-		if err != nil {
-			http.Error(w, "Invalid position value", http.StatusBadRequest)
-			return
-		}
-		position = value
-	}
-
-	// Open the log file
-	file, err := os.Open(filePath)
-	if err != nil {
-		http.Error(w, "Failed to open log file", http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
-
-	// Move the file pointer to the last position
-	_, err = file.Seek(position, 0)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error seeking file: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	// Use a buffer to efficiently read the file
-	buffer := make([]byte, 4096) // Read in 4KB chunks
-	var logs []string
-	var totalRead int64
-	var incompleteLine string
-
-	// Read the file in chunks
-	for {
-		n, err := file.Read(buffer)
-		if n == 0 {
-			// End of file or nothing more to read
-			if err != nil {
-				if err.Error() != "EOF" {
-					http.Error(w, fmt.Sprintf("Error reading file: %v", err), http.StatusInternalServerError)
-				}
-			}
-			break
-		}
-
-		// Process he chunk into log lines
-		totalRead += int64(n)
-		content := string(buffer[:n])
-
-		// If there's an incomplete line from the previous chunk, prepend it
-		if incompleteLine != "" {
-			content = incompleteLine + content
-		}
-
-		lines := strings.Split(content, "\n")
-		incompleteLine = lines[len(lines)-1] // The last line may be incomplete
-		lines = lines[:len(lines)-1]         // Exclude the incomplete line
-
-		// Add the complete lines to the logs
-		for _, line := range lines {
-			if line != "" {
-				logs = append(logs, line)
-			}
-		}
-
-		// If we've reached the end of the file, break
-		if n < len(buffer) {
-			break
-		}
-	}
-
-	// Adjust the position if we had an incomplete line
-	newPosition := position + totalRead - int64(len(incompleteLine))
-
-	if newPosition == position {
-		log.Println("No new logs")
-	} else {
-		log.Printf("Returning %d lines.\n", len(logs))
-	}
-
-	// Set the response as JSON
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"logs":     logs,
-		"position": newPosition,
-	}
-
-	// Send the response
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(response)
-}
-
-type Status struct {
-	Status           string `json:"status"`
-	Uptime           string `json:"uptime"`
-	Timestamp        string `json:"timestamp"`
-	Version          string `json:"version"`
-	AccessLogStatus  string `json:"accessLogStatus"`
-	ErrorLogStatus   string `json:"errorLogStatus"`
-}
-
-func checkServerStatus(w http.ResponseWriter, nginxAccessPath string, nginxErrorPath string) {
-	// Create an instance of Status struct
-	status := Status{
-		Status:  "ok",
-		Uptime:  time.Since(startTime).String(),
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Version: "1.0.0",
-	}
-
-	// Check if the access log file exists
-	if _, err := os.Stat(nginxAccessPath); err != nil {
-		status.AccessLogStatus = "not found"
-	} else {
-		status.AccessLogStatus = "ok"
-	}
-
-	// Check if the error log file exists
-	if _, err := os.Stat(nginxErrorPath); err != nil {
-		status.ErrorLogStatus = "not found"
-	} else {
-		status.ErrorLogStatus = "ok"
-	}
-
-	// Send status as JSON response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(status); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }
