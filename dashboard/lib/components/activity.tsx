@@ -324,8 +324,9 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                     max: period === 'all time' ? undefined : new Date()
                 },
                 y: {
+                    display: false,
                     title: {
-                        display: true,
+                        // display: true,
                         text: 'Requests'
                     },
                     // ticks: {
@@ -434,7 +435,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             </div>
 
             <div className="pb-0 pt-2" ref={containerRef}>
-                <div className="flex ml-[66px] mt-2 mb-2 overflow-hidden">
+                <div className="flex ml-[66px] !ml-[0] mt-2 mb-2 overflow-hidden">
                     {displayRates?.map((successRate, index) => (
                         <div
                             key={index}

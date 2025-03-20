@@ -202,7 +202,7 @@ export default function Errors({
                 const data = await response.json();
 
                 if (data.logs && data.logs.length > 0) {
-                    console.log(data)
+                    console.log('Errors', data)
                     setErrorLogs(prevLogs => [...prevLogs, ...data.logs]);
 
                     if (data.positions) {
@@ -284,22 +284,14 @@ export default function Errors({
                 Errors
             </h2>
 
-            {/* Status indicators */}
-            {/* {isLoading && (
-                <div className="text-sm text-blue-500 absolute top-3 right-52">
-                    <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mr-2 animate-pulse"></span>
-                    Fetching logs...
-                </div>
-            )} */}
-
             {/* Filter input */}
             {errors.length > 1 && (
                 <div className="absolute top-3 right-3 flex justify-between items-center">
                     <div className="flex space-x-2">
                         <input
                             type="text"
-                            placeholder={`Filter ${errors.length} errors...`}
-                            className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-text-[var(--text-muted)] opacity-100 bg-transparent outline-none"
+                            placeholder={`Filter ${errors.length > 50 ? '50+' : errors.length} errors...`}
+                            className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-[var(--text-muted3)] bg-transparent outline-none"
                             value={filtering}
                             onChange={(e) => setFiltering(e.target.value)}
                             aria-label="Filter errors"
@@ -330,7 +322,7 @@ export default function Errors({
                             </tr>
                         </thead>
                         <tbody>
-                            {sortedErrors.map((error, index) => (
+                            {sortedErrors.slice(0, 50).map((error, index) => (
                                 <ErrorRow
                                     key={`${error.timestamp}-${index}`}
                                     error={error}
@@ -346,7 +338,6 @@ export default function Errors({
                 </div>
             ) : (
                 <>
-
                     {fetchError ? (
                         <div className="text-sm text-red-500 text-center mb-4">
                             <span className="inline-block h-2 w-2 rounded-full bg-red-500 mr-2"></span>
@@ -358,8 +349,6 @@ export default function Errors({
                         </div>
                     )}
                 </>
-
-
             )}
         </div>
     );

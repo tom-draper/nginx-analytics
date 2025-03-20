@@ -114,7 +114,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                 const data = await response.json();
 
                 if (data.logs) {
-                    console.log(data);
+                    console.log('Logs', data);
                     setAccessLogs((prevLogs) => [...prevLogs, ...data.logs]);
 
                     if (data.positions) {
