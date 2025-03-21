@@ -56,24 +56,30 @@ func main() {
 	setupRoute("/logs/access", http.MethodGet, "Accessing access.log", func(w http.ResponseWriter, r *http.Request) {
 		if args.nginxAccessDir != "" {
 			routes.ServeLogs(w, r, args.nginxAccessDir)
-		} else {
+		} else if args.nginxAccessPath != "" {
 			routes.ServeLog(w, r, args.nginxAccessPath)
+		} else {
+			routes.ServeLogs(w, r, defaultNginxAccessDir)
 		}
 	})
 
 	setupRoute("/logs/error", http.MethodGet, "Accessing error.log", func(w http.ResponseWriter, r *http.Request) {
 		if args.nginxErrorDir != "" {
 			routes.ServeLogs(w, r, args.nginxErrorDir)
-		} else {
+		} else if args.nginxErrorPath != "" {
 			routes.ServeLog(w, r, args.nginxErrorPath)
+		} else {
+			routes.ServeLogs(w, r, defaultNginxErrorDir)
 		}
 	})
 
 	setupRoute("/logs/size", http.MethodGet, "Accessing log size", func(w http.ResponseWriter, r *http.Request) {
 		if args.nginxAccessDir != "" {
 			routes.ServeLogsSize(w, r, args.nginxAccessDir)
-		} else {
+		} else if args.nginxAccessPath != "" {
 			routes.ServeLogSize(w, r, args.nginxAccessPath)
+		} else {
+			routes.ServeLogsSize(w, r, defaultNginxAccessDir)
 		}
 	})
 

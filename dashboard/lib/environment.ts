@@ -1,12 +1,10 @@
-import { defaultNginxAccessDir, defaultNginxAccessPath, defaultNginxErrorDir, defaultNginxErrorPath } from "./consts";
+export const nginxAccessDir = process.env.NGINX_ACCESS_DIR;
 
-export const nginxAccessDir = process.env.NGINX_ACCESS_DIR || defaultNginxAccessDir;
+export const nginxErrorDir = process.env.NGINX_ERROR_DIR;
 
-export const nginxErrorDir = process.env.NGINX_ERROR_DIR || process.env.NGINX_ACCESS_DIR || defaultNginxErrorDir;
+export const nginxAccessPath = process.env.NGINX_ACCESS_PATH;
 
-export const nginxAccessPath = process.env.NGINX_ACCESS_PATH || defaultNginxAccessPath;
-
-export const nginxErrorPath = process.env.NGINX_ERROR_PATH || defaultNginxErrorPath;
+export const nginxErrorPath = process.env.NGINX_ERROR_PATH;
 
 export const nginxAccessUrl = process.env.NGINX_ACCESS_URL;
 export const nginxErrorUrl = process.env.NGINX_ERROR_URL;

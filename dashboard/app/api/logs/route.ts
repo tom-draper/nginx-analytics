@@ -12,6 +12,7 @@ import {
     nginxErrorPath,
     nginxErrorUrl
 } from "@/lib/environment";
+import { defaultNginxAccessDir, defaultNginxErrorDir } from "@/lib/consts";
 
 // Promisified functions
 const readdir = promisify(fs.readdir);
@@ -41,27 +42,26 @@ export async function GET(request: NextRequest) {
     // Parse positions from the query parameter
     const positions = parsePositionsFromRequest(searchParams);
 
-    // Handle legacy single position parameter
-    const singlePosition = parseInt(searchParams.get('position') || '0') || 0;
-
     try {
         if (logType === 'error') {
             if (nginxErrorUrl) {
-                const position = positions.length > 0 ? positions[0].position : singlePosition;
-                return await serveRemoteLogs(nginxErrorUrl, position, authToken);
+                return await serveRemoteLogs(nginxErrorUrl, positions, authToken);
             } else if (nginxErrorDir) {
                 return await serveDirectoryLogs(nginxErrorDir, positions, true, firstRequest);
+            } else if (nginxErrorPath) {
+                return await serveSingleLog(nginxErrorPath, positions[0].position);
             } else {
-                return await serveSingleLog(nginxErrorPath, singlePosition);
+                return await serveDirectoryLogs(defaultNginxErrorDir, positions, true, firstRequest);
             }
         } else {
             if (nginxAccessUrl) {
-                const position = positions.length > 0 ? positions[0].position : singlePosition;
-                return await serveRemoteLogs(nginxAccessUrl, position, authToken);
+                return await serveRemoteLogs(nginxAccessUrl, positions, authToken);
             } else if (nginxAccessDir) {
                 return await serveDirectoryLogs(nginxAccessDir, positions, false, firstRequest);
+            } else if (nginxAccessPath) {
+                return await serveSingleLog(nginxAccessPath, positions[0].position);
             } else {
-                return await serveSingleLog(nginxAccessPath, singlePosition);
+                return await serveDirectoryLogs(defaultNginxAccessDir, positions, false, firstRequest);
             }
         }
     } catch (error) {
@@ -75,7 +75,9 @@ export async function GET(request: NextRequest) {
  */
 function parsePositionsFromRequest(searchParams: URLSearchParams): FilePosition[] {
     const positionParam = searchParams.get('positions');
-    if (!positionParam) return [];
+    if (!positionParam) {
+        return [];
+    }
 
     try {
         return JSON.parse(decodeURIComponent(positionParam));
@@ -98,69 +100,13 @@ async function serveSingleLog(filePath: string, position: number): Promise<NextR
     }
 
     try {
-        const fileStats = await stat(resolvedPath);
-        let result: LogResult;
-
-        // Handle different file types
-        if (resolvedPath.endsWith('.gz')) {
-            result = await readGzippedLogFile(resolvedPath);
-        } else {
-            result = await readNormalLogFile(resolvedPath, position, fileStats.size);
-        }
+        const result = await readLogFile(resolvedPath, position);
 
         return NextResponse.json(result, { status: 200 });
     } catch (error) {
         console.error(`Error processing file ${resolvedPath}:`, error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
-}
-
-/**
- * Read content from a normal log file
- */
-async function readNormalLogFile(filePath: string, position: number, fileSize: number): Promise<LogResult> {
-    // If position is past the file size, no new logs
-    if (position >= fileSize) {
-        return { logs: [], position };
-    }
-
-    return new Promise<LogResult>((resolve, reject) => {
-        try {
-            const stream = fs.createReadStream(filePath, {
-                start: position,
-                encoding: 'utf8'
-            });
-
-            let data = '';
-            const newLogs: string[] = [];
-
-            stream.on('data', (chunk) => {
-                data += chunk;
-                const lines = data.split('\n');
-                // Save the last potentially incomplete line
-                data = lines.pop() || '';
-                // Add non-empty lines to logs
-                newLogs.push(...lines.filter(line => line.trim() !== ''));
-            });
-
-            stream.on('end', () => {
-                // Calculate new position accounting for partial last line
-                const newPosition = data.length === 0 ? fileSize : fileSize - data.length;
-                resolve({
-                    logs: newLogs,
-                    position: newPosition
-                });
-            });
-
-            stream.on('error', (error) => {
-                console.error(`Error reading log file ${filePath}:`, error);
-                reject(new Error(`Error reading log file: ${error.message}`));
-            });
-        } catch (error) {
-            console.error(`Unexpected error in readNormalLogFile:`, error);
-            reject(new Error(`Unexpected error in readNormalLogFile: ${error}`));
-        }
-    });
 }
 
 /**
@@ -202,7 +148,7 @@ async function serveDirectoryLogs(
                 }
 
                 const fullPath = path.join(resolvedPath, filePos.filename);
-                return readLogFile(fullPath, filePos.position, isGzFile);
+                return readLogFile(fullPath, filePos.position);
             })
         );
 
@@ -286,10 +232,10 @@ function combineLogResults(
 /**
  * Read from a log file with special handling for error logs with size 0
  */
-async function readLogFile(filePath: string, position: number, isGzFile: boolean = false): Promise<LogResult> {
+async function readLogFile(filePath: string, position: number): Promise<LogResult> {
     try {
         // For gzipped files, use specialized reader
-        if (isGzFile || filePath.endsWith('.gz')) {
+        if (filePath.endsWith('.gz')) {
             return await readGzippedLogFile(filePath);
         }
 
@@ -396,14 +342,14 @@ async function readGzippedLogFile(filePath: string): Promise<LogResult> {
 /**
  * Serve logs from a remote URL
  */
-async function serveRemoteLogs(url: string, position: number, authToken?: string): Promise<NextResponse> {
+async function serveRemoteLogs(url: string, positions: FilePosition[], authToken?: string): Promise<NextResponse> {
     try {
         const headers: HeadersInit = {};
         if (authToken) {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const response = await fetch(`${url}?position=${position}`, {
+        const response = await fetch(`${url}?positions=${encodeURIComponent(JSON.stringify(positions))}`, {
             method: "GET",
             headers
         });
