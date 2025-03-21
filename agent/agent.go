@@ -15,7 +15,7 @@ import (
 	"github.com/tom-draper/nginx-analytics/agent/routes"
 )
 
-const defaultPort string = "3000"
+const defaultPort string = "5000"
 const defaultNginxAccessDir string = "/var/log/nginx"
 const defaultNginxErrorDir string = "/var/log/nginx"
 const defaultNginxAccessPath string = "/var/log/nginx/access.log"
@@ -67,13 +67,13 @@ func main() {
 
 	setupRoute("/logs/error", http.MethodGet, "Accessing error logs", func(w http.ResponseWriter, r *http.Request) {
 		if args.nginxErrorDir != "" {
-			routes.ServeLogs(w, r, args.nginxErrorDir)
+			routes.ServeErrorLogs(w, r, args.nginxErrorDir)
 		} else if args.nginxErrorPath != "" {
-			routes.ServeLog(w, r, args.nginxErrorPath)
+			routes.ServeErrorLog(w, r, args.nginxErrorPath)
 		} else if args.nginxAccessDir != "" {
-			routes.ServeLogs(w, r, args.nginxAccessDir)
+			routes.ServeErrorLogs(w, r, args.nginxAccessDir)
 		} else {
-			routes.ServeLogs(w, r, defaultNginxErrorDir)
+			routes.ServeErrorLogs(w, r, defaultNginxErrorDir)
 		}
 	})
 

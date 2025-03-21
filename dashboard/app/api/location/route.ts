@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
         const response = await fetch(agentUrl + '/location', {
             method: 'POST',
-            body: JSON.stringify({ ipAddresses }),
+            body: JSON.stringify(ipAddresses),
             headers
         });
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(data, { status: 200 });
     } else {
         const locations = await getLocations(ipAddresses);
-        return NextResponse.json({ locations }, { status: 200 });
+        return NextResponse.json(locations, { status: 200 });
     }
 }
 

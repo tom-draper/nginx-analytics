@@ -358,10 +358,6 @@ async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], isE
             headers
         });
 
-        if (isErrorLog) {
-            console.log(response)
-        }
-
         if (!response.ok) {
             return NextResponse.json(
                 { error: `Remote logs error: ${response.statusText}` },

@@ -14,6 +14,8 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
             body: JSON.stringify({ ipAddresses })
         });
 
+        console.log(response);
+
         if (!response.ok) {
             if (response.status === 403 || response.status === 404) {
                 setEndpointDisabled(true);
@@ -25,7 +27,8 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
         }
 
         const data = await response.json();
-        return data.locations;
+        console.log(data);
+        return data;
     }
 
     function getFlagEmoji(countryCode: string) {
@@ -148,7 +151,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
                             </div>
                         ) : (
                             <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center" title={`No locations found`}>
-                                <div className="text-[var(--text-muted3)] pb-2">No locations found</div>
+                                <div className="text-[var(--text-muted3)]">No locations found</div>
                             </div>
                         )}
                     </div>

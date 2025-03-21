@@ -29,7 +29,7 @@ export function SystemResources() {
                 const response = await fetch(`/api/system`);
                 if (!response.ok) {
                     setLoadingResources(false);
-                    if (interval && response.status === 403) {
+                    if (interval && (response.status === 403 || response.status === 404)) {
                         clearInterval(interval);
                         return;
                     }
@@ -72,7 +72,7 @@ export function SystemResources() {
                 const response = await fetch(`/api/logs/size`);
                 if (!response.ok) {
                     setLoadingLogSizes(false);
-                    if (interval && response.status === 403) {
+                    if (interval && (response.status === 403 || response.status === 404)) {
                         clearInterval(interval);
                         return;
                     }

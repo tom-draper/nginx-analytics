@@ -197,8 +197,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             sampled.push(rates[rates.length - 1]);
         }
 
-        console.log(`Sampled success rates ${rates.length} -> ${sampled.length}`);
-
         return sampled;
     };
 
@@ -321,7 +319,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                         display: false
                     },
                     // min: periodStart(period),
-                    max: period === 'all time' ? undefined : new Date()
+                    max: period === 'all time' ? undefined : getTimeId(new Date())
                 },
                 y: {
                     display: false,

@@ -26,8 +26,16 @@ type LogResult struct {
 	Positions []Position `json:"positions,omitempty"`
 }
 
-// ServeLogs handles requests for logs, supporting multiple files and positions
 func ServeLogs(w http.ResponseWriter, r *http.Request, dirPath string) {
+	serveLogs(w, r, dirPath, false)
+}
+
+func ServeErrorLogs(w http.ResponseWriter, r *http.Request, dirPath string) {
+	serveLogs(w, r, dirPath, true)
+}
+
+// ServeLogs handles requests for logs, supporting multiple files and positions
+func serveLogs(w http.ResponseWriter, r *http.Request, dirPath string, isErrorLog bool) {
 	// Set JSON content type
 	w.Header().Set("Content-Type", "application/json")
 
@@ -54,7 +62,7 @@ func ServeLogs(w http.ResponseWriter, r *http.Request, dirPath string) {
 
 	if fileInfo.IsDir() {
 		// Serve logs from directory
-		serveDirectoryLogs(w, dirPath, positions, firstRequest)
+		serveDirectoryLogs(w, dirPath, positions, isErrorLog, firstRequest)
 	} else {
 		// Serve a single log file
 		singlePos := int64(0)
@@ -245,7 +253,7 @@ func readGzippedLogFile(filePath string) (LogResult, error) {
 }
 
 // serveDirectoryLogs serves logs from a directory containing multiple log files
-func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Position, firstRequest bool) {
+func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Position, isErrorLog bool, firstRequest bool) {
 	// Read directory entries
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
@@ -255,8 +263,6 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 
 	// Filter log files
 	var logFiles []string
-	isErrorLog := strings.Contains(dirPath, "error")
-
 	for _, entry := range entries {
 		fileName := entry.Name()
 		// Check if it's a log file
@@ -381,8 +387,16 @@ func respondWithError(w http.ResponseWriter, message string, status int) {
 	w.Write(jsonData)
 }
 
-// ServeLog handles requests for logs from a single file
 func ServeLog(w http.ResponseWriter, r *http.Request, filePath string) {
+	serveLog(w, r, filePath)
+}
+
+func ServeErrorLog(w http.ResponseWriter, r *http.Request, filePath string) {
+	serveLog(w, r, filePath)
+}
+
+// ServeLog handles requests for logs from a single file
+func serveLog(w http.ResponseWriter, r *http.Request, filePath string) {
 	// Set JSON content type
 	w.Header().Set("Content-Type", "application/json")
 

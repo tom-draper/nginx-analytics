@@ -1,5 +1,6 @@
 'use client';
 
+import { colors } from "../colors";
 import { formatBytes } from "../format";
 import { LogSizes } from "../types";
 
@@ -24,13 +25,6 @@ export function LogFiles({ logSizes, loading }: { logSizes: LogSizes | null, loa
             </div>
         );
     }
-
-    const colors = [
-        'var(--highlight)',
-        'var(--warn)',
-        '#FF6485',
-        'yellow'
-    ]
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative">

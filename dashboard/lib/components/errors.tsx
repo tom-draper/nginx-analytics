@@ -92,7 +92,7 @@ const ErrorRow = ({
     return (
         <>
             <tr
-                className={`cursor-pointer hover:bg-opacity-10 border-b  border-[var(--border-color)] last:border-none ${isExpanded ? 'bg-opacity-10' : ''}`}
+                className={`cursor-pointer hover:text-[var(--text)] border-b text-[var(--text-muted)] border-[var(--border-color)] last:border-none ${isExpanded ? 'bg-opacity-10 !text-[var(--text)]' : ''}`}
                 onClick={() => setExpandedError(isExpanded ? null : index)}
             >
                 <td className="py-2 whitespace-nowrap">
@@ -213,7 +213,7 @@ export default function Errors({
             } catch (error) {
                 console.error("Error fetching error logs:", error);
                 setFetchError("Network error occurred while fetching logs");
-            } 
+            }
 
             setIsLoading(false);
         };
@@ -344,8 +344,8 @@ export default function Errors({
                             {fetchError}
                         </div>
                     ) : (
-                        <div className="text-center py-4 text-[var(--text-muted)]">
-                            {filtering ? "No errors match your filter criteria" : "No errors found in the selected time period"}
+                        <div className="text-center py-4 text-[var(--text-muted3)]">
+                            No errors found
                         </div>
                     )}
                 </>
