@@ -165,6 +165,7 @@ export default function Errors({
     const [filtering, setFiltering] = useState<string>("");
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
+    const [selectedSeverities, setSelectedSeverities] = useState<string[]>([]);
 
     useEffect(() => {
         const start = periodStart(period);
@@ -234,14 +235,50 @@ export default function Errors({
         return url;
     }
 
-    // Filter errors based on search input
+    // Get unique severity levels for filter buttons
+    const severityLevels = useMemo(() => {
+        const levels = new Set<string>();
+        errors.forEach(error => levels.add(error.level.toLowerCase()));
+        return Array.from(levels);
+    }, [errors]);
+
+    // Toggle severity filter
+    const toggleSeverityFilter = (severity: string) => {
+        setSelectedSeverities(prev => {
+            if (prev.includes(severity)) {
+                return prev.filter(s => s !== severity);
+            } else {
+                return [...prev, severity];
+            }
+        });
+    };
+
+    // Clear severity filters
+    const clearSeverityFilters = () => {
+        setSelectedSeverities([]);
+    };
+
+    // Filter errors based on search input and selected severities
     const filteredErrors = useMemo(() => {
-        if (!filtering) return errors;
-        const lowercaseFilter = filtering.toLowerCase();
-        return errors.filter(error =>
-            JSON.stringify(error).toLowerCase().includes(lowercaseFilter)
-        );
-    }, [errors, filtering]);
+        let filtered = errors;
+        
+        // Filter by text search
+        if (filtering) {
+            const lowercaseFilter = filtering.toLowerCase();
+            filtered = filtered.filter(error =>
+                JSON.stringify(error).toLowerCase().includes(lowercaseFilter)
+            );
+        }
+        
+        // Filter by severity
+        if (selectedSeverities.length > 0) {
+            filtered = filtered.filter(error =>
+                selectedSeverities.includes(error.level.toLowerCase())
+            );
+        }
+        
+        return filtered;
+    }, [errors, filtering, selectedSeverities]);
 
     // Use custom sort hook
     const { sortedData: sortedErrors, sortConfig, requestSort } = useSortedData<NginxError>(
@@ -260,6 +297,15 @@ export default function Errors({
             case "info": return "bg-[var(--info)] text-[var(--card-background)]";
             case "debug": return "bg-[var(--info)] text-[var(--card-background)]";
             default: return "bg-gray-100 text-gray-800";
+        }
+    };
+
+    const getSeverityFilterColor = (level: string) => {
+        switch (level.toLowerCase()) {
+            case "error": case "crit": case "critical": return "var(--error)";
+            case "alert": case "warn": case "warning": return "var(--warn)";
+            case "notice": case "info": case "debug": return "var(--info)";
+            default: return "var(--text-muted)";
         }
     };
 
@@ -284,19 +330,46 @@ export default function Errors({
                 Errors
             </h2>
 
-            {/* Filter input */}
+            {/* Filter controls */}
             {errors.length > 1 && (
-                <div className="absolute top-3 right-3 flex justify-between items-center">
-                    <div className="flex space-x-2">
-                        <input
-                            type="text"
-                            placeholder={`Filter ${errors.length > 50 ? '50+' : errors.length} errors...`}
-                            className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-[var(--text-muted3)] bg-transparent outline-none"
-                            value={filtering}
-                            onChange={(e) => setFiltering(e.target.value)}
-                            aria-label="Filter errors"
-                        />
-                    </div>
+                <div className="absolute top-3 right-3 flex items-center">
+                    {/* Severity filter buttons */}
+                    {severityLevels.length > 1 && (
+                        <div className="flex text-xs text-[var(--text-muted3)] mr-2">
+                            {selectedSeverities.length > 0 && (
+                                <button 
+                                    className="px-[0.5em] text-[var(--text)] cursor-pointer" 
+                                    onClick={clearSeverityFilters}
+                                >
+                                    Clear
+                                </button>
+                            )}
+                            {severityLevels.map(level => (
+                                <button
+                                    key={level}
+                                    className="px-[0.5em] hover:text-[var(--text)] cursor-pointer"
+                                    onClick={() => toggleSeverityFilter(level)}
+                                    style={{ 
+                                        color: selectedSeverities.includes(level) 
+                                            ? getSeverityFilterColor(level) 
+                                            : ''
+                                    }}
+                                >
+                                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    
+                    {/* Text filter */}
+                    <input
+                        type="text"
+                        placeholder={`Filter ${errors.length > 50 ? '50+' : errors.length} errors...`}
+                        className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-[var(--text-muted3)] bg-transparent outline-none"
+                        value={filtering}
+                        onChange={(e) => setFiltering(e.target.value)}
+                        aria-label="Filter errors"
+                    />
                 </div>
             )}
 
@@ -322,17 +395,25 @@ export default function Errors({
                             </tr>
                         </thead>
                         <tbody>
-                            {sortedErrors.slice(0, 50).map((error, index) => (
-                                <ErrorRow
-                                    key={`${error.timestamp}-${index}`}
-                                    error={error}
-                                    index={index}
-                                    expandedError={expandedError}
-                                    setExpandedError={setExpandedError}
-                                    formatDate={formatDate}
-                                    getSeverityColor={getSeverityColor}
-                                />
-                            ))}
+                            {sortedErrors.length > 0 ? (
+                                sortedErrors.slice(0, 50).map((error, index) => (
+                                    <ErrorRow
+                                        key={`${error.timestamp}-${index}`}
+                                        error={error}
+                                        index={index}
+                                        expandedError={expandedError}
+                                        setExpandedError={setExpandedError}
+                                        formatDate={formatDate}
+                                        getSeverityColor={getSeverityColor}
+                                    />
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={3} className="py-4 text-center text-[var(--text-muted3)]">
+                                        No errors match the current filters
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

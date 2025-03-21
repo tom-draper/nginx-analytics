@@ -47,9 +47,10 @@ export function Storage({ resources, loading }: { resources: SystemInfo | null, 
 
             {/* Disk Usage - Moved to the bottom as less important */}
             <div className="p-2 pt-4">
-                <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden" title={`Free: ${primaryDisk ? (((primaryDisk.size - primaryDisk.used) / primaryDisk.size) * 100).toFixed(1) : 0}%`}>
                     <div
                         className="h-full rounded-full"
+                        title={`Used: ${diskUsage.toFixed(1)}%`}
                         style={{
                             width: `${diskUsage}%`,
                             backgroundColor: getColorForUsage(diskUsage)

@@ -100,7 +100,7 @@ const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" }:
                 mode: 'index',
                 callbacks: {
                     title: function (tooltipItems: any) {
-                        return timestamps[tooltipItems[0].dataIndex];
+                        return new Date(timestamps[tooltipItems[0].dataIndex]).toLocaleTimeString();
                     }
                 }
             }

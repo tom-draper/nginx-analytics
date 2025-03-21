@@ -21,7 +21,9 @@ function formatBytes(bytes: number) {
     const k = 1024;
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-    return Math.round(bytes / Math.pow(k, i)) + ' ' + sizes[i];
+    console.log(k, i);
+
+    return Math.round(bytes / Math.pow(k, i)) + ' ' + (sizes[i] || 'Bytes');
 }
 
 function generateHistogramData(data: number[], maxBinCount = 500) {
@@ -204,7 +206,7 @@ export function ResponseSize({ data }: { data: NginxLog[] }) {
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-46 overflow-hidden">
             {/* Background histogram chart */}
             {chartData && (
-                <div className="absolute bottom-[-1px] left-0 right-0 z-10" style={{ height: '40%' }}>
+                <div className="absolute bottom-[-1px] left-0 right-0 z-10 h-[40%]" style={{ display: chartData.datasets[0].data.length > 1 ? 'block' : 'none' }}>
                     <Bar
                         ref={chartRef}
                         data={chartData}
