@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     try {
         if (logType === 'error') {
             if (nginxErrorUrl) {
-                return await serveRemoteLogs(nginxErrorUrl, positions, authToken);
+                return await serveRemoteLogs(nginxErrorUrl, positions, firstRequest, authToken);
             } else if (nginxErrorDir) {
                 return await serveDirectoryLogs(nginxErrorDir, positions, true, firstRequest);
             } else if (nginxErrorPath) {
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
             }
         } else {
             if (nginxAccessUrl) {
-                return await serveRemoteLogs(nginxAccessUrl, positions, authToken);
+                return await serveRemoteLogs(nginxAccessUrl, positions, firstRequest, authToken);
             } else if (nginxAccessDir) {
                 return await serveDirectoryLogs(nginxAccessDir, positions, false, firstRequest);
             } else if (nginxAccessPath) {
@@ -342,14 +342,15 @@ async function readGzippedLogFile(filePath: string): Promise<LogResult> {
 /**
  * Serve logs from a remote URL
  */
-async function serveRemoteLogs(url: string, positions: FilePosition[], authToken?: string): Promise<NextResponse> {
+async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], firstRequest: boolean, authToken?: string): Promise<NextResponse> {
     try {
         const headers: HeadersInit = {};
         if (authToken) {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const response = await fetch(`${url}?positions=${encodeURIComponent(JSON.stringify(positions))}`, {
+        const url = getUrl(remoteUrl, positions, firstRequest);
+        const response = await fetch(url, {
             method: "GET",
             headers
         });
@@ -370,4 +371,12 @@ async function serveRemoteLogs(url: string, positions: FilePosition[], authToken
             { status: 500 }
         );
     }
+}
+
+function getUrl(remoteUrl: string, positions: FilePosition[], firstRequest: boolean) {
+    let url = `${remoteUrl}?type=access&firstRequest=${firstRequest}`;
+    if (positions) {
+        url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
+    }
+    return url;
 }
