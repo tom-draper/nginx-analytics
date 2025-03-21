@@ -49,7 +49,7 @@ type DiskInfo struct {
 	MountedOn  string `json:"mountedOn"`
 }
 
-func ServeSystemResources(w http.ResponseWriter, systemMonitoringEnabled bool) {
+func ServeSystemResources(w http.ResponseWriter) {
 	systemInfo, err := collectSystemInfo()
 	if err != nil {
 		log.Printf("Error collecting system info: %v", err)

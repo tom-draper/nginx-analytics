@@ -11,7 +11,6 @@ import (
 	"github.com/oschwald/geoip2-golang"
 )
 
-
 // Location represents geolocation information for an IP address
 type Location struct {
 	IPAddress string `json:"ipAddress"`
@@ -27,28 +26,37 @@ var (
 	initDone      = make(chan struct{})
 )
 
-func ServeLocation(w http.ResponseWriter, r *http.Request) {
+func ServeLocations(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	
+
 	var ipAddresses []string
 	if err := json.Unmarshal(body, &ipAddresses); err != nil {
 		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
 		return
 	}
-	
-	locations, err := GetLocations(ipAddresses)
-	if err != nil {
-		http.Error(w, "Failed to get locations", http.StatusInternalServerError)
-		return
+
+	var locations []*Location
+	if len(ipAddresses) > 0 {
+		log.Println("Resolving %d locations", len(ipAddresses))
+		locations, err = GetLocations(ipAddresses)
+		if err != nil {
+			http.Error(w, "Failed to get locations", http.StatusInternalServerError)
+			return
+		}
 	}
-	
+
 	json.NewEncoder(w).Encode(locations)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+}
+
+func LocationsEnabled() bool {
+	err := InitializeLookups()
+	return err == nil && (cityReader != nil || countryReader != nil)
 }
 
 // InitializeLookups ensures the MaxMind databases are loaded
@@ -59,7 +67,7 @@ func InitializeLookups() error {
 		cityReader, err = geoip2.Open("GeoLite2-City.mmdb")
 		if err != nil {
 			log.Println("Failed to load GeoLite2 City database:", err)
-			
+
 			// If city database fails, try to open the country database
 			countryReader, err = geoip2.Open("GeoLite2-Country.mmdb")
 			if err != nil {

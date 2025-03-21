@@ -1,3 +1,5 @@
 .env
 /logs
 *.log
+*.gz
+*.mmdb

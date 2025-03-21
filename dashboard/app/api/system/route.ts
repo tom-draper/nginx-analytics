@@ -4,27 +4,49 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import si from 'systeminformation';
 import { SystemInfo } from '@/lib/types';
-import { systemMonitoringEnabled } from '@/lib/environment';
+import { agentUrl, authToken, systemMonitoringEnabled } from '@/lib/environment';
 
 const execAsync = promisify(exec);
 
 export async function GET() {
-    if (!systemMonitoringEnabled) {
-        return NextResponse.json(
-            { error: 'System monitoring is disabled' },
-            { status: 403 }
-        );
-    }
+    if (agentUrl) {
+        const headers: HeadersInit = {};
+        if (authToken) {
+            headers.Authorization = `Bearer ${authToken}`;
+        }
 
-    try {
-        const systemInfo = await getSystemInfo();
-        return NextResponse.json(systemInfo);
-    } catch (error) {
-        console.error('Error collecting system info:', error);
-        return NextResponse.json(
-            { error: 'Failed to collect system information' },
-            { status: 500 }
-        );
+        const response = await fetch(agentUrl + '/system', {
+            method: 'GET',
+            headers
+        });
+
+        if (!response.ok) {
+            return NextResponse.json(
+                { error: `Error checking log sizes by agent: ${response.statusText}` },
+                { status: response.status }
+            );
+        }
+
+        const data = await response.json();
+        return NextResponse.json(data, { status: 200 });
+    } else {
+        if (!systemMonitoringEnabled) {
+            return NextResponse.json(
+                { error: 'System monitoring is disabled' },
+                { status: 403 }
+            );
+        }
+
+        try {
+            const systemInfo = await getSystemInfo();
+            return NextResponse.json(systemInfo);
+        } catch (error) {
+            console.error('Error collecting system info:', error);
+            return NextResponse.json(
+                { error: 'Failed to collect system information' },
+                { status: 500 }
+            );
+        }
     }
 }
 

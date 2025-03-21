@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tom-draper/nginx-analytics/agent/routes"
 	"github.com/joho/godotenv"
+	"github.com/tom-draper/nginx-analytics/agent/routes"
 )
 
 const defaultPort string = "3000"
@@ -24,8 +24,6 @@ const defaultSystemMonitoring bool = false
 
 var startTime = time.Now()
 
-var authToken string // Declare variable to hold the authentication token
-
 func main() {
 	args := getArguments()
 
@@ -33,8 +31,10 @@ func main() {
 	// setupRoute creates a route handler with common middleware
 	setupRoute := func(path string, method string, logMessage string, handler func(http.ResponseWriter, *http.Request)) {
 		http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-			log.Println(logMessage)
-			
+			if logMessage != "" {
+				log.Println(logMessage)
+			}
+
 			// Check HTTP method
 			if r.Method != method {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -42,7 +42,7 @@ func main() {
 			}
 
 			// Check authentication
-			if authToken != "" && !isAuthenticated(r) {
+			if !isAuthenticated(r, args.authToken) {
 				log.Println("Forbidden: Invalid auth token")
 				http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
 				return
@@ -53,46 +53,70 @@ func main() {
 	}
 
 	// Set up routes with common middleware
-	setupRoute("/logs/access", http.MethodGet, "Accessing access.log", func(w http.ResponseWriter, r *http.Request) {
+	setupRoute("/logs/access", http.MethodGet, "Accessing access log", func(w http.ResponseWriter, r *http.Request) {
 		if args.nginxAccessDir != "" {
 			routes.ServeLogs(w, r, args.nginxAccessDir)
 		} else if args.nginxAccessPath != "" {
 			routes.ServeLog(w, r, args.nginxAccessPath)
+		} else if args.nginxErrorDir != "" {
+			routes.ServeLogs(w, r, args.nginxErrorDir)
 		} else {
 			routes.ServeLogs(w, r, defaultNginxAccessDir)
 		}
 	})
 
-	setupRoute("/logs/error", http.MethodGet, "Accessing error.log", func(w http.ResponseWriter, r *http.Request) {
+	setupRoute("/logs/error", http.MethodGet, "Accessing error logs", func(w http.ResponseWriter, r *http.Request) {
 		if args.nginxErrorDir != "" {
 			routes.ServeLogs(w, r, args.nginxErrorDir)
 		} else if args.nginxErrorPath != "" {
 			routes.ServeLog(w, r, args.nginxErrorPath)
+		} else if args.nginxAccessDir != "" {
+			routes.ServeLogs(w, r, args.nginxAccessDir)
 		} else {
 			routes.ServeLogs(w, r, defaultNginxErrorDir)
 		}
 	})
 
-	setupRoute("/logs/size", http.MethodGet, "Accessing log size", func(w http.ResponseWriter, r *http.Request) {
+	setupRoute("/logs/size", http.MethodGet, "Checking log size", func(w http.ResponseWriter, r *http.Request) {
+		if !args.systemMonitoring {
+			log.Println("Forbidden: System monitoring disabled")
+			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)
+			return
+		}
+
 		if args.nginxAccessDir != "" {
 			routes.ServeLogsSize(w, r, args.nginxAccessDir)
 		} else if args.nginxAccessPath != "" {
 			routes.ServeLogSize(w, r, args.nginxAccessPath)
+		} else if args.nginxErrorDir != "" {
+			routes.ServeLogsSize(w, r, args.nginxErrorDir)
 		} else {
 			routes.ServeLogsSize(w, r, defaultNginxAccessDir)
 		}
 	})
 
-	setupRoute("/location", http.MethodPost, "Getting locations", func(w http.ResponseWriter, r *http.Request) {
-		routes.ServeLocation(w, r)
+	setupRoute("/location", http.MethodPost, "", func(w http.ResponseWriter, r *http.Request) {
+		if !routes.LocationsEnabled() {
+			log.Println("Forbidden: Location lookup not configured")
+			http.Error(w, "Forbidden: Location lookup not configured", http.StatusForbidden)
+			return
+		}
+
+		routes.ServeLocations(w, r)
 	})
 
 	setupRoute("/status", http.MethodGet, "Checking status", func(w http.ResponseWriter, r *http.Request) {
 		routes.ServeServerStatus(w, args.nginxAccessPath, args.nginxErrorPath, startTime)
 	})
 
-	setupRoute("/system", http.MethodGet, "Monitoring system", func(w http.ResponseWriter, r *http.Request) {
-		routes.ServeSystemResources(w, args.systemMonitoring)
+	setupRoute("/system", http.MethodGet, "Checking system resources", func(w http.ResponseWriter, r *http.Request) {
+		if !args.systemMonitoring {
+			log.Println("Forbidden: System monitoring disabled")
+			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)
+			return
+		}
+
+		routes.ServeSystemResources(w)
 	})
 
 	// Handle graceful shutdown
@@ -112,11 +136,12 @@ func main() {
 }
 
 type Arguments struct {
-	port            string
-	nginxAccessDir  string
-	nginxErrorDir   string
-	nginxAccessPath string
-	nginxErrorPath  string
+	port             string
+	authToken        string
+	nginxAccessDir   string
+	nginxErrorDir    string
+	nginxAccessPath  string
+	nginxErrorPath   string
 	systemMonitoring bool
 }
 
@@ -137,12 +162,12 @@ func getArguments() Arguments {
 	}
 
 	// Determine auth token
-	authToken = *cmdAuthToken
+	authToken := *cmdAuthToken
 	if authToken == "" {
 		authToken = os.Getenv("NGINX_ANALYTICS_AUTH_TOKEN")
 	}
 	if authToken == "" {
-		log.Println("Auth token not set in environment or command line argument. Connection will be insecure.")
+		log.Println("Auth token not set in environment or command line argument. Access may be insecure.")
 	}
 
 	// Determine port
@@ -157,41 +182,77 @@ func getArguments() Arguments {
 	// Determine access log directory
 	nginxAccessDir := *cmdNginxAccessDir
 	if nginxAccessDir == "" {
-		nginxAccessDir = os.Getenv("NGINX_ACCESS_DIR")
+		nginxAccessDir = os.Getenv("NGINX_ANALYTICS_ACCESS_DIR")
 	}
-	log.Println("Nginx access.log directory: " + nginxAccessDir)
+	if nginxAccessDir != "" {
+		log.Println("Nginx access.log directory: " + nginxAccessDir)
+	}
 
 	// Determine error log directory
 	nginxErrorDir := *cmdNginxErrorDir
 	if nginxErrorDir == "" {
-		nginxErrorDir = os.Getenv("NGINX_ERROR_DIR")
+		nginxErrorDir = os.Getenv("NGINX_ANALYTICS_ERROR_DIR")
 	}
-	log.Println("Nginx error.log directory: " + nginxErrorDir)
+	if nginxErrorDir != "" {
+		log.Println("Nginx error.log directory: " + nginxErrorDir)
+	}
 
 	// Determine access log path
 	nginxAccessPath := *cmdNginxAccessPath
 	if nginxAccessPath == "" {
-		nginxAccessPath = os.Getenv("NGINX_ACCESS_PATH")
+		nginxAccessPath = os.Getenv("NGINX_ANALYTICS_ACCESS_PATH")
 	}
-	log.Println("Nginx access.log path: " + nginxAccessPath)
+	if nginxAccessPath != "" {
+		log.Println("Nginx access.log path: " + nginxAccessPath)
+	}
 
 	// Determine error log path
 	nginxErrorPath := *cmdNginxErrorPath
 	if nginxErrorPath == "" {
-		nginxErrorPath = os.Getenv("NGINX_ERROR_PATH")
+		nginxErrorPath = os.Getenv("NGINX_ANALYTICS_ERROR_PATH")
 	}
-	log.Println("Nginx error.log path: " + nginxErrorPath)
+	if nginxErrorPath != "" {
+		log.Println("Nginx error.log path: " + nginxErrorPath)
+	}
+
+	if nginxAccessDir != "" {
+		log.Println("Using Nginx log directory: " + nginxAccessDir)
+	} else if nginxAccessPath != "" {
+		log.Println("Using Nginx access.log file: " + nginxAccessPath)
+	} else if nginxErrorDir != "" {
+		log.Println("Using Nginx log directory: " + nginxErrorDir)
+	} else {
+		log.Println("Using default Nginx log directory: " + defaultNginxAccessDir)
+	}
+
+	if nginxErrorDir != "" {
+		log.Println("Using Nginx error log directory: " + nginxErrorDir)
+	} else if nginxErrorPath != "" {
+		log.Println("Using Nginx error.log file: " + nginxErrorPath)
+	} else if nginxAccessDir != "" {
+		log.Println("Using Nginx error log directory: " + nginxAccessDir)
+	} else {
+		log.Println("Using default Nginx error log directory: " + defaultNginxErrorDir)
+	}
 
 	systemMonitoring := defaultSystemMonitoring
-	if *cmdSystemMonitoring != "" {
+	if *cmdSystemMonitoring == "" {
 		systemMonitoring = os.Getenv("NGINX_ANALYTICS_SYSTEM_MONITORING") == "true"
 	}
-	log.Printf("System monitoring enabled: %v", systemMonitoring)
+	if systemMonitoring {
+		log.Println("System monitoring enabled")
+	} else {
+		log.Println("System monitoring disabled")
+	}
 
-	return Arguments{port, nginxAccessDir, nginxErrorDir, nginxAccessPath, nginxErrorPath, systemMonitoring}
+	return Arguments{port, authToken, nginxAccessDir, nginxErrorDir, nginxAccessPath, nginxErrorPath, systemMonitoring}
 }
 
-func isAuthenticated(r *http.Request) bool {
+func isAuthenticated(r *http.Request, authToken string) bool {
+	if authToken == "" {
+		return true
+	}
+
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		return false

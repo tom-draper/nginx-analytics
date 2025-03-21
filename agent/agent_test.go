@@ -9,13 +9,13 @@ import (
 )
 
 func TestIsAuthenticated(t *testing.T) {
-	t.Setenv("AUTH_TOKEN", "testtoken") // Set test authentication token
-	authToken = os.Getenv("AUTH_TOKEN")  // Load token into global variable
+	t.Setenv("AUTH_TOKEN", "testtoken")  // Set test authentication token
+	authToken := os.Getenv("AUTH_TOKEN") // Load token into global variable
 
 	tests := []struct {
-		name       string
-		header     string
-		expected   bool
+		name     string
+		header   string
+		expected bool
 	}{
 		{"Valid Token", "Bearer testtoken", true},
 		{"Invalid Token", "Bearer wrongtoken", false},
@@ -29,8 +29,8 @@ func TestIsAuthenticated(t *testing.T) {
 		if tc.header != "" {
 			r.Header.Set("Authorization", tc.header)
 		}
-		
-		result := isAuthenticated(r)
+
+		result := isAuthenticated(r, authToken)
 		if result != tc.expected {
 			t.Errorf("%s: expected %v, got %v", tc.name, tc.expected, result)
 		}
@@ -39,14 +39,14 @@ func TestIsAuthenticated(t *testing.T) {
 
 func TestAccessLogEndpoint(t *testing.T) {
 	t.Setenv("AUTH_TOKEN", "testtoken")
-	authToken = os.Getenv("AUTH_TOKEN")
+	authToken := os.Getenv("AUTH_TOKEN")
 
 	req := httptest.NewRequest("GET", "/access", nil)
 	req.Header.Set("Authorization", "Bearer testtoken")
 
 	w := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isAuthenticated(r) {
+		if !isAuthenticated(r, authToken) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -65,12 +65,15 @@ func TestAccessLogEndpoint(t *testing.T) {
 }
 
 func TestAccessLogForbidden(t *testing.T) {
+	t.Setenv("AUTH_TOKEN", "testtoken")
+	authToken := os.Getenv("AUTH_TOKEN") // Load token into global variable
+
 	req := httptest.NewRequest("GET", "/access", nil)
 	req.Header.Set("Authorization", "Bearer wrongtoken")
 
 	w := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isAuthenticated(r) {
+		if !isAuthenticated(r, authToken) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}

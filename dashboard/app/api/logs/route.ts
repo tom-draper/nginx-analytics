@@ -4,13 +4,12 @@ import path from "path";
 import zlib from "zlib";
 import { promisify } from "util";
 import {
+    agentUrl,
     authToken,
     nginxAccessDir,
     nginxAccessPath,
-    nginxAccessUrl,
     nginxErrorDir,
     nginxErrorPath,
-    nginxErrorUrl
 } from "@/lib/environment";
 import { defaultNginxAccessDir, defaultNginxErrorDir } from "@/lib/consts";
 
@@ -44,22 +43,26 @@ export async function GET(request: NextRequest) {
 
     try {
         if (logType === 'error') {
-            if (nginxErrorUrl) {
-                return await serveRemoteLogs(nginxErrorUrl, positions, firstRequest, authToken);
+            if (agentUrl) {
+                return await serveRemoteLogs(agentUrl, positions, true, firstRequest, authToken);
             } else if (nginxErrorDir) {
                 return await serveDirectoryLogs(nginxErrorDir, positions, true, firstRequest);
             } else if (nginxErrorPath) {
                 return await serveSingleLog(nginxErrorPath, positions[0].position);
+            } else if (nginxAccessDir) {
+                return await serveDirectoryLogs(nginxAccessDir, positions, true, firstRequest);
             } else {
                 return await serveDirectoryLogs(defaultNginxErrorDir, positions, true, firstRequest);
             }
         } else {
-            if (nginxAccessUrl) {
-                return await serveRemoteLogs(nginxAccessUrl, positions, firstRequest, authToken);
+            if (agentUrl) {
+                return await serveRemoteLogs(agentUrl, positions, false, firstRequest, authToken);
             } else if (nginxAccessDir) {
                 return await serveDirectoryLogs(nginxAccessDir, positions, false, firstRequest);
             } else if (nginxAccessPath) {
                 return await serveSingleLog(nginxAccessPath, positions[0].position);
+            } else if (nginxErrorDir) {
+                return await serveDirectoryLogs(nginxErrorDir, positions, true, firstRequest);
             } else {
                 return await serveDirectoryLogs(defaultNginxAccessDir, positions, false, firstRequest);
             }
@@ -342,18 +345,22 @@ async function readGzippedLogFile(filePath: string): Promise<LogResult> {
 /**
  * Serve logs from a remote URL
  */
-async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], firstRequest: boolean, authToken?: string): Promise<NextResponse> {
+async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, firstRequest: boolean, authToken?: string): Promise<NextResponse> {
     try {
         const headers: HeadersInit = {};
         if (authToken) {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const url = getUrl(remoteUrl, positions, firstRequest);
+        const url = getUrl(remoteUrl, positions, isErrorLog, firstRequest);
         const response = await fetch(url, {
             method: "GET",
             headers
         });
+
+        if (isErrorLog) {
+            console.log(response)
+        }
 
         if (!response.ok) {
             return NextResponse.json(
@@ -373,8 +380,8 @@ async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], fir
     }
 }
 
-function getUrl(remoteUrl: string, positions: FilePosition[], firstRequest: boolean) {
-    let url = `${remoteUrl}?type=access&firstRequest=${firstRequest}`;
+function getUrl(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, firstRequest: boolean) {
+    let url = `${remoteUrl}/logs/${isErrorLog ? 'error' : 'access'}?type=access&firstRequest=${firstRequest}`;
     if (positions) {
         url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
     }
