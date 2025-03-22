@@ -14,3 +14,20 @@ export const colors = [
     "#5500FF", "#FF55AA", "#00FFAA", "#AA00AA", "#FFAAFF", "#55FFAA", "#AA55FF", "#55AA00",
     "#AA00FF", "#FFAA55", "#AAFF00", "#5500FF", "#FF0055", "#00FF55"
 ];
+
+export const green = 'rgb(26, 240, 115)'
+export const yellow = 'rgb(255, 210, 75)'
+export const red = 'rgb(255, 80, 80)'
+
+export const gradient = [
+    'rgb(26, 240, 115)',
+    'rgb(102, 201, 92)',
+    'rgb(153, 209, 85)',
+    'rgb(204, 217, 78)',
+    'rgb(255, 210, 75)',
+    'rgb(255, 170, 75)',
+    'rgb(255, 130, 75)',
+    'rgb(255, 100, 75)',
+    'rgb(255, 90, 80)',
+    'rgb(255, 80, 80)',
+]

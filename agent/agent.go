@@ -149,11 +149,11 @@ func getArguments() Arguments {
 	// Define command-line flags
 	cmdAuthToken := flag.String("auth-token", "", "Authentication token (recommended)")
 	cmdPort := flag.String("port", "", fmt.Sprintf("Port to run the server on (default %s)", defaultPort))
-	cmdNginxAccessDir := flag.String("nginx-access-dir", "", fmt.Sprintf("Directory containing Nginx access.log file"))
-	cmdNginxErrorDir := flag.String("nginx-error-dir", "", fmt.Sprintf("Directory containing Nginx error.log file"))
-	cmdNginxAccessPath := flag.String("nginx-access-path", "", fmt.Sprintf("Path to the Nginx access.log file"))
-	cmdNginxErrorPath := flag.String("nginx-error-path", "", fmt.Sprintf("Path to the Nginx error.log file"))
-	cmdSystemMonitoring := flag.String("system-monitoring", "", fmt.Sprintf("System resource monitoring toggle (default %b)", defaultSystemMonitoring))
+	cmdNginxAccessDir := flag.String("nginx-access-dir", "", "Directory containing Nginx access.log file")
+	cmdNginxErrorDir := flag.String("nginx-error-dir", "", "Directory containing Nginx error.log file")
+	cmdNginxAccessPath := flag.String("nginx-access-path", "", "Path to the Nginx access.log file")
+	cmdNginxErrorPath := flag.String("nginx-error-path", "", "Path to the Nginx error.log file")
+	cmdSystemMonitoring := flag.String("system-monitoring", "", fmt.Sprintf("System resource monitoring toggle (default %t)", defaultSystemMonitoring))
 	flag.Parse()
 
 	// Load environment variables from .env file

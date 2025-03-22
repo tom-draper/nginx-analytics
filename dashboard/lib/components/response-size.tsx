@@ -21,8 +21,6 @@ function formatBytes(bytes: number) {
     const k = 1024;
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-    console.log(k, i);
-
     return Math.round(bytes / Math.pow(k, i)) + ' ' + (sizes[i] || 'Bytes');
 }
 

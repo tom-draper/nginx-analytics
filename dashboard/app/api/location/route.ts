@@ -3,7 +3,7 @@ import { getLocations } from '@/lib/location';
 import { agentUrl, authToken } from '@/lib/environment';
 
 export async function POST(request: NextRequest) {
-    const { ipAddresses } = await request.json();
+    const ipAddresses = await request.json();
 
     if (!ipAddresses) {
         return NextResponse.json({ success: false, message: 'No locations provided' }, { status: 400 });

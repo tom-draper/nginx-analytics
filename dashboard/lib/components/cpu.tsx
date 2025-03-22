@@ -14,6 +14,7 @@ import {
     Filler
 } from "chart.js";
 import { HistoryData, SystemInfo } from "../types";
+import { gradient } from "../colors";
 
 // Register Chart.js components
 ChartJS.register(
@@ -26,19 +27,6 @@ ChartJS.register(
     Legend,
     Filler
 );
-
-const colors = [
-    'rgb(26, 240, 115)',
-    'rgb(102, 201, 92)',
-    'rgb(153, 209, 85)',
-    'rgb(204, 217, 78)',
-    'rgb(255, 210, 75)',
-    'rgb(255, 170, 75)',
-    'rgb(255, 130, 75)',
-    'rgb(255, 100, 75)',
-    'rgb(255, 90, 80)',
-    'rgb(255, 80, 80)',
-]
 
 // CPU Core visualization component
 const CPUCores = ({ cores, usage }: { cores: number, usage: number }) => {
@@ -55,7 +43,7 @@ const CPUCores = ({ cores, usage }: { cores: number, usage: number }) => {
 
     // Get color based on usage percentage
     const getColorForUsage = (usage: number) => {
-        return colors[Math.min(Math.floor(usage / 10), 9)]
+        return gradient[Math.min(Math.floor(usage / 10), 9)]
     };
 
     return (

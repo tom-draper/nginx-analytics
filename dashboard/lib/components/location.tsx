@@ -11,15 +11,13 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
     const fetchLocations = async (ipAddresses: string[]) => {
         const response = await fetch('/api/location', {
             method: 'POST',
-            body: JSON.stringify({ ipAddresses })
+            body: JSON.stringify(ipAddresses)
         });
-
-        console.log(response);
 
         if (!response.ok) {
             if (response.status === 403 || response.status === 404) {
                 setEndpointDisabled(true);
-                return;
+                return [];
             }
             console.log('Failed to fetch locations');
             setLoading(false);
@@ -27,7 +25,6 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
         }
 
         const data = await response.json();
-        console.log(data);
         return data;
     }
 
