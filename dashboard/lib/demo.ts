@@ -1,3 +1,4 @@
+import { Location } from "@/lib/location";
 /**
  * Generates realistic Nginx log entries in either Common Log Format or Extended Log Format
  * with improved distribution patterns and more realistic data
@@ -15,6 +16,27 @@ interface LogGeneratorOptions {
     userAgents?: string[];
     referers?: string[];
 }
+
+export function generateDemoLocations(ipAddresses: string[]): Location[] {
+    const locations: Location[] = ipAddresses.map((ip) => randomLocation(ip));
+
+    return locations;
+}
+
+const locations = [['US', 'San Francisco'], ['US', 'New York'], ['US', 'Los Angeles'], ['US', 'Chicago'], ['US', 'Houston'], ['US', 'Miami'], ['US', 'Seattle'], ['US', 'Washington'], ['US', 'Boston'], ['US', 'San Diego'], ['GB', 'London'], ['FR', 'Paris'], ['DE', 'Berlin'], ['IT', 'Rome'], ['ES', 'Madrid'], ['NL', 'Amsterdam'], ['CA', 'Toronto'], ['AU', 'Sydney'], ['JP', 'Tokyo'], ['CN', 'Beijing'], ['IN', 'Mumbai'], ['BR', 'Sao Paulo'], ['ZA', 'Johannesburg'], ['MX', 'Mexico City'], ['AR', 'Buenos Aires'], ['CO', 'Bogota'], ['VE', 'Caracas'], ['PE', 'Lima'], ['CL', 'Santiago'], ['BO', 'La Paz'], ['UY', 'Montevideo'], ['PY', 'Asuncion'], ['EC', 'Quito'], ['VE', 'Maracaibo'], ['VE', 'Valencia'], ['VE', 'Maracaibo'], ['VE', 'Valencia'], ['VE', 'Maracaibo'], ['VE', 'Valencia']];
+
+function randomLocation(ipAddress: string): Location {
+    const index = Math.floor(Math.random() * locations.length);
+    const country = locations[index][0];
+    const city = locations[index][1];
+
+    return {
+        country,
+        city,
+        ipAddress
+    };
+}
+
 
 /**
  * Generates realistic Nginx log entries
@@ -98,10 +120,10 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
     // Generate a pool of IPs to allow for repeating patterns
     // This creates more realistic logs where the same users return
     const ipPool: string[] = [];
-    const ipPoolSize = Math.min(count / 3, 20); // Adjust based on log volume
+    const ipPoolSize = Math.min(count / 3, 15); // Adjust based on log volume
     
     for (let i = 0; i < ipPoolSize; i++) {
-        if (ipRange.length > 0 && Math.random() < 0.99) {
+        if (ipRange.length > 0 && Math.random() < 0.9) {
             // 70% chance to use provided IP range
             ipPool.push(ipRange[Math.floor(Math.random() * ipRange.length)]);
         } else {
@@ -159,7 +181,7 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
     // Helper functions
     const getRandomIP = (): string => {
         // 70% chance to reuse an IP from the pool, 30% to generate a new one
-        if (ipPool.length > 0 && Math.random() < 0.99) {
+        if (ipPool.length > 0 && Math.random() < 0.9) {
             return ipPool[Math.floor(Math.random() * ipPool.length)];
         }
         return `${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`;

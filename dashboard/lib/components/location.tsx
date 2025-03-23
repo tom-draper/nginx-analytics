@@ -1,9 +1,10 @@
 import { NginxLog } from "@/lib/types";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { type Location } from '@/lib/location'
+import { generateDemoLocations } from "../demo";
 
 
-export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation, noFetch }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void, noFetch: boolean }) {
+export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation, noFetch, demo }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void, noFetch: boolean, demo: boolean }) {
     const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [endpointDisabled, setEndpointDisabled] = useState(false);
@@ -81,7 +82,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
             if (unknown.length > 0) {
                 setLoading(true);
                 try {
-                    const locations = await fetchLocations(unknown);
+                    const locations = demo ? generateDemoLocations(unknown) : await fetchLocations(unknown);
                     if (locations.length > 0) {
                         updateLocationMap(locations);
                     }

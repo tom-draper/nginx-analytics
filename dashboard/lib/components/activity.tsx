@@ -3,9 +3,9 @@
 import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend, ChartData } from "chart.js";
 import { useEffect, useState, useRef } from "react";
 import { Bar } from "react-chartjs-2";
-import { NginxLog } from "../types";
+import { NginxLog } from "@/lib/types";
 import 'chartjs-adapter-date-fns';
-import { Period, periodStart } from "../period";
+import { Period, periodStart } from "@/lib/period";
 
 ChartJS.register(
     BarElement,

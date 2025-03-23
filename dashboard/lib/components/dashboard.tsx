@@ -234,7 +234,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                         <Activity data={filteredData} period={currentPeriod} />
 
                         <div className="flex max-xl:flex-col">
-                            <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload || demo} />
+                            <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
                             <div className="xl:w-[27em]">
                                 <Device data={filteredData} />
                             </div>

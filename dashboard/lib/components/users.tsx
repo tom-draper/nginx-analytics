@@ -82,15 +82,15 @@ function getUsersByTime(data: NginxLog[], period: Period) {
     }
     
     // Count unique users per time bucket (first appearance only)
-    const seenUsers = new Set<string>();
+    // const seenUsers = new Set<string>();
     
     for (const row of sortedData) {
         const userId = getUserId(row.ipAddress, row.userAgent);
         if (!userId) continue;
         
         // Skip if we've already counted this user
-        if (seenUsers.has(userId)) continue;
-        seenUsers.add(userId);
+        // if (seenUsers.has(userId)) continue;
+        // seenUsers.add(userId);
         
         const timestamp = new Date(row.timestamp || 0);
         let timeKey: string;
