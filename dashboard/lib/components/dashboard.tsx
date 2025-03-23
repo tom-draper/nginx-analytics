@@ -144,14 +144,14 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
     }
 
     useEffect(() => {
-        const logs = parseNginxLogs(accessLogs)
-        if (logs.length > 0) {
-            initPeriod();
+        const parsedLogs = parseNginxLogs(accessLogs)
+        if (logs.length === 0) {
+            initPeriod(parsedLogs);
         }
-        setLogs(logs);
+        setLogs(parsedLogs);
     }, [accessLogs])
 
-    const initPeriod = () => {
+    const initPeriod = (logs: NginxLog[]) => {
         if (!logs.length || !logs[0].timestamp) {
             return;
         }
