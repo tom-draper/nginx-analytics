@@ -27,6 +27,7 @@ import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
 import NetworkBackground from "./network-background";
 import FileUpload from "./file-upload";
+import { range } from "d3";
 
 
 export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, demo: boolean }) {
@@ -114,7 +115,6 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                 const data = await response.json();
 
                 if (data.logs) {
-                    console.log('Logs', data);
                     setAccessLogs((prevLogs) => [...prevLogs, ...data.logs]);
 
                     if (data.positions) {
@@ -145,9 +145,40 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
 
     useEffect(() => {
         const logs = parseNginxLogs(accessLogs)
+        if (logs.length > 0) {
+            initPeriod();
+        }
         setLogs(logs);
     }, [accessLogs])
 
+    const initPeriod = () => {
+        if (!logs.length || !logs[0].timestamp) {
+            return;
+        }
+        let minDate = logs[0].timestamp;
+        for (const log of logs) {
+            if (log.timestamp && (!minDate || log.timestamp < minDate)) {
+                minDate = log.timestamp;
+            }
+        }
+        if (inPeriod(minDate, 'week')) {
+            setPeriod('week');
+        } else if (inPeriod(minDate, 'month')) {
+            setPeriod('month');
+        } else if (inPeriod(minDate, '6 months')) {
+            setPeriod('6 months');
+        } else {
+            setPeriod('all time');
+        }
+    }
+
+    const inPeriod = (date: Date, period: Period) => {
+        const start = periodStart(period);
+        if (!start) {
+            return true;
+        }
+        return date >= start;
+    }
 
     useEffect(() => {
         const validStatus = (status: number | null) => {
