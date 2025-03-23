@@ -212,8 +212,8 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                         </div>
 
                         <div className="flex">
-                            <Requests data={filteredData} />
-                            <Users data={filteredData} />
+                            <Requests data={filteredData} period={currentPeriod} />
+                            <Users data={filteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">

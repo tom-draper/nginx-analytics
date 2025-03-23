@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLocations } from '@/lib/location';
-import { agentUrl, authToken } from '@/lib/environment';
+import { serverUrl, authToken } from '@/lib/environment';
 
 export async function POST(request: NextRequest) {
     const ipAddresses = await request.json();
@@ -9,13 +9,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, message: 'No locations provided' }, { status: 400 });
     }
 
-    if (agentUrl) {
+    if (serverUrl) {
         const headers: HeadersInit = {};
         if (authToken) {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const response = await fetch(agentUrl + '/location', {
+        const response = await fetch(serverUrl + '/location', {
             method: 'POST',
             body: JSON.stringify(ipAddresses),
             headers
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
         if (!response.ok) {
             return NextResponse.json(
-                { error: `Error resolving locations by agent: ${response.statusText}` },
+                { error: `Error resolving locations by server: ${response.statusText}` },
                 { status: response.status }
             );
         }

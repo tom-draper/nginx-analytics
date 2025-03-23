@@ -1,23 +1,23 @@
-import { agentUrl, authToken, systemMonitoringEnabled } from '@/lib/environment';
+import { serverUrl, authToken, systemMonitoringEnabled } from '@/lib/environment';
 import { getLogFileSizes, getLogSizeSummary } from '@/lib/file-utils'; // Adjust the import path as needed
 import { LogSizes } from '@/lib/types';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-    if (agentUrl) {
+    if (serverUrl) {
         const headers: HeadersInit = {};
         if (authToken) {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const response = await fetch(agentUrl + '/logs/size', {
+        const response = await fetch(serverUrl + '/logs/size', {
             method: 'GET',
             headers
         });
 
         if (!response.ok) {
             return NextResponse.json(
-                { error: `Error checking log sizes by agent: ${response.statusText}` },
+                { error: `Error checking log sizes by server: ${response.statusText}` },
                 { status: response.status }
             );
         }

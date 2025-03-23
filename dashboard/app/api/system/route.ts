@@ -4,25 +4,25 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import si from 'systeminformation';
 import { SystemInfo } from '@/lib/types';
-import { agentUrl, authToken, systemMonitoringEnabled } from '@/lib/environment';
+import { serverUrl, authToken, systemMonitoringEnabled } from '@/lib/environment';
 
 const execAsync = promisify(exec);
 
 export async function GET() {
-    if (agentUrl) {
+    if (serverUrl) {
         const headers: HeadersInit = {};
         if (authToken) {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const response = await fetch(agentUrl + '/system', {
+        const response = await fetch(serverUrl + '/system', {
             method: 'GET',
             headers
         });
 
         if (!response.ok) {
             return NextResponse.json(
-                { error: `Error checking log sizes by agent: ${response.statusText}` },
+                { error: `Error checking system info by server: ${response.statusText}` },
                 { status: response.status }
             );
         }

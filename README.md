@@ -74,7 +74,7 @@ If your dashboard is publically accessible, password protection can be set up by
 
 #### HTTPS
 
-Deploying with HTTPS is always recommended. Without this, you risk exposing sensitive personal information such as IP addresses.
+Deploying with HTTPS is always recommended. Without this, you risk exposing any personal information within your log files such as IP addresses.
 
 ## Contributions
 

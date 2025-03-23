@@ -1,5 +1,6 @@
 /**
  * Generates realistic Nginx log entries in either Common Log Format or Extended Log Format
+ * with improved distribution patterns and more realistic data
  */
 
 // Type for configuration options
@@ -69,17 +70,103 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
         ]
     } = options;
 
-    // Helper functions
-    const getRandomElement = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+    // Add more referrers for increased variety
+    const expandedReferers = [
+        ...referers,
+        'https://duckduckgo.com/',
+        'https://www.instagram.com/',
+        'https://www.pinterest.com/',
+        'https://news.ycombinator.com/',
+        'https://www.producthunt.com/',
+        'https://github.com/',
+        'https://stackoverflow.com/',
+        'https://www.youtube.com/',
+        'https://medium.com/',
+        'https://www.baidu.com/',
+        'https://www.yandex.ru/',
+        'https://t.co/', // Twitter shortened URLs
+        'https://lnkd.in/', // LinkedIn shortened URLs
+        'https://www.naver.com/',
+        'https://mail.google.com/',
+        'https://outlook.live.com/',
+        'https://www.yahoo.com/',
+        'https://www.aliexpress.com/',
+        'https://www.alibaba.com/',
+        'https://www.tiktok.com/'
+    ];
 
+    // Generate a pool of IPs to allow for repeating patterns
+    // This creates more realistic logs where the same users return
+    const ipPool: string[] = [];
+    const ipPoolSize = Math.min(count / 3, 100); // Adjust based on log volume
+    
+    for (let i = 0; i < ipPoolSize; i++) {
+        if (ipRange.length > 0 && Math.random() < 0.7) {
+            // 70% chance to use provided IP range
+            ipPool.push(ipRange[Math.floor(Math.random() * ipRange.length)]);
+        } else {
+            // Generate a random IP
+            ipPool.push(`${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`);
+        }
+    }
+
+    // Helper for weighted random selection
+    const weightedRandom = <T>(items: T[], weights: number[]): T => {
+        const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+        let random = Math.random() * totalWeight;
+        
+        for (let i = 0; i < weights.length; i++) {
+            if (random < weights[i]) {
+                return items[i];
+            }
+            random -= weights[i];
+        }
+        
+        return items[0]; // Default fallback
+    };
+
+    // Create zipf-like distribution weights for paths and referers
+    // This creates more realistic logs where some pages are much more popular than others
+    const createZipfWeights = (size: number): number[] => {
+        const weights: number[] = [];
+        for (let i = 1; i <= size; i++) {
+            // Use a modified zipf distribution: 1/i^0.8 (less steep than classic zipf)
+            weights.push(1 / Math.pow(i, 0.8));
+        }
+        return weights;
+    };
+
+    const pathWeights = createZipfWeights(paths.length);
+    const refererWeights = createZipfWeights(expandedReferers.length);
+    
+    // Adjust referer weights to make "-" (direct traffic) more common
+    if (expandedReferers[0] === '-') {
+        refererWeights[0] *= 2;
+    }
+
+    // Methods with realistic distribution
+    const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+    const methodWeights = [70, 15, 5, 5, 3, 1, 1];
+
+    // Status code distribution - make 200s more common
+    const statusCodeWeights = statusCodes.map(code => {
+        if (code >= 200 && code < 300) return 80;  // Success codes
+        if (code >= 300 && code < 400) return 10;  // Redirect codes
+        if (code >= 400 && code < 500) return 8;   // Client errors
+        return 2;                                  // Server errors
+    });
+
+    // Helper functions
     const getRandomIP = (): string => {
-        if (ipRange.length > 0) {
-            return getRandomElement(ipRange);
+        // 70% chance to reuse an IP from the pool, 30% to generate a new one
+        if (ipPool.length > 0 && Math.random() < 0.7) {
+            return ipPool[Math.floor(Math.random() * ipPool.length)];
         }
         return `${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`;
     };
 
     const getRandomTimestamp = (): { date: Date, formatted: string } => {
+        // Simple random timestamp between start and end dates
         const timestampMs = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime());
         const date = new Date(timestampMs);
 
@@ -90,6 +177,7 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
         const seconds = date.getSeconds().toString().padStart(2, '0');
+        const milliseconds = date.getMilliseconds(); // Store milliseconds for precision
 
         // Calculate timezone offset
         const offset = date.getTimezoneOffset();
@@ -102,44 +190,42 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
     };
 
     const getRandomMethod = (): string => {
-        const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
-        const weights = [70, 15, 5, 5, 3, 1, 1]; // Weights to make distribution more realistic
-
-        const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-        let random = Math.random() * totalWeight;
-
-        for (let i = 0; i < weights.length; i++) {
-            if (random < weights[i]) {
-                return methods[i];
-            }
-            random -= weights[i];
-        }
-
-        return 'GET'; // Default fallback
+        return weightedRandom(methods, methodWeights);
     };
 
     const getRandomPath = (): string => {
-        return getRandomElement(paths);
+        return weightedRandom(paths, pathWeights);
     };
 
     const getRandomBytes = (): string => {
-        // Most responses are between 1KB and 1MB
-        if (Math.random() < 0.1) {
-            return '-'; // Some requests don't have a response size
+        // More realistic byte distribution
+        if (Math.random() < 0.08) {
+            return '-'; // 8% of requests don't have a response size
         }
-        return Math.floor(Math.random() * 1000000 + 200).toString();
+        
+        // Create different size categories
+        if (Math.random() < 0.3) {
+            // Small responses (e.g., API responses, small HTML)
+            return Math.floor(Math.random() * 10000 + 100).toString();
+        } else if (Math.random() < 0.8) {
+            // Medium responses (e.g., typical web pages)
+            return Math.floor(Math.random() * 100000 + 10000).toString();
+        } else {
+            // Large responses (e.g., images, downloads)
+            return Math.floor(Math.random() * 5000000 + 100000).toString();
+        }
     };
 
     const getRandomStatusCode = (): number => {
-        return getRandomElement(statusCodes);
+        return weightedRandom(statusCodes, statusCodeWeights);
     };
 
     const getRandomUserAgent = (): string => {
-        return getRandomElement(userAgents);
+        return userAgents[Math.floor(Math.random() * userAgents.length)];
     };
 
     const getRandomReferer = (): string => {
-        return getRandomElement(referers);
+        return weightedRandom(expandedReferers, refererWeights);
     };
 
     // Generate logs
@@ -147,10 +233,10 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
 
     for (let i = 0; i < count; i++) {
         const ip = getRandomIP();
-        const { formatted: timestamp } = getRandomTimestamp();
+        const { date, formatted: timestamp } = getRandomTimestamp();
         const method = getRandomMethod();
         const path = getRandomPath();
-        const httpVersion = Math.random() < 0.2 ? 'HTTP/1.0' : 'HTTP/1.1';
+        const httpVersion = Math.random() < 0.15 ? 'HTTP/1.0' : 'HTTP/1.1'; // Reduced HTTP/1.0 to 15%
         const statusCode = getRandomStatusCode();
         const bytes = getRandomBytes();
         const referer = getRandomReferer();

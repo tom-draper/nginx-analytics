@@ -4,7 +4,7 @@ import path from "path";
 import zlib from "zlib";
 import { promisify } from "util";
 import {
-    agentUrl,
+    serverUrl,
     authToken,
     nginxAccessDir,
     nginxAccessPath,
@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
 
     try {
         if (logType === 'error') {
-            if (agentUrl) {
-                return await serveRemoteLogs(agentUrl, positions, true, firstRequest, authToken);
+            if (serverUrl) {
+                return await serveRemoteLogs(serverUrl, positions, true, firstRequest, authToken);
             } else if (nginxErrorDir) {
                 return await serveDirectoryLogs(nginxErrorDir, positions, true, firstRequest);
             } else if (nginxErrorPath) {
@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
                 return await serveDirectoryLogs(defaultNginxErrorDir, positions, true, firstRequest);
             }
         } else {
-            if (agentUrl) {
-                return await serveRemoteLogs(agentUrl, positions, false, firstRequest, authToken);
+            if (serverUrl) {
+                return await serveRemoteLogs(serverUrl, positions, false, firstRequest, authToken);
             } else if (nginxAccessDir) {
                 return await serveDirectoryLogs(nginxAccessDir, positions, false, firstRequest);
             } else if (nginxAccessPath) {
