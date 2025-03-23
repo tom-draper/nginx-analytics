@@ -278,8 +278,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             currentDate = incrementDate(currentDate, period);
         }
 
-        console.log('points', points, Object.keys(points).length)
-
         for (const row of data) {
             if (!row.timestamp) {
                 continue;
@@ -295,65 +293,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                 points[timeId] = { requests: 1, users: new Set([userId]) };
             }
         }
-
-        console.log('points', points, Object.keys(points).length)
-
-        // console.log('points', points, Object.keys(points).length)
-        // const points: { [id: string]: { requests: number; users: Set<string> } } = {};
-
-        // const start = periodStart(period);
-        // const getTimeId = getTimeIdGetter(period, data);
-        // const stepSize = getStepSize(period, data);
-
-        // // Initialize points with expected time intervals
-        // if (start === null) {
-        //     // For "all time" period
-        //     const range = getDateRange(data);
-        //     if (!range) {
-        //         return;
-        //     }
-        //     const startTime = getTimeId(new Date(range.start));
-        //     const endTime = getTimeId(new Date(range.end));
-        //     for (let i = startTime; i <= endTime; i += stepSize) {
-        //         points[i] = { requests: 0, users: new Set() };
-        //     }
-        // } else {
-        //     const now = new Date();
-        //     for (let i = getTimeId(start); i <= getTimeId(now); i += stepSize) {
-        //         points[i] = { requests: 0, users: new Set() };
-        //     }
-        // }
-
-        // // Process data and ensure we only use the predefined timeIds
-        // for (const row of data) {
-        //     if (!row.timestamp) {
-        //         continue;
-        //     }
-
-        //     const userId = `${row.ipAddress}::${row.userAgent}`;
-        //     let timeId = getTimeId(row.timestamp);
-
-        //     // Make sure we're only using the exact timeIds we initialized
-        //     // If this exact timeId doesn't exist, find the closest preceding one
-        //     if (!points[timeId]) {
-        //         // Find the closest initialized timeId that's less than or equal to this one
-        //         const availableTimeIds = Object.keys(points).map(Number).sort((a, b) => a - b);
-        //         const closestTimeId = availableTimeIds.reduce((prev, curr) => {
-        //             if (curr <= timeId && curr > prev) return curr;
-        //             return prev;
-        //         }, -Infinity);
-
-        //         if (closestTimeId > -Infinity) {
-        //             timeId = closestTimeId;
-        //         } else {
-        //             // If no suitable timeId found, skip this data point
-        //             continue;
-        //         }
-        //     }
-
-        //     points[timeId].requests++;
-        //     points[timeId].users.add(userId);
-        // }
 
         const values = Object.entries(points).map(([x, y]) => ({
             x: new Date(parseInt(x)),

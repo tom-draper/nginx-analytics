@@ -98,10 +98,10 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
     // Generate a pool of IPs to allow for repeating patterns
     // This creates more realistic logs where the same users return
     const ipPool: string[] = [];
-    const ipPoolSize = Math.min(count / 3, 100); // Adjust based on log volume
+    const ipPoolSize = Math.min(count / 3, 20); // Adjust based on log volume
     
     for (let i = 0; i < ipPoolSize; i++) {
-        if (ipRange.length > 0 && Math.random() < 0.7) {
+        if (ipRange.length > 0 && Math.random() < 0.99) {
             // 70% chance to use provided IP range
             ipPool.push(ipRange[Math.floor(Math.random() * ipRange.length)]);
         } else {
@@ -159,7 +159,7 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
     // Helper functions
     const getRandomIP = (): string => {
         // 70% chance to reuse an IP from the pool, 30% to generate a new one
-        if (ipPool.length > 0 && Math.random() < 0.7) {
+        if (ipPool.length > 0 && Math.random() < 0.99) {
             return ipPool[Math.floor(Math.random() * ipPool.length)];
         }
         return `${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`;

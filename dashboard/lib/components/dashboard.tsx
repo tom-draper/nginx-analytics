@@ -90,7 +90,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         }
 
         if (demo) {
-            const demoLogs = generateNginxLogs({ format: 'extended', count: 120000, startDate: new Date('2020-01-01') });
+            const demoLogs = generateNginxLogs({ format: 'extended', count: 120000, startDate: new Date('2023-01-01') });
             setAccessLogs(demoLogs)
             return;
         }
