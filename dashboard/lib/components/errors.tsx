@@ -181,14 +181,14 @@ export default function Errors({
         }
 
         let positions: Array<{ filename: string, position: number }> | null = null;
-        let firstRequest = true;
+        let includeCompressed = true;
 
         const fetchErrors = async () => {
             setIsLoading(true);
             setFetchError(null);
 
             try {
-                const url = getUrl(positions, firstRequest);
+                const url = getUrl(positions, includeCompressed);
                 const response = await fetch(url);
 
                 if (!response.ok) {
@@ -209,7 +209,7 @@ export default function Errors({
                     if (data.positions) {
                         positions = data.positions;
                     }
-                    firstRequest = false;
+                    includeCompressed = false;
                 }
             } catch (error) {
                 console.error("Error fetching error logs:", error);
@@ -227,8 +227,8 @@ export default function Errors({
     const getUrl = (positions: {
         filename: string;
         position: number;
-    }[] | null, firstRequest: boolean) => {
-        let url = `/api/logs?type=error&firstRequest=${firstRequest}`;
+    }[] | null, includeCompressed: boolean) => {
+        let url = `/api/logs?type=error&includeCompressed=${includeCompressed}`;
         if (positions) {
             url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
         }

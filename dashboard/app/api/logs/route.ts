@@ -36,7 +36,7 @@ interface LogResult {
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const logType = searchParams.get("type");
-    const firstRequest = searchParams.get('firstRequest') === 'true';
+    const includeCompressed = searchParams.get('includeCompressed') === 'true';
 
     // Parse positions from the query parameter
     const positions = parsePositionsFromRequest(searchParams);
@@ -44,27 +44,27 @@ export async function GET(request: NextRequest) {
     try {
         if (logType === 'error') {
             if (serverUrl) {
-                return await serveRemoteLogs(serverUrl, positions, true, firstRequest, authToken);
+                return await serveRemoteLogs(serverUrl, positions, true, includeCompressed, authToken);
             } else if (nginxErrorDir) {
-                return await serveDirectoryLogs(nginxErrorDir, positions, true, firstRequest);
+                return await serveDirectoryLogs(nginxErrorDir, positions, true, includeCompressed);
             } else if (nginxErrorPath) {
                 return await serveSingleLog(nginxErrorPath, positions[0].position);
             } else if (nginxAccessDir) {
-                return await serveDirectoryLogs(nginxAccessDir, positions, true, firstRequest);
+                return await serveDirectoryLogs(nginxAccessDir, positions, true, includeCompressed);
             } else {
-                return await serveDirectoryLogs(defaultNginxErrorDir, positions, true, firstRequest);
+                return await serveDirectoryLogs(defaultNginxErrorDir, positions, true, includeCompressed);
             }
         } else {
             if (serverUrl) {
-                return await serveRemoteLogs(serverUrl, positions, false, firstRequest, authToken);
+                return await serveRemoteLogs(serverUrl, positions, false, includeCompressed, authToken);
             } else if (nginxAccessDir) {
-                return await serveDirectoryLogs(nginxAccessDir, positions, false, firstRequest);
+                return await serveDirectoryLogs(nginxAccessDir, positions, false, includeCompressed);
             } else if (nginxAccessPath) {
                 return await serveSingleLog(nginxAccessPath, positions[0].position);
             } else if (nginxErrorDir) {
-                return await serveDirectoryLogs(nginxErrorDir, positions, true, firstRequest);
+                return await serveDirectoryLogs(nginxErrorDir, positions, true, includeCompressed);
             } else {
-                return await serveDirectoryLogs(defaultNginxAccessDir, positions, false, firstRequest);
+                return await serveDirectoryLogs(defaultNginxAccessDir, positions, false, includeCompressed);
             }
         }
     } catch (error) {
@@ -345,14 +345,14 @@ async function readGzippedLogFile(filePath: string): Promise<LogResult> {
 /**
  * Serve logs from a remote URL
  */
-async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, firstRequest: boolean, authToken?: string): Promise<NextResponse> {
+async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, includeCompressed: boolean, authToken?: string): Promise<NextResponse> {
     try {
         const headers: HeadersInit = {};
         if (authToken) {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const url = getUrl(remoteUrl, positions, isErrorLog, firstRequest);
+        const url = getUrl(remoteUrl, positions, isErrorLog, includeCompressed);
         const response = await fetch(url, {
             method: "GET",
             headers
@@ -376,8 +376,8 @@ async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], isE
     }
 }
 
-function getUrl(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, firstRequest: boolean) {
-    let url = `${remoteUrl}/logs/${isErrorLog ? 'error' : 'access'}?type=access&firstRequest=${firstRequest}`;
+function getUrl(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, includeCompressed: boolean) {
+    let url = `${remoteUrl}/logs/${isErrorLog ? 'error' : 'access'}?type=access&includeCompressed=${includeCompressed}`;
     if (positions) {
         url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
     }

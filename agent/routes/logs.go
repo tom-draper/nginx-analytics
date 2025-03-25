@@ -51,7 +51,7 @@ func serveLogs(w http.ResponseWriter, r *http.Request, dirPath string, isErrorLo
 	}
 
 	// Check if this is first request or not
-	firstRequest := r.URL.Query().Get("firstRequest") == "true"
+	includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
 
 	// Check if we're serving a directory or a single file
 	fileInfo, err := os.Stat(dirPath)
@@ -62,7 +62,7 @@ func serveLogs(w http.ResponseWriter, r *http.Request, dirPath string, isErrorLo
 
 	if fileInfo.IsDir() {
 		// Serve logs from directory
-		serveDirectoryLogs(w, dirPath, positions, isErrorLog, firstRequest)
+		serveDirectoryLogs(w, dirPath, positions, isErrorLog, includeCompressed)
 	} else {
 		// Serve a single log file
 		singlePos := int64(0)
@@ -137,7 +137,7 @@ func readNormalLogFile(filePath string, position int64) (LogResult, error) {
 	var logs []string
 	var buffer strings.Builder
 	buf := make([]byte, 4096)
-	var lastChar byte
+	// var lastChar byte
 
 	for {
 		n, err := file.Read(buf)
@@ -160,7 +160,7 @@ func readNormalLogFile(filePath string, position int64) (LogResult, error) {
 			} else {
 				buffer.WriteByte(c)
 			}
-			lastChar = c
+			// lastChar = c
 		}
 	}
 
@@ -170,15 +170,7 @@ func readNormalLogFile(filePath string, position int64) (LogResult, error) {
 		logs = append(logs, lastLine)
 	}
 
-	// Calculate new position
-	newPosition := position
-	if lastChar == '\n' {
-		newPosition = fileSize
-	} else if buffer.Len() > 0 {
-		newPosition = fileSize - int64(buffer.Len())
-	} else {
-		newPosition = fileSize
-	}
+	newPosition := fileSize 
 
 	return LogResult{Logs: logs, Position: newPosition}, nil
 }
@@ -253,7 +245,7 @@ func readGzippedLogFile(filePath string) (LogResult, error) {
 }
 
 // serveDirectoryLogs serves logs from a directory containing multiple log files
-func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Position, isErrorLog bool, firstRequest bool) {
+func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Position, isErrorLog bool, includeCompressed bool) {
 	// Read directory entries
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
@@ -270,14 +262,14 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 		isGzipFile := strings.HasSuffix(fileName, ".gz")
 
 		// Filter by log type and extension
-		if (isLogFile || (isGzipFile && firstRequest)) &&
+		if (isLogFile || (isGzipFile && includeCompressed)) &&
 			(isErrorLog && strings.Contains(fileName, "error") || !isErrorLog && !strings.Contains(fileName, "error")) {
 			logFiles = append(logFiles, fileName)
 		}
 	}
 
 	// Sort log files alphabetically
-	for i := 0; i < len(logFiles)-1; i++ {
+	for i := range len(logFiles) - 1 {
 		for j := i + 1; j < len(logFiles); j++ {
 			if logFiles[i] > logFiles[j] {
 				logFiles[i], logFiles[j] = logFiles[j], logFiles[i]
@@ -302,7 +294,7 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 		isGzFile := strings.HasSuffix(filePos.Filename, ".gz")
 
 		// Skip gz files if not first request
-		if isGzFile && !firstRequest {
+		if isGzFile && !includeCompressed {
 			continue
 		}
 

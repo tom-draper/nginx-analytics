@@ -98,11 +98,11 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
 
         // Store positions in a closure variable within the effect
         let positions: Array<{ filename: string, position: number }> | null = null;
-        let firstRequest = true
+        let includeCompressed = true
 
         const fetchLogs = async () => {
             try {
-                const url = getUrl(positions, firstRequest);
+                const url = getUrl(positions, includeCompressed);
                 const response = await fetch(url);
                 if (!response.ok) {
                     if (interval && (response.status === 403 || response.status === 404)) {
@@ -120,7 +120,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                     if (data.positions) {
                         positions = data.positions;
                     }
-                    firstRequest = false;
+                    includeCompressed = false;
                 }
             } catch (error) {
                 console.error("Error fetching logs:", error);
@@ -135,8 +135,8 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
     const getUrl = (positions: {
         filename: string;
         position: number;
-    }[] | null, firstRequest: boolean) => {
-        let url = `/api/logs?type=access&firstRequest=${firstRequest}`;
+    }[] | null, includeCompressed: boolean) => {
+        let url = `/api/logs?type=access&includeCompressed=${includeCompressed}`;
         if (positions) {
             url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
         }
