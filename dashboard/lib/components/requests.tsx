@@ -25,14 +25,6 @@ function getRequestsByTime(data: NginxLog[], period: Period) {
     
     // Determine appropriate bucket size based on period
     const bucketFormat: 'hour' | 'day' = period === '24 hours' ? 'hour' : 'day';
-    // let bucketFormat: 'hour' | 'day' | 'month' = 'day';
-    // if (period === 'today' || period === 'yesterday') {
-    //     bucketFormat = 'hour';
-    // } else if (period === 'week' || period === 'month') {
-    //     bucketFormat = 'day';
-    // } else {
-    //     bucketFormat = 'month';
-    // }
     
     // Generate all time buckets within the period range
     const allBuckets = new Map<string, number>();

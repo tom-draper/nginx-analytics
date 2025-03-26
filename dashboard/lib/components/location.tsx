@@ -96,7 +96,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
         if (!noFetch && !endpointDisabled) {
             fetchData();
         }
-    }, [data, locationMap, setLocationMap, noFetch, endpointDisabled]);
+    }, [data, locationMap, setLocationMap, noFetch, demo, endpointDisabled]);
 
     useEffect(() => {
         const locationCount: { [location: string]: number } = {};
