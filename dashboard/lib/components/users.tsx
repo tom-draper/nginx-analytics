@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { NginxLog } from "../types";
 import { getUserId } from "../user";
-import { Period, periodStart } from "../period";
+import { getPeriodRange, hoursInRange, Period, periodStart } from "../period";
 
 function getUsers(data: NginxLog[], period: Period) {
     const startDate = periodStart(period);
@@ -26,6 +26,10 @@ function getUsers(data: NginxLog[], period: Period) {
         }
     }
     return users;
+}
+
+function getUserCount(data: NginxLog[], period: Period) {
+    return getUsers(data, period).size;
 }
 
 function getUsersByTime(data: NginxLog[], period: Period) {
@@ -147,13 +151,28 @@ function getUsersByTime(data: NginxLog[], period: Period) {
 }
 
 export default function Users({ data, period }: { data: NginxLog[], period: Period }) {
-    const [users, setUsers] = useState<Set<string> | null>(null);
+    const [users, setUsers] = useState<{total: number, perHour: number}>({total: 0, perHour: 0});
     const [userTrend, setUserTrend] = useState<Array<{date: string, count: number}>>([]);
+    const [displayMode, setDisplayMode] = useState<'total' | 'per-hour'>('total');
 
     useEffect(() => {
-        setUsers(getUsers(data, period));
+        const range = getPeriodRange(period, data);
+        if (!range) return;
+
+        const totalUsers = getUserCount(data, period);
+
+        const usersPerHour = totalUsers / hoursInRange(range.start, range.end);
+        setUsers({total: totalUsers, perHour: usersPerHour});
         setUserTrend(getUsersByTime(data, period));
     }, [data, period]);
+
+
+    // Toggle display mode
+    const toggleDisplayMode = () => {
+        setDisplayMode(current =>
+            current === 'total' ? 'per-hour' : 'total'
+        );
+    };
 
     // Calculate the path for the background graph
     const renderBackgroundGraph = () => {
@@ -255,17 +274,29 @@ export default function Users({ data, period }: { data: NginxLog[], period: Peri
     };
 
     return (
-        <div className="card flex-1 px-4 py-3 m-3 relative overflow-hidden">
-            <h2 className="font-semibold">
+        <div
+            className="card flex-1 px-4 py-3 m-3 relative overflow-hidden cursor-pointer"
+            onClick={toggleDisplayMode}
+        >
+            <h2 className="font-semibold flex justify-between items-center">
                 Users
+                <span className="text-xs text-gray-500">
+                    {displayMode !== 'total' ? '/ hour' : null}
+                </span>
             </h2>
 
             <div className="text-3xl font-semibold grid place-items-center relative z-10">
-                <div className="py-4 text-[var(--text-tinted)]" style={{textShadow: "0px 0px 3px rgba(0,0,0,0.5)"}}>
-                    {users ? users.size.toLocaleString() : '0'}
+                <div
+                    className="py-4 text-[var(--text-tinted)]"
+                    style={{ textShadow: "0px 0px 3px rgba(0,0,0,0.5)" }}
+                >
+                    {displayMode === 'total'
+                        ? users.total.toLocaleString()
+                        : users.perHour === 0 ? 0 : users.perHour.toFixed(2)
+                    }
                 </div>
             </div>
-            
+
             {renderBackgroundGraph()}
         </div>
     );

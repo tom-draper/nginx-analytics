@@ -7,12 +7,13 @@ import { useEffect, useState } from "react";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-function getVersion(userAgent: string): string | null {
-    if (!userAgent) {
+function getVersion(endpoint: string): string | null {
+    if (!endpoint) {
         return null;
     }
 
-    const match = userAgent.match(/\/(v\d)[^a-z0-9]\//i);
+    const match = endpoint.match(/\/(v\d+)\//);
+    console.log(endpoint, match)
     if (!match) {
         return null;
     }
@@ -27,7 +28,7 @@ export function Version({ data }: { data: NginxLog[] }) {
         const versionCounts: { [key: string]: number } = {};
 
         for (const row of data) {
-            const version = getVersion(row.userAgent)
+            const version = getVersion(row.path)
             if (!version) {
                 continue;
             }
@@ -61,6 +62,7 @@ export function Version({ data }: { data: NginxLog[] }) {
                         "#FF9F40",
                     ],
                     hoverOffset: 4,
+                    borderWidth: 0,
                 },
             ],
         });

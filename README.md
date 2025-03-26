@@ -44,7 +44,7 @@ If you prefer to work in the terminal, a CLI is available as an alternative to t
 
 #### Option 1: CLI
 
-Deploy the CLI to the same server as Nginx, and access via SSH.
+Deploy the CLI to the server running Nginx, and access via SSH.
 
 Follow the <a href="./cli/README.md">CLI deployment guide</a>.
 
@@ -58,19 +58,21 @@ Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
 #### Locations
 
-IP-location inference can be quickly set up, utilising MaxMind's free GeoLite2 database. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
+IP-location inference can be set up quickly, utilising MaxMind's free GeoLite2 database. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
 
 #### System Monitoring
 
-The dashboard has live system monitoring capabilities that are disabled by default. Enable them by setting `NGINX_ANALYTICS_SYSTEM_MONITORING=true` in the environment variables of the agent or dashboard deployment.
+System resource monitoring for CPU, memory and storage usage is disabled by default. Enable it by setting `NGINX_ANALYTICS_SYSTEM_MONITORING=true` in the environment variables of your agent or dashboard deployment.
 
 #### Authentication
 
-When using the agent, it's recommended to set a private auth token, by assigning a value to the `NGINX_ANALYTICS_AUTH_TOKEN` environment variable for both the agent and the dashboard/CLI deployment. When a request in made to the agent by the dashboard/CLI, the client will provide this auth token, and the agent will check that it matches the expected value. This will stop any attackers from being able to access your log files by making requests to the agent.
+When using the agent, it's recommended to use an auth token, by setting the same private environment variable `NGINX_ANALYTICS_AUTH_TOKEN` for both the agent (server) and the dashboard/CLI (client) deployment.
+
+The agent will check that the auth token provided by the client matches the value it has stored locally before granting access to the logs.
 
 #### Password Protection
 
-If your dashboard is publically accessible, password protection can be set up by assigning a password under the `NGINX_ANALYTICS_PASSWORD` in the environment variables of the dashboard deployment.
+If your dashboard is publically accessible, set up password protection by assigning a value to the `NGINX_ANALYTICS_PASSWORD` environment variable for the dashboard deployment.
 
 #### HTTPS
 

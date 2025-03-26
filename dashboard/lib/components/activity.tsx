@@ -392,6 +392,21 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         return `Success rate: ${((successRate.value === 0 || successRate.value === 1) ? (successRate.value * 100).toFixed(0) : (successRate.value * 100).toFixed(1))}%\n${time}`;
     }
 
+    const getPeriodLabel = (period: Period) => {
+        switch (period) {
+            case '24 hours':
+                return '24 hours ago';
+            case 'week':
+                return 'One week ago';
+            case 'month':
+                return 'One month ago';
+            case '6 months':
+                return 'Six months ago';
+            default:
+                return 'All time';
+        }
+    }
+
 
     useEffect(() => {
         const points: { [id: string]: { success: number, total: number } } = {}
@@ -470,7 +485,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             </div>
 
             <div className="pb-0 pt-2" ref={containerRef}>
-                <div className="flex ml-[66px] !ml-[0] mt-2 mb-2 overflow-hidden">
+                <div className="flex ml-[0] mt-2 mb-2 overflow-hidden">
                     {displayRates?.map((successRate, index) => (
                         <div
                             key={index}
@@ -479,6 +494,13 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                         >
                         </div>
                     ))}
+                </div>
+            </div>
+
+            <div className="pb-0">
+                <div className="flex justify-between mt-2 mb-1 overflow-hidden text-xs text-[var(--text-muted3)] mx-1">
+                    <div>{getPeriodLabel(period)}</div>
+                    <div>Now</div>
                 </div>
             </div>
         </div>

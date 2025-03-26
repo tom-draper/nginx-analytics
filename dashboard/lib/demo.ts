@@ -52,21 +52,46 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
         ipRange = [],
         statusCodes = [200, 201, 204, 301, 302, 304, 400, 401, 403, 404, 500, 502, 503],
         paths = [
+            // Standard paths
             '/',
             '/index.html',
             '/about',
             '/contact',
-            '/api/users',
-            '/api/products',
-            '/login',
-            '/logout',
-            '/assets/main.css',
-            '/assets/main.js',
             '/blog',
             '/blog/post-1',
             '/products',
             '/products/category',
-            '/favicon.ico'
+            '/login',
+            '/logout',
+            '/assets/main.css',
+            '/assets/main.js',
+            '/favicon.ico',
+
+            // API v1 endpoints
+            '/api/v1/users',
+            '/api/v1/users/profile',
+            '/api/v1/products',
+            '/api/v1/products/categories',
+            '/api/v1/orders',
+            '/api/v1/orders/history',
+            '/api/v1/authentication',
+            '/api/v1/search',
+
+            // API v2 endpoints
+            '/api/v2/users',
+            '/api/v2/users/extended-profile',
+            '/api/v2/products',
+            '/api/v2/products/inventory',
+            '/api/v2/orders',
+            '/api/v2/orders/analytics',
+            '/api/v2/authentication/refresh',
+            '/api/v2/metrics',
+
+            // Additional versioned endpoints
+            '/api/v3/users/preferences',
+            '/api/v1/health',
+            '/api/v2/status',
+            '/api/v1/system/config'
         ],
         userAgents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

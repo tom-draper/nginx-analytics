@@ -27,7 +27,6 @@ import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
 import NetworkBackground from "./network-background";
 import FileUpload from "./file-upload";
-import { range } from "d3";
 
 
 export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, demo: boolean }) {
@@ -144,33 +143,36 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
     }
 
     useEffect(() => {
+        const initPeriod = (logs: NginxLog[]) => {
+            if (!logs.length || !logs[0].timestamp) {
+                return;
+            }
+            let maxDate = logs[0].timestamp;
+            for (const log of logs) {
+                if (log.timestamp && (!maxDate || log.timestamp > maxDate)) {
+                    maxDate = log.timestamp;
+                }
+            }
+
+            if (inPeriod(maxDate, 'week')) {
+                setPeriod('week');
+            } else if (inPeriod(maxDate, 'month')) {
+                setPeriod('month');
+            } else if (inPeriod(maxDate, '6 months')) {
+                setPeriod('6 months');
+            } else {
+                setPeriod('all time');
+            }
+        }
+
         const parsedLogs = parseNginxLogs(accessLogs)
         if (logs.length === 0) {
             initPeriod(parsedLogs);
         }
         setLogs(parsedLogs);
-    }, [accessLogs])
+    }, [accessLogs, logs.length])
 
-    const initPeriod = (logs: NginxLog[]) => {
-        if (!logs.length || !logs[0].timestamp) {
-            return;
-        }
-        let minDate = logs[0].timestamp;
-        for (const log of logs) {
-            if (log.timestamp && (!minDate || log.timestamp < minDate)) {
-                minDate = log.timestamp;
-            }
-        }
-        if (inPeriod(minDate, 'week')) {
-            setPeriod('week');
-        } else if (inPeriod(minDate, 'month')) {
-            setPeriod('month');
-        } else if (inPeriod(minDate, '6 months')) {
-            setPeriod('6 months');
-        } else {
-            setPeriod('all time');
-        }
-    }
+
 
     const inPeriod = (date: Date, period: Period) => {
         const start = periodStart(period);
@@ -220,8 +222,11 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         return (
             <div className="relative w-full h-screen bg-[var(--background)]">
                 <NetworkBackground />
-                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
                     <FileUpload setAccessLogs={setAccessLogs} setErrorLogs={setErrorLogs} />
+                    <div className="pointer-events-auto font-normal text-sm">
+                        <a href="/dashboard/demo" target="_blank" className="text-[var(--text-muted3)] hover:text-[var(--text)] cursor-pointer">Or try the demo</a>
+                    </div>
                 </div>
             </div>
         )
@@ -239,7 +244,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                     <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
-                            <SuccessRate data={filteredData} />
+                            <SuccessRate data={filteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">

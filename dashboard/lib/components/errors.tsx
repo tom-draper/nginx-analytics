@@ -51,26 +51,6 @@ const useSortedData = <T extends Record<string, any>>(
     return { sortedData, sortConfig, requestSort };
 };
 
-// Column header component for better DRY
-const SortableColumnHeader = ({
-    label,
-    fieldName,
-    currentSort,
-    onSort
-}: {
-    label: string;
-    fieldName: keyof NginxError;
-    currentSort: { key: keyof NginxError; direction: "asc" | "desc" };
-    onSort: (field: keyof NginxError) => void;
-}) => (
-    <th
-        className="py-2 text-left border-b border-[var(--border-color)] cursor-pointer"
-        onClick={() => onSort(fieldName)}
-    >
-        {label} {currentSort.key === fieldName && (currentSort.direction === "asc" ? "↑" : "↓")}
-    </th>
-);
-
 // Error row component
 const ErrorRow = ({
     error,

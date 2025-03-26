@@ -1,9 +1,15 @@
-'use client';
+"use client";
 
-import { useState, useRef, Dispatch, SetStateAction } from 'react';
-import * as pako from 'pako';
+import { useState, useRef, Dispatch, SetStateAction } from "react";
+import * as pako from "pako";
 
-export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessLogs: Dispatch<SetStateAction<string[]>>, setErrorLogs: Dispatch<SetStateAction<string[]>> }) {
+export default function FileUpload({
+	setAccessLogs,
+	setErrorLogs,
+}: {
+	setAccessLogs: Dispatch<SetStateAction<string[]>>;
+	setErrorLogs: Dispatch<SetStateAction<string[]>>;
+}) {
 	const [files, setFiles] = useState<File[]>([]);
 	const [isDragging, setIsDragging] = useState(false);
 	const [isUploading, setIsUploading] = useState(false);
@@ -57,7 +63,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 	};
 
 	const removeFile = (index: number) => {
-		setFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
+		setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
 	};
 
 	const processFile = async (file: File): Promise<string[]> => {
@@ -66,20 +72,20 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 
 			reader.onload = async (event) => {
 				try {
-					let logContent = '';
+					let logContent = "";
 
 					// Check if the file is a gzip file
-					if (file.name.endsWith('.gz')) {
+					if (file.name.endsWith(".gz")) {
 						// Get the binary data from the file
 						const content = event.target?.result;
-						if (!content) throw new Error('Failed to read file');
+						if (!content) throw new Error("Failed to read file");
 
 						// Convert to Uint8Array for pako
 						let compressedData: Uint8Array;
 						if (content instanceof ArrayBuffer) {
 							compressedData = new Uint8Array(content);
 						} else {
-							throw new Error('Expected ArrayBuffer');
+							throw new Error("Expected ArrayBuffer");
 						}
 
 						// Decompress the content
@@ -89,11 +95,13 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 						logContent = new TextDecoder().decode(decompressedData);
 					} else {
 						// For plain text files, just get the content as text
-						logContent = event.target?.result as string || '';
+						logContent = (event.target?.result as string) || "";
 					}
 
 					// Parse the logs
-					const logs = logContent.split('\n').filter(line => line.trim().length > 0);
+					const logs = logContent
+						.split("\n")
+						.filter((line) => line.trim().length > 0);
 					resolve(logs);
 				} catch (error) {
 					reject(error);
@@ -101,11 +109,11 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 			};
 
 			reader.onerror = () => {
-				reject(new Error('File reading failed'));
+				reject(new Error("File reading failed"));
 			};
 
 			// Read the file as ArrayBuffer for gzip files, or as text for log files
-			if (file.name.endsWith('.gz')) {
+			if (file.name.endsWith(".gz")) {
 				reader.readAsArrayBuffer(file);
 			} else {
 				reader.readAsText(file);
@@ -136,7 +144,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 
 				// Process the current file
 				const logs = await processFile(files[i]);
-				if (files[i].name.includes('error')) {
+				if (files[i].name.includes("error")) {
 					errorLogs = errorLogs.concat(logs);
 				} else {
 					accessLogs = accessLogs.concat(logs);
@@ -159,7 +167,7 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 			// 	setIsProcessed(true);
 			// }, 500);
 		} catch (error) {
-			console.error('Processing failed:', error);
+			console.error("Processing failed:", error);
 			setIsUploading(false);
 			setUploadProgress(0);
 		}
@@ -175,14 +183,16 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 	const formattedTotalSize = (totalSize / 1024).toFixed(1);
 
 	return (
-		<div className="flex flex-col items-center justify-center p-4 pb-[10vh] w-full">
+		<div className="flex flex-col items-center justify-center p-6 pb-[10vh] w-full">
 			<div className="w-full max-w-md bg-opacity-80 backdrop-blur-sm border border-[var(--border-color)] rounded shadow-lg overflow-hidden">
 				<div className="p-8 pointer-events-auto">
 					<div className="flex flex-col items-center mb-8">
 						<div className="p-3 mb-4">
 							<img src="logo.svg" alt="Nginx Analytics Logo" className="h-14" />
 						</div>
-						<h1 className="text-xl font-bold text-gray-800 dark:text-white">Nginx Analytics</h1>
+						<h1 className="text-xl font-bold text-gray-800 dark:text-white">
+							Nginx Analytics
+						</h1>
 						<p className="mt-2 text-gray-500 dark:text-gray-400 text-center">
 							Upload your Nginx log files
 						</p>
@@ -190,8 +200,14 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 
 					<div
 						className={`border-2 border-dashed rounded p-8 text-center mb-6 transition-colors
-              ${isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-700'}
-              ${files.length > 0 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : ''}
+              ${isDragging
+								? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+								: "border-gray-300 dark:border-gray-700"
+							}
+              ${files.length > 0
+								? "bg-green-50 dark:bg-green-900/20 border-green-500"
+								: ""
+							}
               hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer`}
 						onDragEnter={handleDragEnter}
 						onDragOver={handleDragOver}
@@ -214,13 +230,18 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
-								className={`mx-auto h-12 w-12 ${files.length > 0 ? 'text-[var(--highlight)]' : 'text-gray-400'}`}
+								className={`mx-auto h-12 w-12 ${files.length > 0 ? "text-[var(--highlight)]" : "text-gray-400"
+									}`}
 							>
 								<path
 									strokeLinecap="round"
 									strokeLinejoin="round"
 									strokeWidth={1.5}
-									d={files.length > 0 ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" : "M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"}
+									d={
+										files.length > 0
+											? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+											: "M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+									}
 								/>
 							</svg>
 						</div>
@@ -228,7 +249,8 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 						{files.length > 0 ? (
 							<div>
 								<p className="text-sm font-medium text-[var(--highlight)]">
-									{files.length} file{files.length > 1 ? 's' : ''} selected ({formattedTotalSize} KB)
+									{files.length} file{files.length > 1 ? "s" : ""} selected (
+									{formattedTotalSize} KB)
 								</p>
 								<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
 									Click to add or change files
@@ -249,32 +271,61 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 					{/* File List */}
 					{files.length > 0 && !isProcessed && !isUploading && (
 						<>
-							<h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Selected Files:</h3>
-						<div className="mb-6 max-h-42 overflow-y-auto">
-							<ul className="space-y-2">
-								{files.map((file, index) => (
-									<li key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded">
-										<div className="flex items-center space-x-2 truncate max-w-[80%]">
-											<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-											</svg>
-											<span className="text-xs truncate text-gray-700 dark:text-gray-300">{file.name}</span>
-										</div>
-										<button
-											onClick={(e) => {
-												e.stopPropagation();
-												removeFile(index);
-											}}
-											className="text-[var(--error)] opacity-80 hover:opacity-50 text-xs cursor-pointer"
+							<h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Selected Files:
+							</h3>
+							<div className="mb-6 max-h-42 overflow-y-auto">
+								<ul className="space-y-2">
+									{files.map((file, index) => (
+										<li
+											key={index}
+											className="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded"
 										>
-											<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-4">
-												<path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-											</svg>
-										</button>
-									</li>
-								))}
-							</ul>
-						</div>
+											<div className="flex items-center space-x-2 truncate max-w-[80%]">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													className="h-4 w-4 text-gray-500"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														strokeWidth={2}
+														d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+													/>
+												</svg>
+												<span className="text-xs truncate text-gray-700 dark:text-gray-300">
+													{file.name}
+												</span>
+											</div>
+											<button
+												onClick={(e) => {
+													e.stopPropagation();
+													removeFile(index);
+												}}
+												className="text-[var(--error)] opacity-80 hover:opacity-50 text-xs cursor-pointer"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													strokeWidth="1.5"
+													stroke="currentColor"
+													className="size-4"
+												>
+													<path
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														d="M6 18 18 6M6 6l12 12"
+													/>
+												</svg>
+											</button>
+										</li>
+									))}
+								</ul>
+							</div>
 						</>
 					)}
 
@@ -297,9 +348,12 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 							</div>
 							<p className="text-xs text-center text-gray-500 dark:text-gray-400 mb-1">
 								{uploadProgress < 100 ? (
-									<>Processing files: {currentFileIndex + 1} of {files.length} ({Math.round(uploadProgress)}%)</>
+									<>
+										Processing files: {currentFileIndex + 1} of {files.length} (
+										{Math.round(uploadProgress)}%)
+									</>
 								) : (
-									'Processing complete!'
+									"Processing complete!"
 								)}
 							</p>
 							{files.length > 0 && currentFileIndex < files.length && (
@@ -313,15 +367,20 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 					{isProcessed && processedContent.length > 0 && (
 						<div className="mt-6">
 							<h2 className="text-lg font-medium text-gray-800 dark:text-white mb-2">
-								Log Preview ({processedContent.length} lines from {files.length} files)
+								Log Preview ({processedContent.length} lines from {files.length}{" "}
+								files)
 							</h2>
 							<div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-3 overflow-auto max-h-48">
 								<pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
 									{processedContent.slice(0, 5).map((line, index) => (
-										<div key={index} className="mb-1">{line}</div>
+										<div key={index} className="mb-1">
+											{line}
+										</div>
 									))}
 									{processedContent.length > 5 && (
-										<div className="text-gray-500 italic">... {processedContent.length - 5} more lines</div>
+										<div className="text-gray-500 italic">
+											... {processedContent.length - 5} more lines
+										</div>
 									)}
 								</pre>
 							</div>
@@ -344,7 +403,9 @@ export default function FileUpload({ setAccessLogs, setErrorLogs }: { setAccessL
 
 					{isProcessed && processedContent.length === 0 && (
 						<div className="mt-6 text-center">
-							<p className="text-red-500">No content found in the files. Please try other files.</p>
+							<p className="text-red-500">
+								No content found in the files. Please try other files.
+							</p>
 							<button
 								onClick={() => {
 									setFiles([]);
