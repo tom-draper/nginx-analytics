@@ -19,7 +19,7 @@ import UsageTime from "@/lib/components/usage-time";
 import { Referrals } from "@/lib/components/referrals";
 import { ResponseSize } from "@/lib/components/response-size";
 import { SystemResources } from "@/lib/components/system-resources";
-import generateNginxLogs from "@/lib/demo";
+import { generateNginxLogs } from "@/lib/demo";
 import { NginxLog } from "@/lib/types";
 import Errors from "@/lib/components/errors";
 import { Settings } from "@/lib/components/settings";
@@ -112,6 +112,8 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                 }
 
                 const data = await response.json();
+
+                console.log('data', data)
 
                 if (data.logs) {
                     setAccessLogs((prevLogs) => [...prevLogs, ...data.logs]);
@@ -224,8 +226,8 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                 <NetworkBackground />
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
                     <FileUpload setAccessLogs={setAccessLogs} setErrorLogs={setErrorLogs} />
-                    <div className="pointer-events-auto font-normal text-sm">
-                        <a href="/dashboard/demo" target="_blank" className="text-[var(--text-muted3)] hover:text-[var(--text)] cursor-pointer">Or try the demo</a>
+                    <div className="absolute w-full bottom-6 text-center z-20 pointer-events-auto font-normal text-sm">
+                        <a href="/dashboard/demo" target="_blank" className="text-[var(--text-muted3)] hover:text-[var(--text)] cursor-pointer">Try the demo</a>
                     </div>
                 </div>
             </div>
@@ -276,12 +278,12 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                             </div>
                         </div>
 
-                        <SystemResources />
+                        <SystemResources demo={demo} />
 
                         <div className="w-inherit flex max-xl:flex-col">
                             <div className="max-xl:!w-full flex-1" style={{ width: 'calc(100vw - 48px - 48px - 416px - 28em)' }}>
                                 <UsageTime data={filteredData} />
-                                <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload || demo} />
+                                <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
                             </div>
                             <div>
                                 <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />

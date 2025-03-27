@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { Bar } from "react-chartjs-2";
 import { NginxLog } from "@/lib/types";
 import 'chartjs-adapter-date-fns';
-import { Period, periodStart } from "@/lib/period";
+import { getDateRange, Period, periodStart } from "@/lib/period";
 
 ChartJS.register(
     BarElement,
@@ -152,35 +152,13 @@ const getSuccessRateLevel = (successRate: number | null) => {
     return Math.ceil((successRate) * 10)
 }
 
-const getDateRange = (data: NginxLog[]) => {
-    if (!data || data.length === 0) {
-        return null; // Handle empty or null input
-    }
-
-    const range = { start: Infinity, end: -Infinity }
-
-    for (const row of data) {
-        if (!row.timestamp) {
-            continue
-        }
-        const time = row.timestamp.getTime()
-        if (time < range.start) {
-            range.start = time;
-        }
-        if (time > range.end) {
-            range.end = time
-        }
-    }
-
-    return range;
-}
-
 export default function Activity({ data, period }: { data: NginxLog[], period: Period }) {
     const [plotData, setPlotData] = useState<ChartData<"bar"> | null>(null)
     const [plotOptions, setPlotOptions] = useState<object | null>(null)
     const [successRates, setSuccessRates] = useState<({ timestamp: number, value: number | null })[]>([])
     const [displayRates, setDisplayRates] = useState<({ timestamp: number, value: number | null })[]>([])
     const [containerWidth, setContainerWidth] = useState<number>(0);
+    const [periodLabels, setPeriodLabels] = useState<{start: string, end: string}>({start: '', end: ''});
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Function to sample success rates based on container width
@@ -392,7 +370,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         return `Success rate: ${((successRate.value === 0 || successRate.value === 1) ? (successRate.value * 100).toFixed(0) : (successRate.value * 100).toFixed(1))}%\n${time}`;
     }
 
-    const getPeriodLabel = (period: Period) => {
+    const getPeriodStartLabel = (period: Period) => {
         switch (period) {
             case '24 hours':
                 return '24 hours ago';
@@ -403,33 +381,51 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
             case '6 months':
                 return 'Six months ago';
             default:
-                return 'All time';
+                const range = getDateRange(data);
+                if (!range) return '';
+                return new Date(range.start).toLocaleDateString();
         }
     }
 
+    useEffect(() => {
+        let periodLabels: {start: string, end: string} = {start: '', end: ''};
+        if (!data) {
+            setPeriodLabels(periodLabels);
+            return;
+        }
+
+        switch (period) {
+            case '24 hours':
+                periodLabels = {start: '24 hours ago', end: 'Now'};
+                break;
+            case 'week':
+                periodLabels = {start: 'One week ago', end: 'Now'};
+                break;
+            case 'month':
+                periodLabels = {start: 'One month ago', end: 'Now'};
+                break;
+            case '6 months':
+                periodLabels = {start: 'Six months ago', end: 'Now'};
+                break;
+            default:
+                const range = getDateRange(data);
+                if (!range) {
+                    setPeriodLabels(periodLabels);
+                    return;
+                }
+                periodLabels = {start: new Date(range.start).toLocaleDateString(), end: new Date(range.end).toLocaleDateString()};
+                break;
+        }
+
+        setPeriodLabels(periodLabels);
+    }, [data, period]);
 
     useEffect(() => {
         const points: { [id: string]: { success: number, total: number } } = {}
 
         const start = periodStart(period);
         const getTimeId = getTimeIdGetter(period, data);
-        // const stepSize = getStepSize(period, data);
-        // if (start !== null) {
-        //     const now = new Date();
-        //     for (let i = getTimeId(start); i < now.getTime(); i += stepSize) {
-        //         points[i] = { success: 0, total: 0 }
-        //     }
-        // } else {
-        //     const range = getDateRange(data);
-        //     if (!range) {
-        //         return;
-        //     }
-        //     const start = getTimeId(new Date(range.start))
-        //     const end = getTimeId(new Date(range.end));
-        //     for (let i = start; i <= end; i += stepSize) {
-        //         points[i] = { success: 0, total: 0 }
-        //     }
-        // }
+
         let currentDate: Date;
         let end: Date;
         if (start === null) {
@@ -499,8 +495,8 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
 
             <div className="pb-0">
                 <div className="flex justify-between mt-2 mb-1 overflow-hidden text-xs text-[var(--text-muted3)] mx-1">
-                    <div>{getPeriodLabel(period)}</div>
-                    <div>Now</div>
+                    <div>{periodLabels.start}</div>
+                    <div>{periodLabels.end}</div>
                 </div>
             </div>
         </div>

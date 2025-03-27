@@ -13,7 +13,6 @@ function getVersion(endpoint: string): string | null {
     }
 
     const match = endpoint.match(/\/(v\d+)\//);
-    console.log(endpoint, match)
     if (!match) {
         return null;
     }

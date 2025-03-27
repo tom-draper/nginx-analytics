@@ -1,4 +1,197 @@
 import { Location } from "@/lib/location";
+
+// Type for error log generator options
+interface ErrorLogGeneratorOptions {
+    count: number;
+    startDate?: Date;
+    endDate?: Date;
+    ipRange?: string[];
+    errorLevels?: string[];
+    errorTypes?: string[];
+}
+
+/**
+ * Generates realistic Nginx error log entries
+ * @param options Configuration options for error log generation
+ * @returns Array of error log entries as strings
+ */
+export function generateNginxErrorLogs(options: ErrorLogGeneratorOptions): string[] {
+    const {
+        count = 100,
+        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Default to past week
+        endDate = new Date(),
+        ipRange = [],
+        errorLevels = ['error', 'warn', 'crit', 'alert', 'emerg'],
+        errorTypes = [
+            // Server configuration errors
+            'server configuration error',
+            'invalid configuration directive',
+            'failed to load module',
+            'permission denied',
+            'address already in use',
+
+            // Request processing errors
+            'client request parsing error',
+            'upstream server connection failed',
+            'invalid request method',
+            'request timeout',
+            'client closed connection',
+
+            // File and resource errors
+            'file not found',
+            'permission denied for file',
+            'insufficient system resources',
+            'failed to open file',
+            'read/write error',
+
+            // SSL/TLS errors
+            'SSL certificate verification failed',
+            'SSL handshake failed',
+            'invalid SSL certificate',
+            'SSL protocol error',
+
+            // Security-related errors
+            'blocked request',
+            'suspicious request pattern detected',
+            'potential security violation',
+
+            // Performance and resource errors
+            'worker process exited with code',
+            'too many open files',
+            'connection limit exceeded',
+            'worker process reload failed'
+        ]
+    } = options;
+
+    // Helper for weighted random selection
+    const weightedRandom = <T>(items: T[], weights: number[]): T => {
+        const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+        let random = Math.random() * totalWeight;
+        
+        for (let i = 0; i < weights.length; i++) {
+            if (random < weights[i]) {
+                return items[i];
+            }
+            random -= weights[i];
+        }
+        
+        return items[0]; // Default fallback
+    };
+
+    // Create IP pool similar to the standard log generator
+    const ipPool: string[] = [];
+    const ipPoolSize = Math.min(count / 3, 15);
+    
+    for (let i = 0; i < ipPoolSize; i++) {
+        if (ipRange.length > 0 && Math.random() < 0.9) {
+            ipPool.push(ipRange[Math.floor(Math.random() * ipRange.length)]);
+        } else {
+            ipPool.push(`${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`);
+        }
+    }
+
+    // Weighted distribution for error levels
+    const errorLevelWeights = [40, 30, 15, 10, 5]; // More common to have lower severity errors
+
+    // Weighted distribution for error types
+    const errorTypeWeights = new Array(errorTypes.length).fill(1).map((_, index) => {
+        // Some error types are more likely to occur
+        if (['client request parsing error', 'upstream server connection failed', 'blocked request', 'file not found'].includes(errorTypes[index])) {
+            return 5; // More common
+        }
+        return 1; // Less common
+    });
+
+    // Helper functions
+    const getRandomIP = (): string => {
+        if (ipPool.length > 0 && Math.random() < 0.9) {
+            return ipPool[Math.floor(Math.random() * ipPool.length)];
+        }
+        return `${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`;
+    };
+
+    // const getRandomTimestamp = (): string => {
+    //     const timestampMs = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime());
+    //     const date = new Date(timestampMs);
+
+    //     const day = date.getDate().toString().padStart(2, '0');
+    //     const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()];
+    //     const year = date.getFullYear();
+    //     const hours = date.getHours().toString().padStart(2, '0');
+    //     const minutes = date.getMinutes().toString().padStart(2, '0');
+    //     const seconds = date.getSeconds().toString().padStart(2, '0');
+
+    //     const formatted = `[${day}/${month}/${year}:${hours}:${minutes}:${seconds} ${offsetSign}${offsetHours}${offsetMinutes}]`;
+    //     return `${day}/${month}/${year}:${hours}:${minutes}:${seconds}`;
+    // };
+    const getRandomTimestamp = ():string  => {
+        // Simple random timestamp between start and end dates
+        const timestampMs = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime());
+        const date = new Date(timestampMs);
+
+        // Format: [day/month/year:hour:minute:second +offset]
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()];
+        const year = date.getFullYear();
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const seconds = date.getSeconds().toString().padStart(2, '0');
+        const milliseconds = date.getMilliseconds(); // Store milliseconds for precision
+
+        // Calculate timezone offset
+        const offset = date.getTimezoneOffset();
+        const offsetHours = Math.abs(Math.floor(offset / 60)).toString().padStart(2, '0');
+        const offsetMinutes = Math.abs(offset % 60).toString().padStart(2, '0');
+        const offsetSign = offset <= 0 ? '+' : '-';
+
+        return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+    };
+
+    const getRandomPid = (): number => {
+        // Generate a realistic process ID
+        return Math.floor(Math.random() * 32768) + 1;
+    };
+
+    const getRandomContext = (): string => {
+        const contexts = [
+            'nginx/1.22.1',
+            'php-fpm/7.4',
+            'node/14.17.0',
+            'proxy_module',
+            'fastcgi_module',
+            'ssl_module',
+            'http_core_module'
+        ];
+        return contexts[Math.floor(Math.random() * contexts.length)];
+    };
+
+    // Generate error logs
+    const errorLogs: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+        const ip = getRandomIP();
+        const timestamp = getRandomTimestamp();
+        const errorLevel = weightedRandom(errorLevels, errorLevelWeights);
+        const errorType = weightedRandom(errorTypes, errorTypeWeights);
+        const pid = getRandomPid();
+        const context = getRandomContext();
+
+        // Add some randomized additional details for more realism
+        const additionalDetails = [
+            `client: ${ip}`,
+            `server: example.com`,
+            `request: ${Math.random() < 0.5 ? 'GET /some/path HTTP/1.1' : '-'}`,
+            `upstream: ${Math.random() < 0.3 ? 'backend_server' : '-'}`
+        ];
+
+        const errorMessage = `${timestamp} [${errorLevel}] ${pid}#0: *${i} ${errorType}, ${additionalDetails.join(', ')}, ${context}`;
+        errorLogs.push(errorMessage);
+    }
+
+    return errorLogs;
+}
+
+
 /**
  * Generates realistic Nginx log entries in either Common Log Format or Extended Log Format
  * with improved distribution patterns and more realistic data
@@ -43,7 +236,7 @@ function randomLocation(ipAddress: string): Location {
  * @param options Configuration options for log generation
  * @returns Array of log entries as strings
  */
-function generateNginxLogs(options: LogGeneratorOptions): string[] {
+export function generateNginxLogs(options: LogGeneratorOptions): string[] {
     const {
         format = 'common',
         count = 100,
@@ -304,5 +497,3 @@ function generateNginxLogs(options: LogGeneratorOptions): string[] {
 
     return logs;
 }
-
-export default generateNginxLogs;

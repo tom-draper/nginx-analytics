@@ -42,6 +42,7 @@ export function parseNginxErrors(logLines: string[]): NginxError[] {
         .filter(line => line.trim().length > 0)
         .map(line => {
             // Basic pattern: YYYY/MM/DD HH:MM:SS [level] pid#tid: *cid message
+            console.log(line);
             const timestampPattern = /^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})/;
             const levelPattern = /\[(debug|info|notice|warn|error|crit|alert|emerg)\]/i;
             const pidPattern = /(\d+)#(\d+)/;

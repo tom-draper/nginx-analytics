@@ -93,7 +93,7 @@ async function getMemoryInfo() {
         memoryInfo.used = mem.used;
         memoryInfo.total = mem.total;
     } catch (error) {
-        console.error('Failed to read system memory information')
+        console.error('Failed to read system memory information:', error)
     }
     return memoryInfo;
 }

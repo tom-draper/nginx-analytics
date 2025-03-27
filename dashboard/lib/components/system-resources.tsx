@@ -7,7 +7,7 @@ import { LogFiles } from "@/lib/components/log-files";
 import { HistoryData, LogSizes, SystemInfo } from "../types";
 import { useEffect, useState } from "react";
 
-export function SystemResources() {
+export function SystemResources({ demo }: { demo: boolean }) {
     const [resources, setResources] = useState<SystemInfo | null>(null);
     const [loadingResources, setLoadingResources] = useState(true);
     const [historyData, setHistoryData] = useState<HistoryData>({
@@ -66,6 +66,10 @@ export function SystemResources() {
     }, []);
 
     useEffect(() => {
+        if (demo) {
+            return;
+        }
+
         const fetchData = async () => {
             setLoadingLogSizes(true);
             try {

@@ -1,7 +1,3 @@
-export const nginxAccessDir = process.env.NGINX_ANALYTICS_ACCESS_DIR;
-
-export const nginxErrorDir = process.env.NGINX_ANALYTICS_ERROR_DIR;
-
 export const nginxAccessPath = process.env.NGINX_ANALYTICS_ACCESS_PATH;
 
 export const nginxErrorPath = process.env.NGINX_ANALYTICS_ERROR_PATH;
@@ -16,8 +12,6 @@ export const systemMonitoringEnabled = process.env.NGINX_ANALYTICS_SYSTEM_MONITO
 
 export const usingFileUpload = (
     !serverUrl &&
-    !nginxAccessDir &&
-    !nginxErrorDir &&
     !nginxAccessPath &&
     !nginxErrorPath
 );

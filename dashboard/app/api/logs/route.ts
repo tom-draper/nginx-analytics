@@ -6,28 +6,28 @@ import { promisify } from "util";
 import {
     serverUrl,
     authToken,
-    nginxAccessDir,
     nginxAccessPath,
-    nginxErrorDir,
     nginxErrorPath,
 } from "@/lib/environment";
-import { defaultNginxAccessDir, defaultNginxErrorDir } from "@/lib/consts";
+import { defaultNginxAccessPath, defaultNginxErrorPath } from "@/lib/consts";
 
 // Promisified functions
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
 const gunzip = promisify(zlib.gunzip);
 
+const isAccessDir = isDir(nginxAccessPath);
+const isErrorDir = isDir(nginxErrorPath);
+
 // Type definitions
 interface FilePosition {
-    filename: string;
+    filename?: string;
     position: number;
 }
 
 interface LogResult {
     logs: string[];
-    position: number;
-    positions?: FilePosition[];
+    positions: FilePosition[];
 }
 
 /**
@@ -37,35 +37,31 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const logType = searchParams.get("type");
     const includeCompressed = searchParams.get('includeCompressed') === 'true';
-
-    // Parse positions from the query parameter
     const positions = parsePositionsFromRequest(searchParams);
 
+    const isErrorLogs = logType === 'error';
+    const nginxPath = isErrorLogs ? nginxErrorPath : nginxAccessPath;
+    const isDir = isErrorLogs ? isErrorDir : isAccessDir;
+    const nginxAltPath = isErrorLogs ? nginxAccessPath : nginxErrorPath;
+    const isAltDir = isErrorLogs ? isAccessDir : isErrorDir;
+    const defaultNginxPath = isErrorLogs ? defaultNginxErrorPath : defaultNginxAccessPath;
+
     try {
-        if (logType === 'error') {
-            if (serverUrl) {
-                return await serveRemoteLogs(serverUrl, positions, true, includeCompressed, authToken);
-            } else if (nginxErrorDir) {
-                return await serveDirectoryLogs(nginxErrorDir, positions, true, includeCompressed);
-            } else if (nginxErrorPath) {
-                return await serveSingleLog(nginxErrorPath, positions[0].position);
-            } else if (nginxAccessDir) {
-                return await serveDirectoryLogs(nginxAccessDir, positions, true, includeCompressed);
+        if (serverUrl) {
+            return await serveRemoteLogs(serverUrl, positions, isErrorLogs, includeCompressed, authToken);
+        } else if (nginxPath) {
+            if (isDir) {
+                return await serveDirectoryLogs(nginxPath, positions, isErrorLogs, includeCompressed);
             } else {
-                return await serveDirectoryLogs(defaultNginxErrorDir, positions, true, includeCompressed);
+                const position = positions.length > 0 ? positions[0].position : 0;
+                return await serveSingleLog(nginxPath, position);
             }
+        } else if (nginxAltPath && isAltDir) {
+            // Search alternative directory provided for logs
+            return await serveDirectoryLogs(nginxAltPath, positions, isErrorLogs, includeCompressed);
         } else {
-            if (serverUrl) {
-                return await serveRemoteLogs(serverUrl, positions, false, includeCompressed, authToken);
-            } else if (nginxAccessDir) {
-                return await serveDirectoryLogs(nginxAccessDir, positions, false, includeCompressed);
-            } else if (nginxAccessPath) {
-                return await serveSingleLog(nginxAccessPath, positions[0].position);
-            } else if (nginxErrorDir) {
-                return await serveDirectoryLogs(nginxErrorDir, positions, true, includeCompressed);
-            } else {
-                return await serveDirectoryLogs(defaultNginxAccessDir, positions, false, includeCompressed);
-            }
+            // Try default log path
+            return await serveDirectoryLogs(defaultNginxPath, positions, isErrorLogs, includeCompressed);
         }
     } catch (error) {
         console.error("Error serving logs:", error);
@@ -104,7 +100,6 @@ async function serveSingleLog(filePath: string, position: number): Promise<NextR
 
     try {
         const result = await readLogFile(resolvedPath, position);
-
         return NextResponse.json(result, { status: 200 });
     } catch (error) {
         console.error(`Error processing file ${resolvedPath}:`, error);
@@ -143,11 +138,15 @@ async function serveDirectoryLogs(
         // Read logs from all files
         const logsResult = await Promise.all(
             filePositions.map(filePos => {
+                if (!filePos.filename) {
+                    return { logs: [], positions: [] };
+                }
+
                 const isGzFile = filePos.filename.endsWith('.gz');
 
                 // Skip .gz files if includeGzip is false
                 if (isGzFile && !includeGzip) {
-                    return { logs: [], position: 0 };
+                    return { logs: [], positions: [] };
                 }
 
                 const fullPath = path.join(resolvedPath, filePos.filename);
@@ -215,6 +214,10 @@ function combineLogResults(
     const newPositions: FilePosition[] = [];
 
     logsResult.forEach((result, index) => {
+        if (!filePositions[index].filename) {
+            return;
+        }
+
         // Add non-empty log entries
         if (result.logs.length > 0) {
             allLogs.push(...result.logs);
@@ -222,10 +225,7 @@ function combineLogResults(
 
         // Only track positions for .log files
         if (filePositions[index].filename.endsWith('.log')) {
-            newPositions.push({
-                filename: filePositions[index].filename,
-                position: result.position
-            });
+            newPositions.push(filePositions[index]);
         }
     });
 
@@ -254,7 +254,7 @@ async function readLogFile(filePath: string, position: number): Promise<LogResul
 
         // If position is at or past file size, no new logs
         if (position >= fileSize) {
-            return { logs: [], position };
+            return { logs: [], positions: [{ position }] };
         }
 
         // Read file using stream
@@ -276,7 +276,7 @@ async function readLogFile(filePath: string, position: number): Promise<LogResul
 
             stream.on('end', () => {
                 const newPosition = data.length === 0 ? fileSize : fileSize - data.length;
-                resolve({ logs: newLogs, position: newPosition });
+                resolve({ logs: newLogs, positions: [{ position: newPosition }] });
             });
 
             stream.on('error', (error) => {
@@ -286,7 +286,7 @@ async function readLogFile(filePath: string, position: number): Promise<LogResul
         });
     } catch (error) {
         console.error(`Error processing file ${filePath}:`, error);
-        return { logs: [], position };
+        return { logs: [], positions: [{ position }] };
     }
 }
 
@@ -300,7 +300,7 @@ async function readErrorLogDirectly(filePath: string, position: number): Promise
 
         // If position is beyond content length, nothing new to read
         if (position >= content.length) {
-            return { logs: [], position };
+            return { logs: [], positions: [{ position }] };
         }
 
         // Get new content from position
@@ -311,11 +311,11 @@ async function readErrorLogDirectly(filePath: string, position: number): Promise
 
         return {
             logs: lines,
-            position: content.length
+            positions: [{ position: content.length }]
         };
     } catch (error) {
         console.error(`Error reading error log directly: ${filePath}`, error);
-        return { logs: [], position };
+        return { logs: [], positions: [{ position }] };
     }
 }
 
@@ -334,11 +334,11 @@ async function readGzippedLogFile(filePath: string): Promise<LogResult> {
 
         return {
             logs: allLines,
-            position: 0  // Always return 0 as position for gzipped files
+            positions: [{ position: 0 }]  // Always return 0 as position for gzipped files
         };
     } catch (error) {
         console.error(`Error reading gzipped file ${filePath}:`, error);
-        return { logs: [], position: 0 };
+        return { logs: [], positions: [{ position: 0}] };
     }
 }
 
@@ -382,4 +382,16 @@ function getUrl(remoteUrl: string, positions: FilePosition[], isErrorLog: boolea
         url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
     }
     return url;
+}
+
+function isDir(path: string | undefined) {
+    if (!path) {
+        return false;
+    }
+
+    try {
+        return fs.lstatSync(path).isDirectory();
+    } catch {
+        return false;
+    }
 }

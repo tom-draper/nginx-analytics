@@ -4,6 +4,7 @@ import { Dispatch, SetStateAction, useEffect, useState, useMemo } from "react";
 import { parseNginxErrors } from "../parse";
 import { NginxError } from "../types";
 import { Period, periodStart } from "../period";
+import { generateNginxErrorLogs } from "../demo";
 
 // Separate the sorting logic into a custom hook for better reusability
 const useSortedData = <T extends Record<string, any>>(
@@ -133,12 +134,14 @@ export default function Errors({
     errorLogs,
     setErrorLogs,
     period,
-    noFetch
+    noFetch,
+    demo
 }: {
     errorLogs: string[];
     setErrorLogs: Dispatch<SetStateAction<string[]>>;
     period: Period;
     noFetch: boolean;
+    demo: boolean;
 }) {
     const [errors, setErrors] = useState<NginxError[]>([]);
     const [expandedError, setExpandedError] = useState<number | null>(null);
@@ -157,6 +160,12 @@ export default function Errors({
 
     useEffect(() => {
         if (noFetch) {
+            return;
+        }
+
+        if (demo) {
+            const demoErrorLogs = generateNginxErrorLogs({ count: 7, startDate: new Date('2023-01-01') });
+            setErrorLogs(demoErrorLogs)
             return;
         }
 
@@ -202,7 +211,7 @@ export default function Errors({
         fetchErrors();
         const interval = setInterval(fetchErrors, 30000);
         return () => { clearInterval(interval) };
-    }, [setErrorLogs, noFetch]);
+    }, [setErrorLogs, noFetch, demo]);
 
     const getUrl = (positions: {
         filename: string;

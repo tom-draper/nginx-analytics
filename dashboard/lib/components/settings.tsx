@@ -111,8 +111,8 @@ export function Settings({
                                         {Object.entries(filter).map(([key, value]) => (
                                             value ? (
                                                 <div key={key} className="flex items-center justify-between">
-                                                    <span className="capitalize font-medium">{key}:</span>
-                                                    <span className="bg-[var(--highlight)] text-[var(--background)] px-2 py-1 rounded text-sm">{value}</span>
+                                                    <span className="capitalize font-medium mr-2">{key}:</span>
+                                                    <span className="bg-[var(--highlight)] break-all text-[var(--background)] px-2 py-1 rounded text-sm">{value}</span>
                                                 </div>
                                             ) : null
                                         ))}

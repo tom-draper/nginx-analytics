@@ -183,7 +183,7 @@ export default function FileUpload({
 	const formattedTotalSize = (totalSize / 1024).toFixed(1);
 
 	return (
-		<div className="flex flex-col items-center justify-center p-6 pb-[10vh] w-full">
+		<div className="flex flex-col items-center justify-center p-4 pb-[10vh] w-full">
 			<div className="w-full max-w-md bg-opacity-80 backdrop-blur-sm border border-[var(--border-color)] rounded shadow-lg overflow-hidden">
 				<div className="p-8 pointer-events-auto">
 					<div className="flex flex-col items-center mb-8">
