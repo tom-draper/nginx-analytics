@@ -172,7 +172,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
             initPeriod(parsedLogs);
         }
         setLogs(parsedLogs);
-    }, [accessLogs, logs.length])
+    }, [accessLogs])
 
 
 

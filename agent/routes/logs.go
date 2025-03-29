@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -26,35 +25,13 @@ type LogResult struct {
 	Positions []Position `json:"positions,omitempty"`
 }
 
-func ServeLogs(w http.ResponseWriter, r *http.Request, dirPath string) {
-	serveLogs(w, r, dirPath, false)
-}
-
-func ServeErrorLogs(w http.ResponseWriter, r *http.Request, dirPath string) {
-	serveLogs(w, r, dirPath, true)
-}
-
 // ServeLogs handles requests for logs, supporting multiple files and positions
-func serveLogs(w http.ResponseWriter, r *http.Request, dirPath string, isErrorLog bool) {
+func ServeLogs(w http.ResponseWriter, r *http.Request, path string, positions []Position, isErrorLog bool, includeCompressed bool) {
 	// Set JSON content type
 	w.Header().Set("Content-Type", "application/json")
 
-	// Get positions from query parameters
-	positionsStr := r.URL.Query().Get("positions")
-	var positions []Position
-
-	if positionsStr != "" {
-		if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
-			http.Error(w, fmt.Sprintf("Failed to parse positions: %v", err), http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Check if this is first request or not
-	includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
-
 	// Check if we're serving a directory or a single file
-	fileInfo, err := os.Stat(dirPath)
+	fileInfo, err := os.Stat(path)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Path error: %v", err), http.StatusInternalServerError)
 		return
@@ -62,19 +39,19 @@ func serveLogs(w http.ResponseWriter, r *http.Request, dirPath string, isErrorLo
 
 	if fileInfo.IsDir() {
 		// Serve logs from directory
-		serveDirectoryLogs(w, dirPath, positions, isErrorLog, includeCompressed)
+		serveDirectoryLogs(w, path, positions, isErrorLog, includeCompressed)
 	} else {
 		// Serve a single log file
 		singlePos := int64(0)
 		if len(positions) > 0 {
 			singlePos = positions[0].Position
 		}
-		serveSingleLog(w, dirPath, singlePos)
+		serveLog(w, path, singlePos)
 	}
 }
 
 // serveSingleLog serves logs from a single file
-func serveSingleLog(w http.ResponseWriter, filePath string, position int64) {
+func serveLog(w http.ResponseWriter, filePath string, position int64) {
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		respondWithError(w, "File not found", http.StatusNotFound)
@@ -249,6 +226,7 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 	// Read directory entries
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
+		log.Println(err)
 		respondWithError(w, fmt.Sprintf("Failed to read directory: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -326,6 +304,10 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 		}
 	}
 
+	if len(allLogs) > 0 {
+		log.Printf("Returning %d lines\n", len(allLogs))
+	}
+
 	// Respond with combined results
 	respondWithJSON(w, LogResult{
 		Logs:      allLogs,
@@ -379,50 +361,50 @@ func respondWithError(w http.ResponseWriter, message string, status int) {
 	w.Write(jsonData)
 }
 
-func ServeLog(w http.ResponseWriter, r *http.Request, filePath string) {
-	serveLog(w, r, filePath)
-}
+// func ServeLog(w http.ResponseWriter, r *http.Request, filePath string) {
+// 	serveLog(w, r, filePath)
+// }
 
-func ServeErrorLog(w http.ResponseWriter, r *http.Request, filePath string) {
-	serveLog(w, r, filePath)
-}
+// func ServeErrorLog(w http.ResponseWriter, r *http.Request, filePath string) {
+// 	serveLog(w, r, filePath)
+// }
 
 // ServeLog handles requests for logs from a single file
-func serveLog(w http.ResponseWriter, r *http.Request, filePath string) {
-	// Set JSON content type
-	w.Header().Set("Content-Type", "application/json")
+// func serveLog(w http.ResponseWriter, r *http.Request, filePath string) {
+// 	// Set JSON content type
+// 	w.Header().Set("Content-Type", "application/json")
 
-	// Get position from the query parameters
-	var position int64 = 0
-	posStr := r.URL.Query().Get("position")
-	if posStr != "" {
-		pos, err := strconv.ParseInt(posStr, 10, 64)
-		if err == nil {
-			position = pos
-		}
-	}
+// 	// Get position from the query parameters
+// 	var position int64 = 0
+// 	posStr := r.URL.Query().Get("position")
+// 	if posStr != "" {
+// 		pos, err := strconv.ParseInt(posStr, 10, 64)
+// 		if err == nil {
+// 			position = pos
+// 		}
+// 	}
 
-	// Check if file exists
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		respondWithError(w, fmt.Sprintf("File not found: %s", filePath), http.StatusNotFound)
-		return
-	}
+// 	// Check if file exists
+// 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+// 		respondWithError(w, fmt.Sprintf("File not found: %s", filePath), http.StatusNotFound)
+// 		return
+// 	}
 
-	var result LogResult
-	var err error
+// 	var result LogResult
+// 	var err error
 
-	// Handle different file types
-	if strings.HasSuffix(filePath, ".gz") {
-		result, err = readGzippedLogFile(filePath)
-	} else {
-		result, err = readNormalLogFile(filePath, position)
-	}
+// 	// Handle different file types
+// 	if strings.HasSuffix(filePath, ".gz") {
+// 		result, err = readGzippedLogFile(filePath)
+// 	} else {
+// 		result, err = readNormalLogFile(filePath, position)
+// 	}
 
-	if err != nil {
-		respondWithError(w, fmt.Sprintf("Error reading log file: %v", err), http.StatusInternalServerError)
-		return
-	}
+// 	if err != nil {
+// 		respondWithError(w, fmt.Sprintf("Error reading log file: %v", err), http.StatusInternalServerError)
+// 		return
+// 	}
 
-	// Respond with results
-	respondWithJSON(w, result)
-}
+// 	// Respond with results
+// 	respondWithJSON(w, result)
+// }

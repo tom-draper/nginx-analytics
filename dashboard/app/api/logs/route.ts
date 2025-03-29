@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
                 return await serveDirectoryLogs(nginxPath, positions, isErrorLogs, includeCompressed);
             } else {
                 const position = positions.length > 0 ? positions[0].position : 0;
-                return await serveSingleLog(nginxPath, position);
+                return await serveLog(nginxPath, position);
             }
         } else if (nginxAltPath && isAltDir) {
             // Search alternative directory provided for logs
@@ -89,7 +89,7 @@ function parsePositionsFromRequest(searchParams: URLSearchParams): FilePosition[
 /**
  * Serve logs from a single file
  */
-async function serveSingleLog(filePath: string, position: number): Promise<NextResponse> {
+async function serveLog(filePath: string, position: number): Promise<NextResponse> {
     const resolvedPath = path.resolve(process.cwd(), filePath);
 
     // Check if file exists
@@ -377,7 +377,8 @@ async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], isE
 }
 
 function getUrl(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, includeCompressed: boolean) {
-    let url = `${remoteUrl}/logs/${isErrorLog ? 'error' : 'access'}?type=access&includeCompressed=${includeCompressed}`;
+    const logType = isErrorLog ? 'error' : 'access'
+    let url = `${remoteUrl}/logs?type=${logType}&includeCompressed=${includeCompressed}`;
     if (positions) {
         url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
     }

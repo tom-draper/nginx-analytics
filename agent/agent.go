@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -16,16 +17,16 @@ import (
 )
 
 const defaultPort string = "5000"
-const defaultNginxAccessDir string = "/var/log/nginx"
-const defaultNginxErrorDir string = "/var/log/nginx"
-const defaultNginxAccessPath string = "/var/log/nginx/access.log"
-const defaultNginxErrorPath string = "/var/log/nginx/error.log"
+const defaultNginxPath string = "/var/log/nginx"
 const defaultSystemMonitoring bool = false
 
 var startTime = time.Now()
 
 func main() {
 	args := getArguments()
+
+	isAccessDir := isDir(args.nginxAccessPath)
+	isErrorDir := isDir(args.nginxErrorPath)
 
 	// Define HTTP routes
 	// setupRoute creates a route handler with common middleware
@@ -53,27 +54,38 @@ func main() {
 	}
 
 	// Set up routes with common middleware
-	setupRoute("/logs/access", http.MethodGet, "Accessing access log", func(w http.ResponseWriter, r *http.Request) {
-		if args.nginxAccessDir != "" {
-			routes.ServeLogs(w, r, args.nginxAccessDir)
-		} else if args.nginxAccessPath != "" {
-			routes.ServeLog(w, r, args.nginxAccessPath)
-		} else if args.nginxErrorDir != "" {
-			routes.ServeLogs(w, r, args.nginxErrorDir)
-		} else {
-			routes.ServeLogs(w, r, defaultNginxAccessDir)
-		}
-	})
+	setupRoute("/logs", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
+		logType := r.URL.Query().Get("type")
+		isErrorLog := logType == "error"
+		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
 
-	setupRoute("/logs/error", http.MethodGet, "Accessing error logs", func(w http.ResponseWriter, r *http.Request) {
-		if args.nginxErrorDir != "" {
-			routes.ServeErrorLogs(w, r, args.nginxErrorDir)
-		} else if args.nginxErrorPath != "" {
-			routes.ServeErrorLog(w, r, args.nginxErrorPath)
-		} else if args.nginxAccessDir != "" {
-			routes.ServeErrorLogs(w, r, args.nginxAccessDir)
+		positionsStr := r.URL.Query().Get("positions")
+		var positions []routes.Position
+		if positionsStr != "" {
+			if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
+				http.Error(w, fmt.Sprintf("Failed to parse positions: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+
+		if isErrorLog {
+			log.Println("Accessing error logs")
+			if args.nginxAccessPath != "" {
+				routes.ServeLogs(w, r, args.nginxAccessPath, positions, isErrorLog, includeCompressed)
+			} else if args.nginxErrorPath != "" && isErrorDir {
+				routes.ServeLogs(w, r, args.nginxErrorPath, positions, isErrorLog, includeCompressed)
+			} else {
+				routes.ServeLogs(w, r, defaultNginxPath, positions, isErrorLog, includeCompressed)
+			}
 		} else {
-			routes.ServeErrorLogs(w, r, defaultNginxErrorDir)
+			log.Println("Accessing access logs")
+			if args.nginxErrorPath != "" {
+				routes.ServeLogs(w, r, args.nginxErrorPath, positions, isErrorLog, includeCompressed)
+			} else if args.nginxAccessPath != "" && isAccessDir {
+				routes.ServeLogs(w, r, args.nginxAccessPath, positions, isErrorLog, includeCompressed)
+			} else {
+				routes.ServeLogs(w, r, defaultNginxPath, positions, isErrorLog, includeCompressed)
+			}
 		}
 	})
 
@@ -84,14 +96,12 @@ func main() {
 			return
 		}
 
-		if args.nginxAccessDir != "" {
-			routes.ServeLogsSize(w, r, args.nginxAccessDir)
-		} else if args.nginxAccessPath != "" {
+		if args.nginxAccessPath != "" {
 			routes.ServeLogSize(w, r, args.nginxAccessPath)
-		} else if args.nginxErrorDir != "" {
-			routes.ServeLogsSize(w, r, args.nginxErrorDir)
+		} else if args.nginxErrorPath != "" {
+			routes.ServeLogsSize(w, r, args.nginxErrorPath)
 		} else {
-			routes.ServeLogsSize(w, r, defaultNginxAccessDir)
+			routes.ServeLogsSize(w, r, defaultNginxPath)
 		}
 	})
 
@@ -135,11 +145,22 @@ func main() {
 	log.Println("Shutting down...")
 }
 
+func isDir(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	return fileInfo.IsDir()
+}
+
 type Arguments struct {
 	port             string
 	authToken        string
-	nginxAccessDir   string
-	nginxErrorDir    string
 	nginxAccessPath  string
 	nginxErrorPath   string
 	systemMonitoring bool
@@ -149,10 +170,8 @@ func getArguments() Arguments {
 	// Define command-line flags
 	cmdAuthToken := flag.String("auth-token", "", "Authentication token (recommended)")
 	cmdPort := flag.String("port", "", fmt.Sprintf("Port to run the server on (default %s)", defaultPort))
-	cmdNginxAccessDir := flag.String("nginx-access-dir", "", "Directory containing Nginx access.log file")
-	cmdNginxErrorDir := flag.String("nginx-error-dir", "", "Directory containing Nginx error.log file")
-	cmdNginxAccessPath := flag.String("nginx-access-path", "", "Path to the Nginx access.log file")
-	cmdNginxErrorPath := flag.String("nginx-error-path", "", "Path to the Nginx error.log file")
+	cmdNginxAccessPath := flag.String("nginx-access-path", "", "Path to the Nginx access log file or parent directory")
+	cmdNginxErrorPath := flag.String("nginx-error-path", "", "Path to the Nginx error log file or parent directory")
 	cmdSystemMonitoring := flag.String("system-monitoring", "", fmt.Sprintf("System resource monitoring toggle (default %t)", defaultSystemMonitoring))
 	flag.Parse()
 
@@ -179,31 +198,10 @@ func getArguments() Arguments {
 		}
 	}
 
-	// Determine access log directory
-	nginxAccessDir := *cmdNginxAccessDir
-	if nginxAccessDir == "" {
-		nginxAccessDir = os.Getenv("NGINX_ANALYTICS_ACCESS_DIR")
-	}
-	if nginxAccessDir != "" {
-		log.Println("Nginx access.log directory: " + nginxAccessDir)
-	}
-
-	// Determine error log directory
-	nginxErrorDir := *cmdNginxErrorDir
-	if nginxErrorDir == "" {
-		nginxErrorDir = os.Getenv("NGINX_ANALYTICS_ERROR_DIR")
-	}
-	if nginxErrorDir != "" {
-		log.Println("Nginx error.log directory: " + nginxErrorDir)
-	}
-
 	// Determine access log path
 	nginxAccessPath := *cmdNginxAccessPath
 	if nginxAccessPath == "" {
 		nginxAccessPath = os.Getenv("NGINX_ANALYTICS_ACCESS_PATH")
-	}
-	if nginxAccessPath != "" {
-		log.Println("Nginx access.log path: " + nginxAccessPath)
 	}
 
 	// Determine error log path
@@ -211,28 +209,21 @@ func getArguments() Arguments {
 	if nginxErrorPath == "" {
 		nginxErrorPath = os.Getenv("NGINX_ANALYTICS_ERROR_PATH")
 	}
-	if nginxErrorPath != "" {
-		log.Println("Nginx error.log path: " + nginxErrorPath)
-	}
 
-	if nginxAccessDir != "" {
-		log.Println("Using Nginx log directory: " + nginxAccessDir)
-	} else if nginxAccessPath != "" {
-		log.Println("Using Nginx access.log file: " + nginxAccessPath)
-	} else if nginxErrorDir != "" {
-		log.Println("Using Nginx log directory: " + nginxErrorDir)
-	} else {
-		log.Println("Using default Nginx log directory: " + defaultNginxAccessDir)
-	}
-
-	if nginxErrorDir != "" {
-		log.Println("Using Nginx error log directory: " + nginxErrorDir)
+	if nginxAccessPath != "" {
+		log.Println("Using Nginx access log path: " + nginxAccessPath)
 	} else if nginxErrorPath != "" {
-		log.Println("Using Nginx error.log file: " + nginxErrorPath)
-	} else if nginxAccessDir != "" {
-		log.Println("Using Nginx error log directory: " + nginxAccessDir)
+		log.Println("No access log path set. Using Nginx error log path for access log files: " + nginxErrorPath)
 	} else {
-		log.Println("Using default Nginx error log directory: " + defaultNginxErrorDir)
+		log.Println("Using default Nginx access log directory: " + defaultNginxPath)
+	}
+
+	if nginxErrorPath != "" {
+		log.Println("Using Nginx error log path: " + nginxErrorPath)
+	} else if nginxAccessPath != "" {
+		log.Println("No error log path set. Using Nginx error log path for error log files: " + nginxAccessPath)
+	} else {
+		log.Println("Using default Nginx error log directory: " + defaultNginxPath)
 	}
 
 	systemMonitoring := defaultSystemMonitoring
@@ -245,7 +236,7 @@ func getArguments() Arguments {
 		log.Println("System monitoring disabled")
 	}
 
-	return Arguments{port, authToken, nginxAccessDir, nginxErrorDir, nginxAccessPath, nginxErrorPath, systemMonitoring}
+	return Arguments{port, authToken, nginxAccessPath, nginxErrorPath, systemMonitoring}
 }
 
 func isAuthenticated(r *http.Request, authToken string) bool {
