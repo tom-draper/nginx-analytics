@@ -72,16 +72,16 @@ func LocationsEnabled() bool {
 func InitializeLookups() error {
 	initOnce.Do(func() {
 		// Try to open the city database first
-		var err error
-		cityReader, err = geoip2.Open("GeoLite2-City.mmdb")
-		if err != nil {
-			log.Println("Failed to load GeoLite2 City database:", err)
-
+		var cityErr error
+		cityReader, cityErr = geoip2.Open("GeoLite2-City.mmdb")
+		if cityErr != nil {
 			// If city database fails, try to open the country database
-			countryReader, err = geoip2.Open("GeoLite2-Country.mmdb")
-			if err != nil {
-				log.Println("Failed to load GeoLite2 Country database:", err)
-				initErr = err
+			var countryErr error
+			countryReader, countryErr = geoip2.Open("GeoLite2-Country.mmdb")
+			if countryErr != nil {
+				log.Println("Failed to load GeoLite2 City database:", cityErr)
+				log.Println("Failed to load GeoLite2 Country database:", countryErr)
+				initErr = countryErr
 			} else {
 				log.Println("GeoLite2 Country database loaded successfully")
 			}

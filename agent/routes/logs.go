@@ -15,19 +15,17 @@ import (
 // Position represents a file's current read position
 type Position struct {
 	Position int64  `json:"position"`
-	Filename string `json:"filename"`
+	Filename string `json:"filename,omitempty"`
 }
 
 // LogResult represents the response structure for log requests
 type LogResult struct {
 	Logs      []string   `json:"logs"`
-	Position  int64      `json:"position,omitempty"`
 	Positions []Position `json:"positions,omitempty"`
 }
 
 // ServeLogs handles requests for logs, supporting multiple files and positions
 func ServeLogs(w http.ResponseWriter, r *http.Request, path string, positions []Position, isErrorLog bool, includeCompressed bool) {
-	// Set JSON content type
 	w.Header().Set("Content-Type", "application/json")
 
 	// Check if we're serving a directory or a single file
@@ -54,6 +52,7 @@ func ServeLogs(w http.ResponseWriter, r *http.Request, path string, positions []
 func serveLog(w http.ResponseWriter, filePath string, position int64) {
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		log.Println("File not found")
 		respondWithError(w, "File not found", http.StatusNotFound)
 		return
 	}
@@ -73,7 +72,6 @@ func serveLog(w http.ResponseWriter, filePath string, position int64) {
 		return
 	}
 
-	// Respond with results
 	respondWithJSON(w, result)
 }
 
@@ -89,7 +87,7 @@ func readNormalLogFile(filePath string, position int64) (LogResult, error) {
 
 	// If position is past the file size, no new logs
 	if position >= fileSize {
-		return LogResult{Logs: []string{}, Position: position}, nil
+		return LogResult{Logs: []string{}, Positions: []Position{{Position: position}}}, nil
 	}
 
 	// Special handling for error logs with size 0
@@ -147,9 +145,9 @@ func readNormalLogFile(filePath string, position int64) (LogResult, error) {
 		logs = append(logs, lastLine)
 	}
 
-	newPosition := fileSize 
+	newPosition := fileSize
 
-	return LogResult{Logs: logs, Position: newPosition}, nil
+	return LogResult{Logs: logs, Positions: []Position{{Position: newPosition}}}, nil
 }
 
 // readErrorLogDirectly handles special case for error logs that report size 0 but contain data
@@ -165,7 +163,7 @@ func readErrorLogDirectly(filePath string, position int64) (LogResult, error) {
 
 	// If position is beyond content length, nothing new to read
 	if position >= int64(len(strContent)) {
-		return LogResult{Logs: []string{}, Position: position}, nil
+		return LogResult{Logs: []string{}, Positions: []Position{{Position: position}}}, nil
 	}
 
 	// Get new content from position
@@ -181,7 +179,7 @@ func readErrorLogDirectly(filePath string, position int64) (LogResult, error) {
 
 	return LogResult{
 		Logs:     lines,
-		Position: int64(len(strContent)),
+		Positions: []Position{{Position: int64(len(strContent))}},
 	}, nil
 }
 
@@ -217,7 +215,7 @@ func readGzippedLogFile(filePath string) (LogResult, error) {
 
 	return LogResult{
 		Logs:     logs,
-		Position: 0, // Always return 0 as position for gzipped files
+		Positions: []Position{{Position: 0}}, // Always return 0 as position for gzipped files
 	}, nil
 }
 
@@ -297,10 +295,7 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 
 		// Only track positions for .log files
 		if strings.HasSuffix(filePos.Filename, ".log") {
-			newPositions = append(newPositions, Position{
-				Filename: filePos.Filename,
-				Position: result.Position,
-			})
+			newPositions = append(newPositions, filePos)
 		}
 	}
 

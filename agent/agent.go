@@ -69,20 +69,20 @@ func main() {
 		}
 
 		if isErrorLog {
-			log.Println("Accessing error logs")
-			if args.nginxAccessPath != "" {
-				routes.ServeLogs(w, r, args.nginxAccessPath, positions, isErrorLog, includeCompressed)
-			} else if args.nginxErrorPath != "" && isErrorDir {
-				routes.ServeLogs(w, r, args.nginxErrorPath, positions, isErrorLog, includeCompressed)
-			} else {
-				routes.ServeLogs(w, r, defaultNginxPath, positions, isErrorLog, includeCompressed)
-			}
-		} else {
-			log.Println("Accessing access logs")
+			log.Println("Polling error logs")
 			if args.nginxErrorPath != "" {
 				routes.ServeLogs(w, r, args.nginxErrorPath, positions, isErrorLog, includeCompressed)
 			} else if args.nginxAccessPath != "" && isAccessDir {
 				routes.ServeLogs(w, r, args.nginxAccessPath, positions, isErrorLog, includeCompressed)
+			} else {
+				routes.ServeLogs(w, r, defaultNginxPath, positions, isErrorLog, includeCompressed)
+			}
+		} else {
+			log.Println("Polling access logs")
+			if args.nginxAccessPath != "" {
+				routes.ServeLogs(w, r, args.nginxAccessPath, positions, isErrorLog, includeCompressed)
+			} else if args.nginxErrorPath != "" && isErrorDir {
+				routes.ServeLogs(w, r, args.nginxErrorPath, positions, isErrorLog, includeCompressed)
 			} else {
 				routes.ServeLogs(w, r, defaultNginxPath, positions, isErrorLog, includeCompressed)
 			}
@@ -212,7 +212,7 @@ func getArguments() Arguments {
 
 	if nginxAccessPath != "" {
 		log.Println("Using Nginx access log path: " + nginxAccessPath)
-	} else if nginxErrorPath != "" {
+	} else if nginxErrorPath != "" && isDir(nginxErrorPath) {
 		log.Println("No access log path set. Using Nginx error log path for access log files: " + nginxErrorPath)
 	} else {
 		log.Println("Using default Nginx access log directory: " + defaultNginxPath)
@@ -220,7 +220,7 @@ func getArguments() Arguments {
 
 	if nginxErrorPath != "" {
 		log.Println("Using Nginx error log path: " + nginxErrorPath)
-	} else if nginxAccessPath != "" {
+	} else if nginxAccessPath != "" && isDir(nginxAccessPath) {
 		log.Println("No error log path set. Using Nginx error log path for error log files: " + nginxAccessPath)
 	} else {
 		log.Println("Using default Nginx error log directory: " + defaultNginxPath)
