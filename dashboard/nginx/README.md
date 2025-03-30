@@ -31,16 +31,16 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### Dashboard
 
-Host the dashboard on your preferred platform, with environment variables set pointing to the agent's endpoints.
+Host the dashboard on your preferred platform, with an environment variable set pointing to your server.
 
 ```env
-NGINX_ANALYTICS_ACCESS_URL=http://yourserver.com
+NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 ```
 
 ### CLI
 
-Run the CLI from anywhere, with environment variables set pointing to the agent's endpoints.
+Run the CLI from anywhere, with an environment variable set pointing to your server.
 
 ```env
-NGINX_ANALYTICS_ACCESS_URL=http://yourserver.com
+NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 ``

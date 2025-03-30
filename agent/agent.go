@@ -54,9 +54,9 @@ func main() {
 	}
 
 	// Set up routes with common middleware
-	setupRoute("/logs", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
-		logType := r.URL.Query().Get("type")
-		isErrorLog := logType == "error"
+	setupRoute("/logs/access", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Polling access logs")
+
 		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
 
 		positionsStr := r.URL.Query().Get("positions")
@@ -68,24 +68,34 @@ func main() {
 			}
 		}
 
-		if isErrorLog {
-			log.Println("Polling error logs")
-			if args.nginxErrorPath != "" {
-				routes.ServeLogs(w, r, args.nginxErrorPath, positions, isErrorLog, includeCompressed)
-			} else if args.nginxAccessPath != "" && isAccessDir {
-				routes.ServeLogs(w, r, args.nginxAccessPath, positions, isErrorLog, includeCompressed)
-			} else {
-				routes.ServeLogs(w, r, defaultNginxPath, positions, isErrorLog, includeCompressed)
-			}
+		if args.nginxAccessPath != "" {
+			routes.ServeLogs(w, r, args.nginxAccessPath, positions, false, includeCompressed)
+		} else if args.nginxErrorPath != "" && isErrorDir {
+			routes.ServeLogs(w, r, args.nginxErrorPath, positions, false, includeCompressed)
 		} else {
-			log.Println("Polling access logs")
-			if args.nginxAccessPath != "" {
-				routes.ServeLogs(w, r, args.nginxAccessPath, positions, isErrorLog, includeCompressed)
-			} else if args.nginxErrorPath != "" && isErrorDir {
-				routes.ServeLogs(w, r, args.nginxErrorPath, positions, isErrorLog, includeCompressed)
-			} else {
-				routes.ServeLogs(w, r, defaultNginxPath, positions, isErrorLog, includeCompressed)
+			routes.ServeLogs(w, r, defaultNginxPath, positions, false, includeCompressed)
+		}
+	})
+
+	setupRoute("/logs/error", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
+		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
+
+		positionsStr := r.URL.Query().Get("positions")
+		var positions []routes.Position
+		if positionsStr != "" {
+			if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
+				http.Error(w, fmt.Sprintf("Failed to parse positions: %v", err), http.StatusBadRequest)
+				return
 			}
+		}
+
+		log.Println("Polling error logs")
+		if args.nginxErrorPath != "" {
+			routes.ServeLogs(w, r, args.nginxErrorPath, positions, true, includeCompressed)
+		} else if args.nginxAccessPath != "" && isAccessDir {
+			routes.ServeLogs(w, r, args.nginxAccessPath, positions, true, includeCompressed)
+		} else {
+			routes.ServeLogs(w, r, defaultNginxPath, positions, true, includeCompressed)
 		}
 	})
 

@@ -1,78 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import zlib from "zlib";
 import { promisify } from "util";
 import {
-    serverUrl,
-    authToken,
     nginxAccessPath,
     nginxErrorPath,
 } from "@/lib/environment";
-import { defaultNginxAccessPath, defaultNginxErrorPath } from "@/lib/consts";
 
 // Promisified functions
-const readdir = promisify(fs.readdir);
-const stat = promisify(fs.stat);
-const gunzip = promisify(zlib.gunzip);
+export const readdir = promisify(fs.readdir);
+export const stat = promisify(fs.stat);
+export const gunzip = promisify(zlib.gunzip);
 
-const isAccessDir = isDir(nginxAccessPath);
-const isErrorDir = isDir(nginxErrorPath);
+export const isAccessDir = isDir(nginxAccessPath);
+export const isErrorDir = isDir(nginxErrorPath);
 
 // Type definitions
-interface FilePosition {
+export interface FilePosition {
     filename?: string;
     position: number;
 }
 
-interface LogResult {
+export interface LogResult {
     logs: string[];
     positions: FilePosition[];
 }
 
 /**
- * Handler for GET requests to serve Nginx logs
- */
-export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
-    const logType = searchParams.get("type");
-    const includeCompressed = searchParams.get('includeCompressed') === 'true';
-    const positions = parsePositionsFromRequest(searchParams);
-
-    const isErrorLogs = logType === 'error';
-    const nginxPath = isErrorLogs ? nginxErrorPath : nginxAccessPath;
-    const isDir = isErrorLogs ? isErrorDir : isAccessDir;
-    const nginxAltPath = isErrorLogs ? nginxAccessPath : nginxErrorPath;
-    const isAltDir = isErrorLogs ? isAccessDir : isErrorDir;
-    const defaultNginxPath = isErrorLogs ? defaultNginxErrorPath : defaultNginxAccessPath;
-
-    try {
-        if (serverUrl) {
-            return await serveRemoteLogs(serverUrl, positions, isErrorLogs, includeCompressed, authToken);
-        } else if (nginxPath) {
-            if (isDir) {
-                return await serveDirectoryLogs(nginxPath, positions, isErrorLogs, includeCompressed);
-            } else {
-                const position = positions.length > 0 ? positions[0].position : 0;
-                return await serveLog(nginxPath, position);
-            }
-        } else if (nginxAltPath && isAltDir) {
-            // Search alternative directory provided for logs
-            return await serveDirectoryLogs(nginxAltPath, positions, isErrorLogs, includeCompressed);
-        } else {
-            // Try default log path
-            return await serveDirectoryLogs(defaultNginxPath, positions, isErrorLogs, includeCompressed);
-        }
-    } catch (error) {
-        console.error("Error serving logs:", error);
-        return NextResponse.json({ error: "Failed to serve logs" }, { status: 500 });
-    }
-}
-
-/**
  * Parse positions parameter from request
  */
-function parsePositionsFromRequest(searchParams: URLSearchParams): FilePosition[] {
+export function parsePositionsFromRequest(searchParams: URLSearchParams): FilePosition[] {
     const positionParam = searchParams.get('positions');
     if (!positionParam) {
         return [];
@@ -89,38 +46,38 @@ function parsePositionsFromRequest(searchParams: URLSearchParams): FilePosition[
 /**
  * Serve logs from a single file
  */
-async function serveLog(filePath: string, position: number): Promise<NextResponse> {
+export async function serveLog(filePath: string, position: number) {
     const resolvedPath = path.resolve(process.cwd(), filePath);
 
     // Check if file exists
     if (!fs.existsSync(resolvedPath)) {
         console.error(`File not found at path ${filePath}`);
-        return NextResponse.json({ error: "File not found" }, { status: 404 });
+        return { error: "File not found", status: 404 };
     }
 
     try {
         const result = await readLogFile(resolvedPath, position);
-        return NextResponse.json(result, { status: 200 });
+        return { data: result, status: 200 };
     } catch (error) {
         console.error(`Error processing file ${resolvedPath}:`, error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return { error: "Internal server error", status: 500 };
     }
 }
 
 /**
  * Serve logs from a directory containing multiple log files
  */
-async function serveDirectoryLogs(
+export async function serveDirectoryLogs(
     dirPath: string,
     positions: FilePosition[],
     isErrorLog: boolean,
     includeGzip: boolean
-): Promise<NextResponse> {
+) {
     const resolvedPath = path.resolve(process.cwd(), dirPath);
 
     if (!fs.existsSync(resolvedPath)) {
         console.error(`Directory does not exist: ${resolvedPath}`);
-        return NextResponse.json({ error: "Directory not found" }, { status: 404 });
+        return { error: "Directory not found", status: 404 };
     }
 
     try {
@@ -129,7 +86,7 @@ async function serveDirectoryLogs(
         const logFiles = filterLogFiles(files, isErrorLog, includeGzip);
 
         if (logFiles.length === 0) {
-            return NextResponse.json({ message: "No log files found" }, { status: 200 });
+            return { data: { message: "No log files found" }, status: 200 };
         }
 
         // Initialize positions for each file
@@ -157,20 +114,20 @@ async function serveDirectoryLogs(
         // Combine results
         const { allLogs, newPositions } = combineLogResults(logsResult, filePositions);
 
-        return NextResponse.json(
-            { logs: allLogs, positions: newPositions },
-            { status: 200 }
-        );
+        return {
+            data: { logs: allLogs, positions: newPositions },
+            status: 200
+        };
     } catch (error) {
         console.error("Error serving directory logs:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return { error: "Internal server error", status: 500 };
     }
 }
 
 /**
  * Filter log files based on criteria
  */
-function filterLogFiles(files: string[], isErrorLog: boolean, includeGzip: boolean): string[] {
+export function filterLogFiles(files: string[], isErrorLog: boolean, includeGzip: boolean): string[] {
     return files.filter(file => {
         // Filter by file extension
         const isValidExtension = file.endsWith('.log') || (includeGzip && file.endsWith('.gz'));
@@ -187,7 +144,7 @@ function filterLogFiles(files: string[], isErrorLog: boolean, includeGzip: boole
 /**
  * Initialize positions for each log file
  */
-function initializeFilePositions(logFiles: string[], positions: FilePosition[]): FilePosition[] {
+export function initializeFilePositions(logFiles: string[], positions: FilePosition[]): FilePosition[] {
     return logFiles.map(filename => {
         if (filename.endsWith('.log')) {
             // For .log files, use existing position or start at 0
@@ -206,7 +163,7 @@ function initializeFilePositions(logFiles: string[], positions: FilePosition[]):
 /**
  * Combine log results from multiple files
  */
-function combineLogResults(
+export function combineLogResults(
     logsResult: LogResult[],
     filePositions: FilePosition[]
 ): { allLogs: string[], newPositions: FilePosition[] } {
@@ -224,7 +181,7 @@ function combineLogResults(
         }
 
         // Only track positions for .log files
-        if (filePositions[index].filename.endsWith('.log')) {
+        if (filePositions[index].filename?.endsWith('.log')) {
             newPositions.push(filePositions[index]);
         }
     });
@@ -235,7 +192,7 @@ function combineLogResults(
 /**
  * Read from a log file with special handling for error logs with size 0
  */
-async function readLogFile(filePath: string, position: number): Promise<LogResult> {
+export async function readLogFile(filePath: string, position: number): Promise<LogResult> {
     try {
         // For gzipped files, use specialized reader
         if (filePath.endsWith('.gz')) {
@@ -293,7 +250,7 @@ async function readLogFile(filePath: string, position: number): Promise<LogResul
 /**
  * Special handler for error logs that report size 0 but contain data
  */
-async function readErrorLogDirectly(filePath: string, position: number): Promise<LogResult> {
+export async function readErrorLogDirectly(filePath: string, position: number): Promise<LogResult> {
     try {
         // Read file directly as utf8 text
         const content = fs.readFileSync(filePath, { encoding: 'utf8' });
@@ -322,7 +279,7 @@ async function readErrorLogDirectly(filePath: string, position: number): Promise
 /**
  * Read from a gzipped log file
  */
-async function readGzippedLogFile(filePath: string): Promise<LogResult> {
+export async function readGzippedLogFile(filePath: string): Promise<LogResult> {
     try {
         // Read and decompress the entire file
         const fileBuffer = fs.readFileSync(filePath);
@@ -345,7 +302,7 @@ async function readGzippedLogFile(filePath: string): Promise<LogResult> {
 /**
  * Serve logs from a remote URL
  */
-async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, includeCompressed: boolean, authToken?: string): Promise<NextResponse> {
+export async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, includeCompressed: boolean, authToken?: string) {
     try {
         const headers: HeadersInit = {};
         if (authToken) {
@@ -359,33 +316,33 @@ async function serveRemoteLogs(remoteUrl: string, positions: FilePosition[], isE
         });
 
         if (!response.ok) {
-            return NextResponse.json(
-                { error: `Remote logs error: ${response.statusText}` },
-                { status: response.status }
-            );
+            return {
+                error: `Remote logs error: ${response.statusText}`,
+                status: response.status
+            };
         }
 
         const data = await response.json();
-        return NextResponse.json(data, { status: 200 });
+        return { data, status: 200 };
     } catch (error) {
         console.error("Error fetching remote logs:", error);
-        return NextResponse.json(
-            { error: "Failed to fetch remote logs" },
-            { status: 500 }
-        );
+        return {
+            error: "Failed to fetch remote logs",
+            status: 500
+        };
     }
 }
 
 function getUrl(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, includeCompressed: boolean) {
     const logType = isErrorLog ? 'error' : 'access'
     let url = `${remoteUrl}/logs/${logType}?includeCompressed=${includeCompressed}`;
-    if (positions) {
+    if (positions.length > 0) {
         url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
     }
     return url;
 }
 
-function isDir(path: string | undefined) {
+export function isDir(path: string | undefined) {
     if (!path) {
         return false;
     }

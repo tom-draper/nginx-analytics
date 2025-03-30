@@ -370,23 +370,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         return `Success rate: ${((successRate.value === 0 || successRate.value === 1) ? (successRate.value * 100).toFixed(0) : (successRate.value * 100).toFixed(1))}%\n${time}`;
     }
 
-    const getPeriodStartLabel = (period: Period) => {
-        switch (period) {
-            case '24 hours':
-                return '24 hours ago';
-            case 'week':
-                return 'One week ago';
-            case 'month':
-                return 'One month ago';
-            case '6 months':
-                return 'Six months ago';
-            default:
-                const range = getDateRange(data);
-                if (!range) return '';
-                return new Date(range.start).toLocaleDateString();
-        }
-    }
-
     useEffect(() => {
         let periodLabels: {start: string, end: string} = {start: '', end: ''};
         if (!data) {

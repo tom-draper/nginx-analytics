@@ -4,7 +4,7 @@ Build with Next.js + TypeScript + Tailwind.
 
 ## Deployment Guide
 
-Deploy on the server with Nginx running.
+Deploy on the same server as Nginx.
 
 ```bash
 git clone https://github.com/tom-draper/nginx-analytics
@@ -23,11 +23,11 @@ docker build -t nginx-analytics .
 docker run -d -p 3000:3000 nginx-analytics
 ```
 
-Provide paths to your log files in a `.env` file.
+Provide paths to your log files as environment variables.
 
 ```env
-NGINX_ACCESS_PATH=/var/log/nginx/access.log
-NGINX_ERROR_PATH=/var/log/nginx/error.log
+NGINX_ANALYTICS_ACCESS_PATH=/path/to/nginx/access/logs
+NGINX_ANALYTICS_ERROR_PATH=/path/to/nginx/error/logs
 ```
 
 Update your Nginx configuration to make the app publically accessible.
@@ -45,4 +45,4 @@ location /analytics {
 
 ### Password Protection
 
-To enable password protection to access the dashboard, set a password against `NGINX_ANALYTICS_PASSWORD` in `.env`.
+To enable password protection to access the dashboard, set a password against the `NGINX_ANALYTICS_PASSWORD` environment variable.

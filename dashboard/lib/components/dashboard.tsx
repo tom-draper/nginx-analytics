@@ -137,7 +137,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         filename: string;
         position: number;
     }[] | null, includeCompressed: boolean) => {
-        let url = `/api/logs?type=access&includeCompressed=${includeCompressed}`;
+        let url = `/api/logs/access?includeCompressed=${includeCompressed}`;
         if (positions) {
             url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
         }

@@ -58,7 +58,7 @@ Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
 #### Locations
 
-IP-location inference can be set up quickly, utilising MaxMind's free GeoLite2 database. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
+IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
 
 #### System Monitoring
 

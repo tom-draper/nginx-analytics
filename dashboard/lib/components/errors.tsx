@@ -217,7 +217,7 @@ export default function Errors({
         filename: string;
         position: number;
     }[] | null, includeCompressed: boolean) => {
-        let url = `/api/logs?type=error&includeCompressed=${includeCompressed}`;
+        let url = `/api/logs/error?includeCompressed=${includeCompressed}`;
         if (positions) {
             url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
         }
@@ -250,7 +250,7 @@ export default function Errors({
     // Filter errors based on search input and selected severities
     const filteredErrors = useMemo(() => {
         let filtered = errors;
-        
+
         // Filter by text search
         if (filtering) {
             const lowercaseFilter = filtering.toLowerCase();
@@ -258,14 +258,14 @@ export default function Errors({
                 JSON.stringify(error).toLowerCase().includes(lowercaseFilter)
             );
         }
-        
+
         // Filter by severity
         if (selectedSeverities.length > 0) {
             filtered = filtered.filter(error =>
                 selectedSeverities.includes(error.level.toLowerCase())
             );
         }
-        
+
         return filtered;
     }, [errors, filtering, selectedSeverities]);
 
@@ -314,112 +314,101 @@ export default function Errors({
     }
 
     return (
-        <div className="card px-4 py-3 m-3 mt-6 relative">
-            <h2 className="font-semibold mb-2">
-                Errors
-            </h2>
+        <>
+            {errors.length > 0 && (
+                <div className="card px-4 py-3 m-3 mt-6 relative">
+                    <h2 className="font-semibold mb-2">
+                        Errors
+                    </h2>
 
-            {/* Filter controls */}
-            {errors.length > 1 && (
-                <div className="absolute top-3 right-3 flex items-center">
-                    {/* Severity filter buttons */}
-                    {severityLevels.length > 1 && (
-                        <div className="flex text-xs text-[var(--text-muted3)] mr-2">
-                            {selectedSeverities.length > 0 && (
-                                <button 
-                                    className="px-[0.5em] text-[var(--text)] cursor-pointer" 
-                                    onClick={clearSeverityFilters}
-                                >
-                                    Clear
-                                </button>
+                    {/* Filter controls */}
+                    {errors.length > 1 && (
+                        <div className="absolute top-3 right-3 flex items-center">
+                            {/* Severity filter buttons */}
+                            {severityLevels.length > 1 && (
+                                <div className="flex text-xs text-[var(--text-muted3)] mr-2">
+                                    {selectedSeverities.length > 0 && (
+                                        <button
+                                            className="px-[0.5em] text-[var(--text)] cursor-pointer"
+                                            onClick={clearSeverityFilters}
+                                        >
+                                            Clear
+                                        </button>
+                                    )}
+                                    {severityLevels.map(level => (
+                                        <button
+                                            key={level}
+                                            className="px-[0.5em] hover:text-[var(--text)] cursor-pointer"
+                                            onClick={() => toggleSeverityFilter(level)}
+                                            style={{
+                                                color: selectedSeverities.includes(level)
+                                                    ? getSeverityFilterColor(level)
+                                                    : ''
+                                            }}
+                                        >
+                                            {level.charAt(0).toUpperCase() + level.slice(1)}
+                                        </button>
+                                    ))}
+                                </div>
                             )}
-                            {severityLevels.map(level => (
-                                <button
-                                    key={level}
-                                    className="px-[0.5em] hover:text-[var(--text)] cursor-pointer"
-                                    onClick={() => toggleSeverityFilter(level)}
-                                    style={{ 
-                                        color: selectedSeverities.includes(level) 
-                                            ? getSeverityFilterColor(level) 
-                                            : ''
-                                    }}
-                                >
-                                    {level.charAt(0).toUpperCase() + level.slice(1)}
-                                </button>
-                            ))}
+
+                            {/* Text filter */}
+                            <input
+                                type="text"
+                                placeholder={`Filter ${errors.length > 50 ? '50+' : errors.length} errors...`}
+                                className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-[var(--text-muted3)] bg-transparent outline-none"
+                                value={filtering}
+                                onChange={(e) => setFiltering(e.target.value)}
+                                aria-label="Filter errors"
+                            />
                         </div>
                     )}
-                    
-                    {/* Text filter */}
-                    <input
-                        type="text"
-                        placeholder={`Filter ${errors.length > 50 ? '50+' : errors.length} errors...`}
-                        className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-[var(--text-muted3)] bg-transparent outline-none"
-                        value={filtering}
-                        onChange={(e) => setFiltering(e.target.value)}
-                        aria-label="Filter errors"
-                    />
-                </div>
-            )}
 
-            {/* Error table */}
-            {errors.length > 0 ? (
-                <div className="overflow-auto text-sm">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr>
-                                <th
-                                    className="py-2 text-left border-b border-[var(--border-color)] cursor-pointer"
-                                    onClick={() => requestSort("timestamp")}
-                                >
-                                    Timestamp {sortConfig.key === "timestamp" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                                </th>
-                                <th
-                                    className="py-2 px-4 text-left border-b border-[var(--border-color)] cursor-pointer"
-                                    onClick={() => requestSort("level")}
-                                >
-                                    Level {sortConfig.key === "level" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                                </th>
-                                <th className="py-2 text-left border-b border-[var(--border-color)]">Message</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedErrors.length > 0 ? (
-                                sortedErrors.slice(0, 50).map((error, index) => (
-                                    <ErrorRow
-                                        key={`${error.timestamp}-${index}`}
-                                        error={error}
-                                        index={index}
-                                        expandedError={expandedError}
-                                        setExpandedError={setExpandedError}
-                                        formatDate={formatDate}
-                                        getSeverityColor={getSeverityColor}
-                                    />
-                                ))
-                            ) : (
+                    {/* Error table */}
+                    <div className="overflow-auto text-sm">
+                        <table className="w-full border-collapse">
+                            <thead>
                                 <tr>
-                                    <td colSpan={3} className="py-4 text-center text-[var(--text-muted3)]">
-                                        No errors match the current filters
-                                    </td>
+                                    <th
+                                        className="py-2 text-left border-b border-[var(--border-color)] cursor-pointer"
+                                        onClick={() => requestSort("timestamp")}
+                                    >
+                                        Timestamp {sortConfig.key === "timestamp" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                                    </th>
+                                    <th
+                                        className="py-2 px-4 text-left border-b border-[var(--border-color)] cursor-pointer"
+                                        onClick={() => requestSort("level")}
+                                    >
+                                        Level {sortConfig.key === "level" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                                    </th>
+                                    <th className="py-2 text-left border-b border-[var(--border-color)]">Message</th>
                                 </tr>
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {sortedErrors.length > 0 ? (
+                                    sortedErrors.slice(0, 50).map((error, index) => (
+                                        <ErrorRow
+                                            key={`${error.timestamp}-${index}`}
+                                            error={error}
+                                            index={index}
+                                            expandedError={expandedError}
+                                            setExpandedError={setExpandedError}
+                                            formatDate={formatDate}
+                                            getSeverityColor={getSeverityColor}
+                                        />
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={3} className="py-4 text-center text-[var(--text-muted3)]">
+                                            No errors match the current filters
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            ) : (
-                <>
-                    {fetchError ? (
-                        <div className="text-sm text-red-500 text-center mb-4">
-                            <span className="inline-block h-2 w-2 rounded-full bg-red-500 mr-2"></span>
-                            {fetchError}
-                        </div>
-                    ) : (
-                        <div className="text-center py-4 text-[var(--text-muted3)]">
-                            No errors found
-                        </div>
-                    )}
-                </>
             )}
-        </div>
+        </>
     );
 }

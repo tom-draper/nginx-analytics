@@ -224,7 +224,6 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 	// Read directory entries
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		log.Println(err)
 		respondWithError(w, fmt.Sprintf("Failed to read directory: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -295,7 +294,14 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 
 		// Only track positions for .log files
 		if strings.HasSuffix(filePos.Filename, ".log") {
-			newPositions = append(newPositions, filePos)
+			var position int64 = 0
+			if len(result.Positions) > 0 {
+				position = result.Positions[0].Position
+			}
+			newPositions = append(newPositions, Position{
+				Filename: filePos.Filename,
+				Position: position,
+			})
 		}
 	}
 

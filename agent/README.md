@@ -1,6 +1,6 @@
 # Nginx Analytics Agent
 
-A lightweight agent to monitor server resources and securely expose log files, written in Go.
+A lightweight agent to securely expose log files and monitor system resources, written in Go.
 
 ## Deployment Guide
 
@@ -11,23 +11,24 @@ ssh user@yourserver
 chmod +x /usr/local/bin/nginx-analytics-agent
 ```
 
-> If your Nginx log path is different from the default `/var/log/nginx/access.log`, add the correct path as an environment variable.
+> If your Nginx log path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
 >
 > ```env
-> NGINX_ACCESS_PATH=/path/to/access.log
-> NGINX_ERROR_PATH=/path/to/error.log
+> NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
+> NGINX_ANALYTICS_ERROR_PATH=/path/to/error/logs
 > ```
 <br>
 
-Update your existing Nginx configuration, or copy the below config into `/etc/nginx/conf.d/nginx-analytics-agent.conf`.
+Update your existing Nginx configuration to redirect to the agent, or copy the below config into `/etc/nginx/conf.d/nginx-analytics-agent.conf`.
 
 ```nginx
 server {
     listen 80;
     server_name yourdomain.com; # Optional
 
-    location /logs/access {
-        proxy_pass http://localhost:3000/logs/access;
+    # Common proxy settings applied to all location blocks
+    location /logs/ {
+        proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -36,18 +37,12 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    location /logs/error {
-        proxy_pass http://localhost:3000/logs/error;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
+    # These locations will inherit settings from the parent /logs/ block
+    # while maintaining their specific endpoints
 
-    location /status {
-        proxy_pass http://localhost:3000/status;
+    # For all non-/logs/ endpoints
+    location ~ ^/(system|location|status)$ {
+        proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -57,8 +52,6 @@ server {
     }
 }
 ```
-
-All log data transferred by the agent is encrypted end-to-end, so HTTPS is optional.
 
 Reload Nginx:
 
@@ -95,7 +88,7 @@ sudo systemctl start nginx-analytics-agent
 Confirm the service is up and running with a status check.
 
 ```bash
-curl http://yourdomain.com/logs/status
+curl https://yourdomain.com/logs/status
 
 > {"status": "ok", "accessLogStatus": "ok", "errorLogStatus": "ok", ...}
 ```
@@ -105,8 +98,7 @@ curl http://yourdomain.com/logs/status
 Host the dashboard on your preferred platform, with environment variables set pointing to the agent's endpoints.
 
 ```env
-NGINX_ACCESS_URL=http://yourserver.com/logs/access
-NGINX_ERROR_URL=http://yourserver.com/logs/error
+NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 ```
 
 ### CLI
@@ -114,6 +106,24 @@ NGINX_ERROR_URL=http://yourserver.com/logs/error
 Run the CLI from anywhere, with environment variables set pointing to the agent's endpoints.
 
 ```env
-NGINX_ACCESS_URL=http://yourserver.com/logs/access
-NGINX_ERROR_URL=http://yourserver.com/logs/error
+NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 ```
+
+## Configuration
+
+### Port
+
+The default port is 5000. If this is already is use, specify an alternative with the `PORT` environment variable, or with the `--port` command line argument.
+
+### System Monitoring
+
+By default, system monitoring is disabled. To enable it, set the `NGINX_ANALYTICS_SYSTEM_MONITORING` environment variable to `true`, or with the `--system-monitoring` command line argument.
+
+
+### Locations
+
+IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
+
+#### HTTPS
+
+Deploying with HTTPS is always recommended. Without this, you risk exposing any personal information within your log files such as IP addresses.
