@@ -38,7 +38,7 @@ Follow the <a href="./dashboard/nginx/README.md">Nginx configuration guide</a>.
 
 Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="https://nginx-analytics.vercel.app/dashboard">our deployment</a>.
 
-### CLI
+<!-- ### CLI
 
 If you prefer to work in the terminal, a CLI is available as an alternative to the dashboard. 
 
@@ -52,7 +52,7 @@ Follow the <a href="./cli/README.md">CLI deployment guide</a>.
 
 Deploy the agent to the server, and run the CLI from anywhere.
 
-Follow the <a href="./agent/README.md">agent deployment guide</a>.
+Follow the <a href="./agent/README.md">agent deployment guide</a>. -->
 
 ### Configuration
 
