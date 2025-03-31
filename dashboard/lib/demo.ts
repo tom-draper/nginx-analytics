@@ -1,4 +1,315 @@
 import { Location } from "@/lib/location";
+import { SystemInfo } from "./types";
+
+/**
+ * Generates a realistic system profile for demo purposes
+ * @returns Initial system information profile
+ */
+export function generateSystemProfile(): SystemInfo {
+    // CPU configuration
+    const cpuModels = [
+        'Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz',
+        'AMD Ryzen 9 5900X 12-Core Processor',
+        'Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz',
+        'Intel(R) Core(TM) i5-9600K CPU @ 3.70GHz',
+        'AMD EPYC 7402 24-Core Processor'
+    ];
+    const cpuCoreOptions = [4, 6, 8, 12, 16, 24, 32];
+
+    // Create server profile
+    const cpuModel = cpuModels[Math.floor(Math.random() * cpuModels.length)];
+    const cores = cpuCoreOptions[Math.floor(Math.random() * cpuCoreOptions.length)];
+    const speed = 2000 + Math.floor(Math.random() * 2500); // 2.0 GHz to 4.5 GHz
+    const memoryTotal = Math.floor((8 + Math.random() * 120) * 1024 * 1024 * 1024); // 8GB to 128GB in bytes
+
+    // Create disk setup
+    const diskCount = 1 + Math.floor(Math.random() * 4); // 1 to 4 disks
+    const disks = [];
+
+    // Always have a root partition
+    disks.push({
+        filesystem: '/dev/sda1',
+        size: Math.floor((100 + Math.random() * 400) * 1024 * 1024 * 1024), // 100GB to 500GB
+        used: Math.floor((20 + Math.random() * 60) * 1024 * 1024 * 1024), // 20-80% usage
+        mountedOn: '/'
+    });
+
+    // Add additional partitions if needed
+    if (diskCount > 1) {
+        const mountPoints = ['/data', '/var', '/home', '/opt', '/mnt/storage'];
+        for (let i = 1; i < diskCount; i++) {
+            const size = Math.floor((200 + Math.random() * 1800) * 1024 * 1024 * 1024); // 200GB to 2TB
+            disks.push({
+                filesystem: `/dev/sd${String.fromCharCode(97 + i)}1`,
+                size: size,
+                used: Math.floor(size * (0.2 + Math.random() * 0.6)), // 20-80% usage
+                mountedOn: mountPoints[Math.floor(Math.random() * mountPoints.length)]
+            });
+        }
+    }
+
+    // Set initial uptime
+    const uptimeBase = Math.floor(Math.random() * 86400 * 30); // Random start point up to 30 days
+
+    // Initial CPU and memory usage
+    const cpuUsage = 20 + Math.random() * 30; // 20-50% initial usage
+    const memoryUsed = Math.floor(memoryTotal * (0.3 + Math.random() * 0.3)); // 30-60% used
+    const memoryFree = Math.floor(memoryTotal * 0.1); // Some memory is always reserved by system
+    const memoryAvailable = memoryTotal - memoryUsed;
+
+    const systemInfo: SystemInfo = {
+        timestamp: new Date().toISOString(),
+        uptime: uptimeBase,
+        cpu: {
+            model: cpuModel,
+            cores: cores,
+            speed: speed,
+            usage: parseFloat(cpuUsage.toFixed(1))
+        },
+        memory: {
+            free: memoryFree,
+            available: memoryAvailable,
+            used: memoryUsed,
+            total: memoryTotal
+        },
+        disk: disks,
+    };
+
+    return systemInfo;
+}
+
+/**
+ * Updates system resource usage data while maintaining consistency with the initial system profile
+ * @param currentInfo The current system information to update
+ * @returns Updated system resource data
+ */
+export function updateSystemUsage(currentInfo: SystemInfo): SystemInfo {
+    // Create a deep copy to avoid mutating the original
+    const updatedInfo: SystemInfo = JSON.parse(JSON.stringify(currentInfo));
+    
+    // Update timestamp
+    updatedInfo.timestamp = new Date().toISOString();
+    
+    // Update uptime (add 2 seconds since the function is called every 2s)
+    updatedInfo.uptime += 2;
+    
+    // Get current hour to simulate day/night patterns
+    const hour = new Date().getHours();
+    const isBusinessHour = hour >= 8 && hour <= 18;
+    
+    // CPU usage pattern - adjust based on time of day
+    const baselineCpuUsage = isBusinessHour ? 40 : 20;
+    const cpuVariation = 15;
+    
+    // Create smooth transitions by limiting change amount
+    const maxCpuChange = 5;
+    const currentCpuUsage = updatedInfo.cpu.usage ?? 0;
+    let targetCpuUsage = baselineCpuUsage + (Math.random() * 2 - 1) * cpuVariation;
+    
+    // Add occasional spikes
+    if (Math.random() < 0.03) {
+        targetCpuUsage = Math.min(95, targetCpuUsage + 25);
+    }
+    
+    // Move current usage toward target with smoothing
+    let newCpuUsage = currentCpuUsage;
+    if (Math.abs(targetCpuUsage - currentCpuUsage) <= maxCpuChange) {
+        newCpuUsage = targetCpuUsage;
+    } else if (targetCpuUsage > currentCpuUsage) {
+        newCpuUsage = currentCpuUsage + maxCpuChange * Math.random();
+    } else {
+        newCpuUsage = currentCpuUsage - maxCpuChange * Math.random();
+    }
+    
+    // Ensure CPU usage is within bounds
+    newCpuUsage = Math.max(0.1, Math.min(99.9, newCpuUsage));
+    updatedInfo.cpu.usage = parseFloat(newCpuUsage.toFixed(1));
+    
+    // Memory usage - correlate somewhat with CPU but with slower changes
+    const memoryTotal = updatedInfo.memory.total;
+    const currentMemoryUsedPercentage = (updatedInfo.memory.used / memoryTotal) * 100;
+    const memoryVariation = 2;  // Smaller variation for memory
+    
+    // Target memory usage changes more slowly and correlates with CPU
+    let targetMemoryUsedPercentage = currentMemoryUsedPercentage + 
+        (newCpuUsage > currentCpuUsage ? 1 : -1) * Math.random() * memoryVariation;
+    
+    // Keep memory usage in reasonable bounds
+    targetMemoryUsedPercentage = Math.max(20, Math.min(90, targetMemoryUsedPercentage));
+    
+    // Calculate new memory values
+    const newMemoryUsed = Math.floor(memoryTotal * (targetMemoryUsedPercentage / 100));
+    updatedInfo.memory.used = newMemoryUsed;
+    updatedInfo.memory.available = memoryTotal - newMemoryUsed;
+    updatedInfo.memory.free = Math.floor(memoryTotal * 0.05 + Math.random() * 0.05 * memoryTotal);
+    
+    // Disk usage increases very slowly over time
+    updatedInfo.disk = updatedInfo.disk.map(disk => {
+        // Only increase usage about 0.01% each update (very slow growth)
+        if (Math.random() < 0.2) {  // Only update sometimes to make it more realistic
+            const currentUsagePercent = (disk.used / disk.size) * 100;
+            // Don't let usage exceed 99%
+            if (currentUsagePercent < 99) {
+                const increase = disk.size * 0.0001 * Math.random();
+                disk.used = Math.min(disk.size * 0.99, disk.used + increase);
+            }
+        }
+        return disk;
+    });
+    
+    return updatedInfo;
+}
+
+/**
+ * Generates realistic system resource data for demo purposes
+ * @param options Configuration options for system resource generation
+ * @returns Array of system resource data points over time
+ */
+interface SystemResourceGeneratorOptions {
+    count: number;
+    startDate?: Date;
+    endDate?: Date;
+    cpuModels?: string[];
+    cpuCoreOptions?: number[];
+    serverNames?: string[];
+}
+
+export function generateSystemResources(options: SystemResourceGeneratorOptions): SystemInfo {
+    const {
+        count = 100,
+        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Default to past week
+        endDate = new Date(),
+        cpuModels = [
+            'Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz',
+            'AMD Ryzen 9 5900X 12-Core Processor',
+            'Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz',
+            'Intel(R) Core(TM) i5-9600K CPU @ 3.70GHz',
+            'AMD EPYC 7402 24-Core Processor'
+        ],
+        cpuCoreOptions = [4, 6, 8, 12, 16, 24, 32],
+        serverNames = ['web-server-01', 'app-server-02', 'db-server-01', 'worker-01', 'cache-01']
+    } = options;
+
+    // Create server profiles to maintain consistency for each server
+    const serverProfiles: Map<string, {
+        cpuModel: string,
+        cores: number,
+        speed: number,
+        memoryTotal: number,
+        disks: Array<{ name: string, size: number, mount: string }>
+    }> = new Map();
+
+    // Set up server profiles
+    serverNames.forEach(serverName => {
+        const cpuModel = cpuModels[Math.floor(Math.random() * cpuModels.length)];
+        const cores = cpuCoreOptions[Math.floor(Math.random() * cpuCoreOptions.length)];
+        const speed = 2000 + Math.floor(Math.random() * 2500); // 2.0 GHz to 4.5 GHz
+        const memoryTotal = Math.floor((8 + Math.random() * 120) * 1024 * 1024 * 1024); // 8GB to 128GB in bytes
+
+        // Create disk setup
+        const diskCount = 1 + Math.floor(Math.random() * 4); // 1 to 4 disks
+        const disks = [];
+
+        // Always have a root partition
+        disks.push({
+            name: '/dev/sda1',
+            size: Math.floor((100 + Math.random() * 400) * 1024 * 1024 * 1024), // 100GB to 500GB
+            mount: '/'
+        });
+
+        // Add additional partitions if needed
+        if (diskCount > 1) {
+            const mountPoints = ['/data', '/var', '/home', '/opt', '/mnt/storage'];
+            for (let i = 1; i < diskCount; i++) {
+                disks.push({
+                    name: `/dev/sd${String.fromCharCode(97 + i)}1`,
+                    size: Math.floor((200 + Math.random() * 1800) * 1024 * 1024 * 1024), // 200GB to 2TB
+                    mount: mountPoints[Math.floor(Math.random() * mountPoints.length)]
+                });
+            }
+        }
+
+        serverProfiles.set(serverName, {
+            cpuModel,
+            cores,
+            speed,
+            memoryTotal,
+            disks
+        });
+    });
+
+    // Generate time-based data points
+    const timeInterval = (endDate.getTime() - startDate.getTime());
+
+    const serverName = serverNames[Math.floor(Math.random() * serverNames.length)];
+    const profile = serverProfiles.get(serverName)!;
+
+    const timestamp = new Date(startDate.getTime() + timeInterval);
+
+    // Generate increasing uptime based on timestamp
+    // This simulates a continuous uptime counter over the course of the dataset
+    const uptimeBase = Math.floor(Math.random() * 86400 * 30); // Random start point up to 30 days
+    const uptimeOffset = Math.floor((timestamp.getTime() - startDate.getTime()) / 1000);
+    const uptime = uptimeBase + uptimeOffset;
+
+    // Generate usage patterns with some realistic variation
+    // Create daily patterns for CPU usage (higher during business hours)
+    const hour = timestamp.getHours();
+    const isBusinessHour = hour >= 8 && hour <= 18;
+
+    // CPU usage pattern - higher during business hours with randomness
+    const baselineCpuUsage = isBusinessHour ? 40 : 20;
+    const cpuVariation = 25;
+    let cpuUsage = baselineCpuUsage + (Math.random() * 2 - 1) * cpuVariation;
+
+    // Add occasional spikes
+    if (Math.random() < 0.05) {
+        cpuUsage = Math.min(95, cpuUsage + 30);
+    }
+
+    // Generate realistic memory usage
+    const memoryTotal = profile.memoryTotal;
+    const memoryUsedPercentage = baselineCpuUsage * 0.8 + Math.random() * 30; // Correlate with CPU somewhat
+    const memoryUsed = Math.floor(memoryTotal * (memoryUsedPercentage / 100));
+    const memoryFree = Math.floor(memoryTotal * 0.2);
+    const memoryAvailable = memoryTotal - memoryUsed;
+
+    // Generate disk usage that increases slightly over time
+    const disks = profile.disks.map((disk, i) => {
+        // Create a usage percentage that slowly increases over the dataset
+        const baseUsagePercent = 30 + Math.random() * 40;
+        const timeProgressFactor = i / count;
+        const usageGrowth = 10 * timeProgressFactor;
+        const usagePercent = Math.min(98, baseUsagePercent + usageGrowth);
+
+        return {
+            filesystem: disk.name,
+            size: disk.size,
+            used: Math.floor(disk.size * (usagePercent / 100)),
+            mountedOn: disk.mount
+        };
+    });
+
+    const systemResources: SystemInfo = {
+        timestamp: timestamp.toISOString(),
+        uptime,
+        cpu: {
+            model: profile.cpuModel,
+            cores: profile.cores,
+            speed: profile.speed,
+            usage: parseFloat(cpuUsage.toFixed(1))
+        },
+        memory: {
+            free: memoryFree,
+            available: memoryAvailable,
+            used: memoryUsed,
+            total: memoryTotal
+        },
+        disk: disks,
+    };
+
+    return systemResources;
+}
 
 // Type for error log generator options
 interface ErrorLogGeneratorOptions {
@@ -67,21 +378,21 @@ export function generateNginxErrorLogs(options: ErrorLogGeneratorOptions): strin
     const weightedRandom = <T>(items: T[], weights: number[]): T => {
         const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
         let random = Math.random() * totalWeight;
-        
+
         for (let i = 0; i < weights.length; i++) {
             if (random < weights[i]) {
                 return items[i];
             }
             random -= weights[i];
         }
-        
+
         return items[0]; // Default fallback
     };
 
     // Create IP pool similar to the standard log generator
     const ipPool: string[] = [];
     const ipPoolSize = Math.min(count / 3, 15);
-    
+
     for (let i = 0; i < ipPoolSize; i++) {
         if (ipRange.length > 0 && Math.random() < 0.9) {
             ipPool.push(ipRange[Math.floor(Math.random() * ipRange.length)]);
@@ -124,7 +435,7 @@ export function generateNginxErrorLogs(options: ErrorLogGeneratorOptions): strin
     //     const formatted = `[${day}/${month}/${year}:${hours}:${minutes}:${seconds} ${offsetSign}${offsetHours}${offsetMinutes}]`;
     //     return `${day}/${month}/${year}:${hours}:${minutes}:${seconds}`;
     // };
-    const getRandomTimestamp = ():string  => {
+    const getRandomTimestamp = (): string => {
         // Simple random timestamp between start and end dates
         const timestampMs = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime());
         const date = new Date(timestampMs);
@@ -339,7 +650,7 @@ export function generateNginxLogs(options: LogGeneratorOptions): string[] {
     // This creates more realistic logs where the same users return
     const ipPool: string[] = [];
     const ipPoolSize = Math.min(count / 3, 15); // Adjust based on log volume
-    
+
     for (let i = 0; i < ipPoolSize; i++) {
         if (ipRange.length > 0 && Math.random() < 0.9) {
             // 70% chance to use provided IP range
@@ -354,14 +665,14 @@ export function generateNginxLogs(options: LogGeneratorOptions): string[] {
     const weightedRandom = <T>(items: T[], weights: number[]): T => {
         const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
         let random = Math.random() * totalWeight;
-        
+
         for (let i = 0; i < weights.length; i++) {
             if (random < weights[i]) {
                 return items[i];
             }
             random -= weights[i];
         }
-        
+
         return items[0]; // Default fallback
     };
 
@@ -378,7 +689,7 @@ export function generateNginxLogs(options: LogGeneratorOptions): string[] {
 
     const pathWeights = createZipfWeights(paths.length);
     const refererWeights = createZipfWeights(expandedReferers.length);
-    
+
     // Adjust referer weights to make "-" (direct traffic) more common
     if (expandedReferers[0] === '-') {
         refererWeights[0] *= 2;
@@ -442,7 +753,7 @@ export function generateNginxLogs(options: LogGeneratorOptions): string[] {
         if (Math.random() < 0.08) {
             return '-'; // 8% of requests don't have a response size
         }
-        
+
         // Create different size categories
         if (Math.random() < 0.3) {
             // Small responses (e.g., API responses, small HTML)

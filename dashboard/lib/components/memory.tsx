@@ -29,7 +29,7 @@ ChartJS.register(
 );
 
 // Custom circular progress component
-const CircularProgress = ({ value, text, color }: {value: number, text: string, color: string}) => {
+const CircularProgress = ({ value, text, color }: { value: number, text: string, color: string }) => {
     const radius = 40;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (value / 100) * circumference;
@@ -65,12 +65,12 @@ const CircularProgress = ({ value, text, color }: {value: number, text: string, 
 };
 
 // Single resource usage chart component
-const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" }: {data: any, timestamps: any, label: string, color: string, height?: string}) => {
+const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" }: { data: any, timestamps: any, label: string, color: string, height?: string }) => {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
         animation: {
-            
+
         },
         scales: {
             x: {
@@ -137,7 +137,7 @@ const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" }:
     );
 };
 
-export function Memory({ resources, loading, historyData }: { resources: SystemInfo | null, loading: boolean, historyData: HistoryData}) {
+export function Memory({ resources, loading, historyData }: { resources: SystemInfo | null, loading: boolean, historyData: HistoryData }) {
     if (!resources) {
         return (
             <div className="card flex-2 flex flex-col px-4 py-3 m-3 relative">
@@ -174,50 +174,52 @@ export function Memory({ resources, loading, historyData }: { resources: SystemI
     const currentMemColor = getColorForUsage(totalUsedMemory);
 
     return (
-        <div className="card flex-2 px-4 py-3 m-3 relative">
+        <div className="card flex-2 px-4 py-3 m-3 relative h-[calc(100%-1.5rem)]">
             <h2 className="font-semibold text-lg">
                 Memory
             </h2>
 
             {/* Memory Usage with chart */}
-            <div className="p-2 pt-3">
-                <div className="flex items-start">
-                    <CircularProgress
-                        value={totalUsedMemory}
-                        text={`${totalUsedMemory.toFixed(1)}%`}
-                        color={currentMemColor}
-                    />
-                    <div className="ml-4 flex flex-col justify-center text-xs mt-0">
-                        <div>Used: {formatBytes(resources.memory.used)}</div>
-                        <div>Free: {formatBytes(resources.memory.free)}</div>
-                        <div>Available: {formatBytes(resources.memory.available)}</div>
-                        <div>Total: {formatBytes(resources.memory.total)}</div>
+            <div className="p-2 pt-3 h-[inherit] flex flex-col">
+                <div className="flex-grow">
+                    <div className="flex items-start">
+                        <CircularProgress
+                            value={totalUsedMemory}
+                            text={`${totalUsedMemory.toFixed(1)}%`}
+                            color={currentMemColor}
+                        />
+                        <div className="ml-4 flex flex-col justify-center text-xs mt-0">
+                            <div>Used: {formatBytes(resources.memory.used)}</div>
+                            <div>Free: {formatBytes(resources.memory.free)}</div>
+                            <div>Available: {formatBytes(resources.memory.available)}</div>
+                            <div>Total: {formatBytes(resources.memory.total)}</div>
+                        </div>
                     </div>
-                </div>
 
-                {/* Layered memory usage bar */}
-                <div className="mt-4">
-                    <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden relative">
-                        {/* Bottom layer - Used memory (amber) */}
-                        <div
-                            className="h-full rounded-full absolute top-0 left-0"
-                            style={{
-                                width: `${totalUsedMemory}%`,
-                                backgroundColor: currentMemColor + 'aa'
-                            }}
-                        ></div>
-                        {/* Top layer - Total minus available memory (dynamic color) */}
-                        <div
-                            className="h-full rounded-full absolute top-0 left-0"
-                            style={{
-                                width: `${availableMemory}%`,
-                                backgroundColor: currentMemColor
-                            }}
-                        ></div>
-                    </div>
-                    <div className="flex justify-between text-xs mt-1 mb-3">
-                        <span>0 GB</span>
-                        <span>{formatBytes(resources.memory.total)}</span>
+                    {/* Layered memory usage bar */}
+                    <div className="mt-4">
+                        <div className="h-2 w-full bg-[var(--hover-background)] rounded-full overflow-hidden relative">
+                            {/* Bottom layer - Used memory (amber) */}
+                            <div
+                                className="h-full rounded-full absolute top-0 left-0"
+                                style={{
+                                    width: `${totalUsedMemory}%`,
+                                    backgroundColor: currentMemColor + 'aa'
+                                }}
+                            ></div>
+                            {/* Top layer - Total minus available memory (dynamic color) */}
+                            <div
+                                className="h-full rounded-full absolute top-0 left-0"
+                                style={{
+                                    width: `${availableMemory}%`,
+                                    backgroundColor: currentMemColor
+                                }}
+                            ></div>
+                        </div>
+                        <div className="flex justify-between text-xs mt-1 mb-3">
+                            <span>0 GB</span>
+                            <span>{formatBytes(resources.memory.total)}</span>
+                        </div>
                     </div>
                 </div>
 

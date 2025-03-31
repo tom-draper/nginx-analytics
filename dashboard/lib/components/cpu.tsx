@@ -47,7 +47,7 @@ const CPUCores = ({ cores, usage }: { cores: number, usage: number }) => {
     };
 
     return (
-        <div className="mt-1">
+        <div className="mt-1 flex-grow">
             <div className="grid grid-cols-4 gap-1">
                 {coreUsages.map((coreUsage, index) => (
                     <div key={index} className="flex flex-col items-center">
@@ -194,7 +194,7 @@ export function CPU({ resources, loading, historyData }: { resources: SystemInfo
     const currentCPUColor = getColorForUsage(cpuUsage || 0);
 
     return (
-        <div className="card flex-2 px-4 py-3 m-3 relative">
+        <div className="card flex-2 px-4 py-3 m-3 relative h-[calc(100%-1.5rem)]">
             <h2 className="font-semibold text-lg">
                 CPU
             </h2>
@@ -206,7 +206,7 @@ export function CPU({ resources, loading, historyData }: { resources: SystemInfo
             </div>
 
             {/* CPU Usage with chart */}
-            <div className="p-2">
+            <div className="p-2 h-[inherit] flex flex-col">
                 {/* CPU Cores visualization */}
                 <CPUCores cores={resources.cpu.cores} usage={cpuUsage || 0} />
 

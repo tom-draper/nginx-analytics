@@ -6,6 +6,7 @@ import { Storage } from "@/lib/components/storage";
 import { LogFiles } from "@/lib/components/log-files";
 import { HistoryData, LogSizes, SystemInfo } from "../types";
 import { useEffect, useState } from "react";
+import { generateSystemProfile, updateSystemUsage } from "../demo";
 
 export function SystemResources({ demo }: { demo: boolean }) {
     const [resources, setResources] = useState<SystemInfo | null>(null);
@@ -23,6 +24,35 @@ export function SystemResources({ demo }: { demo: boolean }) {
     const maxHistoryPoints = 900;
 
     useEffect(() => {
+        if (demo) {
+            const data: SystemInfo = generateSystemProfile();
+            setResources(data);
+
+            const updateUsage = () => {
+                const updatedData = updateSystemUsage(data);
+                setResources(updatedData);
+                setHistoryData((previous: HistoryData) => {
+                    const now = Date.now();
+
+                    // Create new arrays with latest data
+                    const newCpuUsage = [...previous.cpuUsage, updatedData.cpu.usage ?? 0];
+                    const newMemoryUsage = [...previous.memoryUsage, ((updatedData.memory.used) / updatedData.memory.total) * 100];
+                    const newTimestamps = [...previous.timestamps, now];
+
+                    // Keep only the last MAX_HISTORY_POINTS
+                    return {
+                        cpuUsage: newCpuUsage.slice(-maxHistoryPoints),
+                        memoryUsage: newMemoryUsage.slice(-maxHistoryPoints),
+                        timestamps: newTimestamps.slice(-maxHistoryPoints)
+                    };
+                });
+            }
+
+            updateUsage();
+            const interval = setInterval(updateUsage, 2000);
+            return () => clearInterval(interval);
+        }
+
         const fetchData = async () => {
             setLoadingResources(true);
             try {
@@ -35,7 +65,7 @@ export function SystemResources({ demo }: { demo: boolean }) {
                     }
                     throw new Error("Failed to fetch system resources");
                 }
-                const data = await response.json();
+                const data: SystemInfo = await response.json();
                 setResources(data);
 
                 // Update history data with new readings
@@ -43,7 +73,7 @@ export function SystemResources({ demo }: { demo: boolean }) {
                     const now = Date.now();
 
                     // Create new arrays with latest data
-                    const newCpuUsage = [...previous.cpuUsage, data.cpu.usage];
+                    const newCpuUsage = [...previous.cpuUsage, data.cpu.usage ?? 0];
                     const newMemoryUsage = [...previous.memoryUsage, ((data.memory.used) / data.memory.total) * 100];
                     const newTimestamps = [...previous.timestamps, now];
 
