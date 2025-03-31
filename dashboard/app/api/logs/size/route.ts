@@ -1,7 +1,11 @@
 import { serverUrl, authToken, systemMonitoringEnabled } from '@/lib/environment';
 import { getLogFileSizes, getLogSizeSummary } from '@/lib/file-utils'; // Adjust the import path as needed
+import path from 'path';
+import fs from 'fs';
 import { LogSizes } from '@/lib/types';
 import { NextResponse } from 'next/server';
+
+let logPath: string | null = null;
 
 export async function GET() {
     if (serverUrl) {
@@ -31,7 +35,15 @@ export async function GET() {
                 { status: 403 }
             );
         }
+
         const path = getLogPath();
+
+        if (!path) {
+            return NextResponse.json(
+                { message: 'NGINX log path not found' },
+                { status: 403 }
+            );
+        }
 
         try {
             const files = await getLogFileSizes(path);
@@ -49,20 +61,43 @@ export async function GET() {
 }
 
 const getLogPath = () => {
-    const path = (
-        process.env.NGINX_ACCESS_DIR ||
-        process.env.NGINX_ERROR_DIR ||
-        getParentDir(process.env.NGINX_ACCESS_PATH) ||
-        getParentDir(process.env.NGINX_ERROR_PATH) ||
-        '/var/logs/nginx'
-    );
-    return path;
+	if (logPath) {
+		return logPath;
+	}
+
+	const accessPath = tryGetLogPath(process.env.NGINX_ANALYTICS_ACCESS_PATH);
+	if (accessPath) {
+		logPath = accessPath;
+		return logPath;
+	}
+
+	const errorPath = tryGetLogPath(process.env.NGINX_ANALYTICS_ERROR_PATH);
+	if (errorPath) {
+		logPath = errorPath;
+		return logPath;
+	}
+
+	return null;
 }
 
-const getParentDir = (path: string | undefined) => {
-    if (!path) {
-        return null;
-    }
+const tryGetLogPath = (nginxPath: string | undefined) => {
+	if (!nginxPath) {
+		return null;
+	}
 
-    return path.substring(0, path.lastIndexOf("/"));
+	try {
+		const stats = fs.statSync(nginxPath);
+		
+		if (stats.isDirectory()) {
+			// If it's a directory, use it directly
+			return nginxPath;
+		} else {
+			// If it's a file, get its parent directory
+			return path.dirname(nginxPath);
+		}
+	} catch (error) {
+		console.warn(`Could not access NGINX_ANALYTICS_ACCESS_PATH: ${error}`);
+		return null;
+	}
 }
+

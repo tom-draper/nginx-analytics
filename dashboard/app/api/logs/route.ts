@@ -19,7 +19,6 @@ const gunzip = promisify(zlib.gunzip);
 const isAccessDir = isDir(nginxAccessPath);
 const isErrorDir = isDir(nginxErrorPath);
 
-// Type definitions
 interface FilePosition {
     filename?: string;
     position: number;
