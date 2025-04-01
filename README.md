@@ -78,6 +78,12 @@ If your dashboard is publically accessible, set up password protection by assign
 
 Deploying with HTTPS is always recommended. Without this, you risk exposing any personal information within your log files such as IP addresses.
 
+#### Nginx
+
+Currently this solution only works with the default Nginx log format, but future plans include support for custom formats.
+
+To better configure Nginx to get the most out of your analytics, take a look at the <a href="./nginx/README.md">Nginx configuration guide</a>.
+
 ## Contributions
 
 Contributions, issues and feature requests are welcome.

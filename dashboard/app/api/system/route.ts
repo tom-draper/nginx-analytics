@@ -15,7 +15,7 @@ export async function GET() {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const response = await fetch(serverUrl + '/system', {
+        const response = await fetch(serverUrl + '/api/system', {
             method: 'GET',
             headers
         });

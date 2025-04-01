@@ -14,7 +14,6 @@ import {
 } from "chart.js";
 import { HistoryData, SystemInfo } from "../types";
 import { formatBytes } from "../format";
-import { AnyMxRecord } from "dns";
 
 // Register Chart.js components
 ChartJS.register(
@@ -160,7 +159,7 @@ export function Memory({ resources, loading, historyData }: { resources: SystemI
     }
 
     // Get percentage values for both memory metrics
-    const totalUsedMemory = (resources.memory.used / resources.memory.total) * 100;
+    const totalUsedMemory = ((resources.memory.total - resources.memory.free) / resources.memory.total) * 100;
     const availableMemory = ((resources.memory.total - resources.memory.available) / resources.memory.total) * 100;
 
     // Get color based on usage percentage

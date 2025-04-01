@@ -6,7 +6,7 @@ import { generateDemoLocations } from "../demo";
 
 export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation, noFetch, demo }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void, noFetch: boolean, demo: boolean }) {
     const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [endpointDisabled, setEndpointDisabled] = useState(false);
 
     const fetchLocations = async (ipAddresses: string[]) => {
@@ -76,20 +76,24 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
         };
 
         const fetchData = async () => {
+            setLoading(true);
             const ipAddresses = data.map((row) => row.ipAddress);
             const unknown = ipAddresses.filter((ip) => !locationMap.has(ip));
 
             if (unknown.length > 0) {
-                setLoading(true);
                 try {
-                    const locations = demo ? generateDemoLocations(unknown) : await fetchLocations(unknown);
+                    let locations: Location[];
+                    if (demo) {
+                        locations = generateDemoLocations(unknown);
+                    } else {
+                        locations = await fetchLocations(unknown);
+                    }
                     if (locations.length > 0) {
                         updateLocationMap(locations);
                     }
                 } catch (error) {
                     console.error("Error fetching locations:", error);
                 }
-                setLoading(false);
             }
         };
 
@@ -113,7 +117,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
         }
 
         const locations = Object.entries(locationCount).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' })); setLocations(locations);
-        setLocations(locations)
+        setLoading(false);
     }, [data, locationMap])
 
     return (

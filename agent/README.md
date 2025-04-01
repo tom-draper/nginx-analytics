@@ -27,7 +27,7 @@ server {
     server_name yourdomain.com; # Optional
 
     # Common proxy settings applied to all location blocks
-    location /logs/ {
+    location /api/logs/ {
         proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -41,7 +41,7 @@ server {
     # while maintaining their specific endpoints
 
     # For all non-/logs/ endpoints
-    location ~ ^/(system|location|status)$ {
+    location ~ ^/api/(system|location|status)$ {
         proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -88,7 +88,7 @@ sudo systemctl start nginx-analytics-agent
 Confirm the service is up and running with a status check.
 
 ```bash
-curl https://yourdomain.com/logs/status
+curl https://yourdomain.com/api/logs/status
 
 > {"status": "ok", "accessLogStatus": "ok", "errorLogStatus": "ok", ...}
 ```

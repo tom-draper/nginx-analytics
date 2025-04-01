@@ -54,7 +54,7 @@ func main() {
 	}
 
 	// Set up routes with common middleware
-	setupRoute("/logs/access", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
+	setupRoute("/api/logs/access", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Polling access logs")
 
 		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
@@ -77,7 +77,7 @@ func main() {
 		}
 	})
 
-	setupRoute("/logs/error", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
+	setupRoute("/api/logs/error", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
 		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
 
 		positionsStr := r.URL.Query().Get("positions")
@@ -99,7 +99,7 @@ func main() {
 		}
 	})
 
-	setupRoute("/logs/size", http.MethodGet, "Checking log size", func(w http.ResponseWriter, r *http.Request) {
+	setupRoute("/api/system/logs", http.MethodGet, "Checking log size", func(w http.ResponseWriter, r *http.Request) {
 		if !args.systemMonitoring {
 			log.Println("Forbidden: System monitoring disabled")
 			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)
@@ -115,7 +115,7 @@ func main() {
 		}
 	})
 
-	setupRoute("/location", http.MethodPost, "", func(w http.ResponseWriter, r *http.Request) {
+	setupRoute("/api/location", http.MethodPost, "", func(w http.ResponseWriter, r *http.Request) {
 		if !routes.LocationsEnabled() {
 			log.Println("Forbidden: Location lookup not configured")
 			http.Error(w, "Forbidden: Location lookup not configured", http.StatusForbidden)
@@ -125,11 +125,11 @@ func main() {
 		routes.ServeLocations(w, r)
 	})
 
-	setupRoute("/status", http.MethodGet, "Checking status", func(w http.ResponseWriter, r *http.Request) {
+	setupRoute("/api/status", http.MethodGet, "Checking status", func(w http.ResponseWriter, r *http.Request) {
 		routes.ServeServerStatus(w, args.nginxAccessPath, args.nginxErrorPath, startTime)
 	})
 
-	setupRoute("/system", http.MethodGet, "Checking system resources", func(w http.ResponseWriter, r *http.Request) {
+	setupRoute("/api/system", http.MethodGet, "Checking system resources", func(w http.ResponseWriter, r *http.Request) {
 		if !args.systemMonitoring {
 			log.Println("Forbidden: System monitoring disabled")
 			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)

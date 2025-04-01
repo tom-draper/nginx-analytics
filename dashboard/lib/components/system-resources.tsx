@@ -6,7 +6,7 @@ import { Storage } from "@/lib/components/storage";
 import { LogFiles } from "@/lib/components/log-files";
 import { HistoryData, LogSizes, SystemInfo } from "../types";
 import { useEffect, useState } from "react";
-import { generateSystemProfile, updateSystemUsage } from "../demo";
+import { generateRandomLogSizes, generateSystemProfile, updateSystemUsage } from "../demo";
 
 export function SystemResources({ demo }: { demo: boolean }) {
     const [resources, setResources] = useState<SystemInfo | null>(null);
@@ -93,17 +93,19 @@ export function SystemResources({ demo }: { demo: boolean }) {
         fetchData();
         const interval = setInterval(fetchData, 2000);
         return () => clearInterval(interval);
-    }, []);
+    }, [demo]);
 
     useEffect(() => {
         if (demo) {
+            const logSizes = generateRandomLogSizes();
+            setLogSizes(logSizes);
             return;
         }
 
         const fetchData = async () => {
             setLoadingLogSizes(true);
             try {
-                const response = await fetch(`/api/logs/size`);
+                const response = await fetch(`/api/system/logs`);
                 if (!response.ok) {
                     setLoadingLogSizes(false);
                     if (interval && (response.status === 403 || response.status === 404)) {
@@ -125,7 +127,7 @@ export function SystemResources({ demo }: { demo: boolean }) {
         fetchData();
         const interval = setInterval(fetchData, 600_000);
         return () => clearInterval(interval);
-    }, []);
+    }, [demo]);
 
     if (!resources) {
         return null;

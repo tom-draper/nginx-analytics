@@ -1,5 +1,114 @@
 import { Location } from "@/lib/location";
-import { SystemInfo } from "./types";
+import { LogFilesSizes, LogFilesSummary, LogSizes, SystemInfo } from "./types";
+
+/**
+ * Generates random LogSizes data mimicking Nginx log file structure
+ * @returns A random LogSizes object
+ */
+export function generateRandomLogSizes(): LogSizes {
+    // Random number of files between 1 and 30
+    const totalFiles = Math.floor(Math.random() * 30) + 1;
+
+    const files: LogFilesSizes = [];
+    let totalSize = 0;
+    let logFilesSize = 0;
+    let compressedFilesSize = 0;
+    let logFilesCount = 0;
+    let compressedFilesCount = 0;
+
+    // Determine how many access logs and error logs to create
+    const maxAccessLogs = Math.floor(totalFiles * 0.7); // 70% of files are access logs
+    const accessLogsCount = Math.floor(Math.random() * maxAccessLogs) + 1;
+    const errorLogsCount = totalFiles - accessLogsCount;
+
+    // Generate access logs
+    // First the main access.log (uncompressed)
+    const accessLogSize = Math.random() * 5 * 1024 * 1024; // 0-5MB in bytes
+    files.push({
+        name: 'access.log',
+        size: accessLogSize,
+        extension: 'log'
+    });
+    totalSize += accessLogSize;
+    logFilesSize += accessLogSize;
+    logFilesCount++;
+
+    // Then the compressed access logs (access.log.1.gz, access.log.2.gz, etc.)
+    for (let i = 1; i < accessLogsCount; i++) {
+        const compressedSize = Math.random() * 2 * 1024 * 1024; // Compressed files are smaller (0-2MB)
+        files.push({
+            name: `access.log.${i}.gz`,
+            size: compressedSize,
+            extension: 'gz'
+        });
+        totalSize += compressedSize;
+        compressedFilesSize += compressedSize;
+        compressedFilesCount++;
+    }
+
+    // Generate error logs if any
+    if (errorLogsCount > 0) {
+        // Main error.log (uncompressed)
+        const errorLogSize = Math.random() * 3 * 1024 * 1024; // 0-3MB (error logs tend to be smaller)
+        files.push({
+            name: 'error.log',
+            size: errorLogSize,
+            extension: 'log'
+        });
+        totalSize += errorLogSize;
+        logFilesSize += errorLogSize;
+        logFilesCount++;
+
+        // Compressed error logs
+        for (let i = 1; i < errorLogsCount; i++) {
+            const compressedSize = Math.random() * 1 * 1024 * 1024; // Smaller compressed error logs (0-1MB)
+            files.push({
+                name: `error.log.${i}.gz`,
+                size: compressedSize,
+                extension: 'gz'
+            });
+            totalSize += compressedSize;
+            compressedFilesSize += compressedSize;
+            compressedFilesCount++;
+        }
+    }
+
+    // Sort files to mimic typical log file ordering
+    files.sort((a, b) => {
+        // First sort by base name (access vs error)
+        if (a.name.startsWith('access') && b.name.startsWith('error')) return -1;
+        if (a.name.startsWith('error') && b.name.startsWith('access')) return 1;
+
+        // Then sort by number for same type of log
+        if (a.name.includes('.') && b.name.includes('.')) {
+            const aNum = a.name.includes('.gz') ?
+                parseInt(a.name.split('.')[1]) : 0;
+            const bNum = b.name.includes('.gz') ?
+                parseInt(b.name.split('.')[1]) : 0;
+            return aNum - bNum;
+        }
+
+        // Put non-compressed logs first
+        if (!a.name.includes('.gz') && b.name.includes('.gz')) return -1;
+        if (a.name.includes('.gz') && !b.name.includes('.gz')) return 1;
+
+        return a.name.localeCompare(b.name);
+    });
+
+    const summary: LogFilesSummary = {
+        totalSize,
+        logFilesSize,
+        compressedFilesSize,
+        totalFiles,
+        logFilesCount,
+        compressedFilesCount
+    };
+
+    return {
+        files,
+        summary
+    };
+}
 
 /**
  * Generates a realistic system profile for demo purposes
@@ -16,11 +125,17 @@ export function generateSystemProfile(): SystemInfo {
     ];
     const cpuCoreOptions = [4, 6, 8, 12, 16, 24, 32];
 
+    // Standard memory sizes in GB
+    const standardMemorySizes = [8, 16, 32, 64, 128, 256];
+
     // Create server profile
     const cpuModel = cpuModels[Math.floor(Math.random() * cpuModels.length)];
     const cores = cpuCoreOptions[Math.floor(Math.random() * cpuCoreOptions.length)];
     const speed = 2000 + Math.floor(Math.random() * 2500); // 2.0 GHz to 4.5 GHz
-    const memoryTotal = Math.floor((8 + Math.random() * 120) * 1024 * 1024 * 1024); // 8GB to 128GB in bytes
+    
+    // Select a standard memory size and convert to bytes
+    const memorySizeGB = standardMemorySizes[Math.floor(Math.random() * standardMemorySizes.length)];
+    const memoryTotal = memorySizeGB * 1024 * 1024 * 1024; // Convert GB to bytes
 
     // Create disk setup
     const diskCount = 1 + Math.floor(Math.random() * 4); // 1 to 4 disks
@@ -86,31 +201,31 @@ export function generateSystemProfile(): SystemInfo {
 export function updateSystemUsage(currentInfo: SystemInfo): SystemInfo {
     // Create a deep copy to avoid mutating the original
     const updatedInfo: SystemInfo = JSON.parse(JSON.stringify(currentInfo));
-    
+
     // Update timestamp
     updatedInfo.timestamp = new Date().toISOString();
-    
+
     // Update uptime (add 2 seconds since the function is called every 2s)
     updatedInfo.uptime += 2;
-    
+
     // Get current hour to simulate day/night patterns
     const hour = new Date().getHours();
     const isBusinessHour = hour >= 8 && hour <= 18;
-    
+
     // CPU usage pattern - adjust based on time of day
     const baselineCpuUsage = isBusinessHour ? 40 : 20;
     const cpuVariation = 15;
-    
+
     // Create smooth transitions by limiting change amount
     const maxCpuChange = 5;
     const currentCpuUsage = updatedInfo.cpu.usage ?? 0;
     let targetCpuUsage = baselineCpuUsage + (Math.random() * 2 - 1) * cpuVariation;
-    
+
     // Add occasional spikes
     if (Math.random() < 0.03) {
         targetCpuUsage = Math.min(95, targetCpuUsage + 25);
     }
-    
+
     // Move current usage toward target with smoothing
     let newCpuUsage = currentCpuUsage;
     if (Math.abs(targetCpuUsage - currentCpuUsage) <= maxCpuChange) {
@@ -120,29 +235,29 @@ export function updateSystemUsage(currentInfo: SystemInfo): SystemInfo {
     } else {
         newCpuUsage = currentCpuUsage - maxCpuChange * Math.random();
     }
-    
+
     // Ensure CPU usage is within bounds
     newCpuUsage = Math.max(0.1, Math.min(99.9, newCpuUsage));
     updatedInfo.cpu.usage = parseFloat(newCpuUsage.toFixed(1));
-    
+
     // Memory usage - correlate somewhat with CPU but with slower changes
     const memoryTotal = updatedInfo.memory.total;
     const currentMemoryUsedPercentage = (updatedInfo.memory.used / memoryTotal) * 100;
     const memoryVariation = 2;  // Smaller variation for memory
-    
+
     // Target memory usage changes more slowly and correlates with CPU
-    let targetMemoryUsedPercentage = currentMemoryUsedPercentage + 
+    let targetMemoryUsedPercentage = currentMemoryUsedPercentage +
         (newCpuUsage > currentCpuUsage ? 1 : -1) * Math.random() * memoryVariation;
-    
+
     // Keep memory usage in reasonable bounds
     targetMemoryUsedPercentage = Math.max(20, Math.min(90, targetMemoryUsedPercentage));
-    
+
     // Calculate new memory values
     const newMemoryUsed = Math.floor(memoryTotal * (targetMemoryUsedPercentage / 100));
     updatedInfo.memory.used = newMemoryUsed;
     updatedInfo.memory.available = memoryTotal - newMemoryUsed;
     updatedInfo.memory.free = Math.floor(memoryTotal * 0.05 + Math.random() * 0.05 * memoryTotal);
-    
+
     // Disk usage increases very slowly over time
     updatedInfo.disk = updatedInfo.disk.map(disk => {
         // Only increase usage about 0.01% each update (very slow growth)
@@ -156,7 +271,7 @@ export function updateSystemUsage(currentInfo: SystemInfo): SystemInfo {
         }
         return disk;
     });
-    
+
     return updatedInfo;
 }
 

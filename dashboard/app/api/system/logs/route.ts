@@ -14,7 +14,7 @@ export async function GET() {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const response = await fetch(serverUrl + '/logs/size', {
+        const response = await fetch(serverUrl + '/api/system/logs', {
             method: 'GET',
             headers
         });
@@ -40,7 +40,7 @@ export async function GET() {
 
         if (!path) {
             return NextResponse.json(
-                { message: 'NGINX log path not found' },
+                { message: 'Nginx log path not found' },
                 { status: 403 }
             );
         }
@@ -61,43 +61,43 @@ export async function GET() {
 }
 
 const getLogPath = () => {
-	if (logPath) {
-		return logPath;
-	}
+    if (logPath) {
+        return logPath;
+    }
 
-	const accessPath = tryGetLogPath(process.env.NGINX_ANALYTICS_ACCESS_PATH);
-	if (accessPath) {
-		logPath = accessPath;
-		return logPath;
-	}
+    const accessPath = tryGetLogPath(process.env.NGINX_ANALYTICS_ACCESS_PATH);
+    if (accessPath) {
+        logPath = accessPath;
+        return logPath;
+    }
 
-	const errorPath = tryGetLogPath(process.env.NGINX_ANALYTICS_ERROR_PATH);
-	if (errorPath) {
-		logPath = errorPath;
-		return logPath;
-	}
+    const errorPath = tryGetLogPath(process.env.NGINX_ANALYTICS_ERROR_PATH);
+    if (errorPath) {
+        logPath = errorPath;
+        return logPath;
+    }
 
-	return null;
+    return null;
 }
 
 const tryGetLogPath = (nginxPath: string | undefined) => {
-	if (!nginxPath) {
-		return null;
-	}
+    if (!nginxPath) {
+        return null;
+    }
 
-	try {
-		const stats = fs.statSync(nginxPath);
-		
-		if (stats.isDirectory()) {
-			// If it's a directory, use it directly
-			return nginxPath;
-		} else {
-			// If it's a file, get its parent directory
-			return path.dirname(nginxPath);
-		}
-	} catch (error) {
-		console.warn(`Could not access NGINX_ANALYTICS_ACCESS_PATH: ${error}`);
-		return null;
-	}
+    try {
+        const stats = fs.statSync(nginxPath);
+
+        if (stats.isDirectory()) {
+            // If it's a directory, use it directly
+            return nginxPath;
+        } else {
+            // If it's a file, get its parent directory
+            return path.dirname(nginxPath);
+        }
+    } catch (error) {
+        console.warn(`Could not access Nginx log path: ${error}`);
+        return null;
+    }
 }
 

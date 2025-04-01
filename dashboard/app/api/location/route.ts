@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
             headers.Authorization = `Bearer ${authToken}`;
         }
 
-        const response = await fetch(serverUrl + '/location', {
+        const response = await fetch(serverUrl + '/api/location', {
             method: 'POST',
             body: JSON.stringify(ipAddresses),
             headers

@@ -154,7 +154,7 @@ export function Requests({ data, period }: { data: NginxLog[], period: Period })
             // For a single data point, create a bell curve shape
             return (
                 <svg
-                    className="absolute bottom-0 left-0 w-full h-10"
+                    className="absolute bottom-0 left-0 w-full h-6"
                     preserveAspectRatio="none"
                     viewBox={`0 0 ${width} ${height}`}
                 >
@@ -178,7 +178,7 @@ export function Requests({ data, period }: { data: NginxLog[], period: Period })
 
             return (
                 <svg
-                    className="absolute bottom-0 left-0 w-full h-10"
+                    className="absolute bottom-0 left-0 w-full h-6"
                     preserveAspectRatio="none"
                     viewBox={`0 0 ${width} ${height}`}
                 >
@@ -224,7 +224,7 @@ export function Requests({ data, period }: { data: NginxLog[], period: Period })
 
         return (
             <svg
-                className="absolute bottom-0 left-0 w-full h-10"
+                className="absolute bottom-0 left-0 w-full h-6"
                 preserveAspectRatio="none"
                 viewBox={`0 0 ${width} ${height}`}
             >

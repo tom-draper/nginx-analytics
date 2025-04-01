@@ -335,7 +335,7 @@ export async function serveRemoteLogs(remoteUrl: string, positions: FilePosition
 
 function getUrl(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, includeCompressed: boolean) {
     const logType = isErrorLog ? 'error' : 'access'
-    let url = `${remoteUrl}/logs/${logType}?includeCompressed=${includeCompressed}`;
+    let url = `${remoteUrl}/api/logs/${logType}?includeCompressed=${includeCompressed}`;
     if (positions.length > 0) {
         url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
     }
