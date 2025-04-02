@@ -48,11 +48,11 @@ const CPUCores = ({ cores, usage }: { cores: number, usage: number }) => {
 
     return (
         <div className="mt-1 flex-grow">
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-4 gap-1 h-full">
                 {coreUsages.map((coreUsage, index) => (
                     <div key={index} className="flex flex-col items-center">
                         <div
-                            className="h-8 w-full rounded-xs grid place-items-center"
+                            className="min-h-8 h-full w-full rounded-xs grid place-items-center"
                             style={{ backgroundColor: getColorForUsage(coreUsage) }}
                             title={`Core ${index}: ${coreUsage.toFixed(1)}%`}
                         >

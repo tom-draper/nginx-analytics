@@ -123,7 +123,7 @@ export function generateSystemProfile(): SystemInfo {
         'Intel(R) Core(TM) i5-9600K CPU @ 3.70GHz',
         'AMD EPYC 7402 24-Core Processor'
     ];
-    const cpuCoreOptions = [4, 6, 8, 12, 16, 24, 32];
+    const cpuCoreOptions = [4, 6, 8, 10, 12, 16, 20, 24];
 
     // Standard memory sizes in GB
     const standardMemorySizes = [8, 16, 32, 64, 128, 256];
@@ -816,16 +816,15 @@ export function generateNginxLogs(options: LogGeneratorOptions): string[] {
 
     // Status code distribution - make 200s more common
     const statusCodeWeights = statusCodes.map(code => {
-        if (code >= 200 && code < 300) return 80;  // Success codes
+        if (code >= 200 && code < 300) return 51;  // Success codes
         if (code >= 300 && code < 400) return 10;  // Redirect codes
-        if (code >= 400 && code < 500) return 8;   // Client errors
-        return 2;                                  // Server errors
+        if (code >= 400 && code < 500) return 22   // Client errors
+        return 17;                                  // Server errors
     });
 
     // Helper functions
     const getRandomIP = (): string => {
-        // 70% chance to reuse an IP from the pool, 30% to generate a new one
-        if (ipPool.length > 0 && Math.random() < 0.9) {
+        if (ipPool.length > 0 && Math.random() < 0.95) {
             return ipPool[Math.floor(Math.random() * ipPool.length)];
         }
         return `${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`;
