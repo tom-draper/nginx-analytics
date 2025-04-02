@@ -73,26 +73,26 @@ const ErrorRow = ({
     return (
         <>
             <tr
-                className={`cursor-pointer hover:text-[var(--text)] border-b text-[var(--text-muted)] border-[var(--border-color)] last:border-none ${isExpanded ? 'bg-opacity-10 !text-[var(--text)]' : ''}`}
+                className={`cursor-pointer overflow-hidden hover:text-[var(--text)] border-b text-[var(--text-muted)] border-[var(--border-color)] last:border-none ${isExpanded ? 'bg-opacity-10 !text-[var(--text)]' : ''}`}
                 onClick={() => setExpandedError(isExpanded ? null : index)}
             >
-                <td className="py-2 whitespace-nowrap">
+                <td className="py-2 px-2 whitespace-nowrap">
                     {formatDate(error.timestamp)}
                 </td>
-                <td className="py-2 px-4">
+                <td className="py-2 px-2">
                     <span className={`px-2 py-1 rounded text-xs ${getSeverityColor(error.level)}`}>
                         {error.level}
                     </span>
                 </td>
-                <td className="py-2">
-                    <div className="truncate max-w-2xl flex items-center">
+                <td className="py-2 px-2 max-w-0 w-full">
+                    <div className="truncate">
                         {error.message}
                     </div>
                 </td>
             </tr>
             {isExpanded && (
                 <tr>
-                    <td colSpan={4} className="p-2 bg-opacity-5">
+                    <td colSpan={3} className="p-2 bg-opacity-5">
                         <div className="grid grid-cols-2 gap-2 text-sm">
                             <div><strong>PID:</strong> {error.pid}</div>
                             <div><strong>TID:</strong> {error.tid}</div>
@@ -325,12 +325,12 @@ export default function Errors({
                         Errors
                     </h2>
 
-                    {/* Filter controls */}
+                    {/* Filter controls - Made responsive */}
                     {errors.length > 1 && (
-                        <div className="absolute top-3 right-3 flex items-center">
+                        <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:absolute sm:top-3 sm:right-3">
                             {/* Severity filter buttons */}
                             {severityLevels.length > 1 && (
-                                <div className="flex text-xs text-[var(--text-muted3)] mr-2">
+                                <div className="flex text-xs text-[var(--text-muted3)] mb-2 sm:mb-0 sm:mr-2">
                                     {selectedSeverities.length > 0 && (
                                         <button
                                             className="px-[0.5em] text-[var(--text)] cursor-pointer"
@@ -360,7 +360,7 @@ export default function Errors({
                             <input
                                 type="text"
                                 placeholder={`Filter ${errors.length > 50 ? '50+' : errors.length} errors...`}
-                                className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-[var(--text-muted3)] bg-transparent outline-none"
+                                className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-[var(--text-muted3)] bg-transparent outline-none w-full sm:w-auto"
                                 value={filtering}
                                 onChange={(e) => setFiltering(e.target.value)}
                                 aria-label="Filter errors"
@@ -368,48 +368,68 @@ export default function Errors({
                         </div>
                     )}
 
-                    {/* Error table */}
-                    <div className="overflow-auto text-sm">
-                        <table className="w-full border-collapse">
-                            <thead>
-                                <tr>
-                                    <th
-                                        className="py-2 text-left border-b border-[var(--border-color)] cursor-pointer"
-                                        onClick={() => requestSort("timestamp")}
-                                    >
-                                        Timestamp {sortConfig.key === "timestamp" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                                    </th>
-                                    <th
-                                        className="py-2 px-4 text-left border-b border-[var(--border-color)] cursor-pointer"
-                                        onClick={() => requestSort("level")}
-                                    >
-                                        Level {sortConfig.key === "level" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                                    </th>
-                                    <th className="py-2 text-left border-b border-[var(--border-color)]">Message</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sortedErrors.length > 0 ? (
-                                    sortedErrors.slice(0, 50).map((error, index) => (
-                                        <ErrorRow
-                                            key={`${error.timestamp}-${index}`}
-                                            error={error}
-                                            index={index}
-                                            expandedError={expandedError}
-                                            setExpandedError={setExpandedError}
-                                            formatDate={formatDate}
-                                            getSeverityColor={getSeverityColor}
-                                        />
-                                    ))
-                                ) : (
+                    {/* Error table - Added overflow handling wrapper */}
+                    <div className="overflow-x-auto">
+                        <div className="text-sm">
+                            <table className="w-full border-collapse table-fixed">
+                                <thead>
                                     <tr>
-                                        <td colSpan={3} className="py-4 text-center text-[var(--text-muted3)]">
-                                            No errors match the current filters
-                                        </td>
+                                        <th
+                                            className="py-2 px-2 text-left border-b border-[var(--border-color)] cursor-pointer w-36 sm:w-44"
+                                            onClick={() => requestSort("timestamp")}
+                                        >
+                                            <div className="flex items-center">
+                                                <span className="mr-2">Timestamp</span>
+                                                {sortConfig.key === "timestamp" && (sortConfig.direction === "asc" ? <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-3">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+                                                </svg>
+                                                    : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-3">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+                                        <th
+                                            className="py-2 px-2 text-left border-b border-[var(--border-color)] cursor-pointer w-24"
+                                            onClick={() => requestSort("level")}
+                                        >
+                                            <div className="flex items-center">
+                                                <span className="mr-2">Level</span>
+                                                {sortConfig.key === "level" && (sortConfig.direction === "asc" ? <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-3">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+                                                </svg>
+                                                    : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-3">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </th>
+                                        <th className="py-2 px-2 text-left border-b border-[var(--border-color)]">Message</th>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {sortedErrors.length > 0 ? (
+                                        sortedErrors.slice(0, 50).map((error, index) => (
+                                            <ErrorRow
+                                                key={`${error.timestamp}-${index}`}
+                                                error={error}
+                                                index={index}
+                                                expandedError={expandedError}
+                                                setExpandedError={setExpandedError}
+                                                formatDate={formatDate}
+                                                getSeverityColor={getSeverityColor}
+                                            />
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={3} className="py-4 text-center text-[var(--text-muted3)]">
+                                                No errors match the current filters
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}

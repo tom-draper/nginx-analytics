@@ -42,3 +42,4 @@ next-env.d.ts
 
 *.mmdb
 node_modules
+!.env.example
