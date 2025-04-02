@@ -24,6 +24,7 @@ export interface FilePosition {
 export interface LogResult {
     logs: string[];
     positions: FilePosition[];
+    complete?: boolean;
 }
 
 /**
@@ -295,7 +296,7 @@ export async function readGzippedLogFile(filePath: string): Promise<LogResult> {
         };
     } catch (error) {
         console.error(`Error reading gzipped file ${filePath}:`, error);
-        return { logs: [], positions: [{ position: 0}] };
+        return { logs: [], positions: [{ position: 0 }] };
     }
 }
 
@@ -322,8 +323,33 @@ export async function serveRemoteLogs(remoteUrl: string, positions: FilePosition
             };
         }
 
-        const data = await response.json();
-        return { data, status: 200 };
+        // Clone the response before consuming it
+        const responseClone = response.clone();
+
+        // Try to parse as JSON first
+        try {
+            const data = await response.json();
+            return { data, status: 200 };
+        } catch (e) {
+            try {
+                // Check if serving raw logs as text
+                const textData = await responseClone.text();
+
+                const processedData = {
+                    logs: parseNginxLogToJson(textData),
+                    positions: positions, // Maintain original positions since we can't get new ones
+                    complete: true // One-time request, avoid fetching for live updates
+                };
+                
+                return { data: processedData, status: 200 }
+            } catch (error) {
+                console.error("Error fetching remote logs:", error);
+                return {
+                    error: "Failed to fetch remote logs",
+                    status: 500
+                }
+            }
+        }
     } catch (error) {
         console.error("Error fetching remote logs:", error);
         return {
@@ -332,6 +358,16 @@ export async function serveRemoteLogs(remoteUrl: string, positions: FilePosition
         };
     }
 }
+
+/**
+ * Parse Nginx log text into structured JSON format
+ * Supports common log format, combined log format, and error logs
+ */
+function parseNginxLogToJson(logText: string) {
+    // Split by lines and filter out empty lines
+    return logText.trim().split('\n').filter(line => line.trim() !== '');
+}
+
 
 function getUrl(remoteUrl: string, positions: FilePosition[], isErrorLog: boolean, includeCompressed: boolean) {
     const logType = isErrorLog ? 'error' : 'access'

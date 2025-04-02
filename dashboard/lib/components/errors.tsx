@@ -200,6 +200,10 @@ export default function Errors({
                     }
                     includeCompressed = false;
                 }
+
+                if (data.complete) {
+                    clearInterval(interval);
+                }
             } catch (error) {
                 console.error("Error fetching error logs:", error);
                 setFetchError("Network error occurred while fetching logs");

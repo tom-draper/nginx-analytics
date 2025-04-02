@@ -113,15 +113,17 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
 
                 const data = await response.json();
 
-                console.log('data', data)
-
-                if (data.logs) {
+                if (data.logs && data.logs.length > 0) {
                     setAccessLogs((prevLogs) => [...prevLogs, ...data.logs]);
 
                     if (data.positions) {
                         positions = data.positions;
                     }
                     includeCompressed = false;
+                }
+
+                if (data.complete) {
+                    clearInterval(interval);
                 }
             } catch (error) {
                 console.error("Error fetching logs:", error);
