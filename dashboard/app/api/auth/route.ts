@@ -2,11 +2,10 @@
 // app/api/auth/route.ts
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { password as storedPassword } from '@/lib/environment';
 
 export async function POST(request: NextRequest) {
 	const { password } = await request.json();
-
-	const storedPassword = process.env.NGINX_ANALYTICS_PASSWORD;
 
 	if (password === storedPassword) {
 		// Set a cookie to indicate the user is authenticated

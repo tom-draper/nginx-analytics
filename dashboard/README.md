@@ -21,7 +21,7 @@ docker build -t nginx-analytics .
 docker run -d -p 3000:3000 nginx-analytics
 ```
 
-In a `.env` file, or within the `Dockerfile` if using Docker, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory containing your log files.
+In a `.env` file, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory containing your log files.
 
 ```env
 NGINX_ANALYTICS_ACCESS_PATH=/path/to/nginx/access/logs
@@ -34,7 +34,7 @@ server {
     listen 80;
     server_name yourdomain.com;
 
-    location / {
+    location /analytics {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -43,6 +43,18 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 }
+```
+
+### Locations
+
+IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
+
+### System Monitoring
+
+By default, system monitoring is disabled. To enable it, set the `NGINX_ANALYTICS_SYSTEM_MONITORING` environment variable to `true`.
+
+```env
+NGINX_ANALYTICS_SYSTEM_MONITORING=true
 ```
 
 ### Password Protection

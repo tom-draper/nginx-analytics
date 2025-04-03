@@ -115,14 +115,13 @@ NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 
 The default port is 5000. If this is already is use, specify an alternative with the `PORT` environment variable, or with the `--port` command line argument.
 
-### System Monitoring
-
-By default, system monitoring is disabled. To enable it, set the `NGINX_ANALYTICS_SYSTEM_MONITORING` environment variable to `true`, or with the `--system-monitoring` command line argument.
-
-
 ### Locations
 
 IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
+
+### System Monitoring
+
+By default, system monitoring is disabled. To enable it, set the `NGINX_ANALYTICS_SYSTEM_MONITORING` environment variable to `true`, or with the `--system-monitoring` command line argument.
 
 #### HTTPS
 
