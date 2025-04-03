@@ -28,21 +28,28 @@ export async function GET(request: NextRequest) {
     const defaultNginxPath = isErrorLogs ? defaultNginxErrorPath : defaultNginxAccessPath;
 
     try {
+        let result;
         if (serverUrl) {
-            return await serveRemoteLogs(serverUrl, positions, isErrorLogs, includeCompressed, authToken);
+            result = await serveRemoteLogs(serverUrl, positions, isErrorLogs, includeCompressed, authToken);
         } else if (nginxPath) {
             if (isDir) {
-                return await serveDirectoryLogs(nginxPath, positions, isErrorLogs, includeCompressed);
+                result = await serveDirectoryLogs(nginxPath, positions, isErrorLogs, includeCompressed);
             } else {
                 const position = positions.length > 0 ? positions[0].position : 0;
-                return await serveLog(nginxPath, position);
+                result = await serveLog(nginxPath, position);
             }
         } else if (nginxAltPath && isAltDir) {
             // Search alternative directory provided for logs
-            return await serveDirectoryLogs(nginxAltPath, positions, isErrorLogs, includeCompressed);
+            result = await serveDirectoryLogs(nginxAltPath, positions, isErrorLogs, includeCompressed);
         } else {
             // Try default log path
-            return await serveDirectoryLogs(defaultNginxPath, positions, isErrorLogs, includeCompressed);
+            result = await serveDirectoryLogs(defaultNginxPath, positions, isErrorLogs, includeCompressed);
+        }
+
+        if (result.error) {
+            return NextResponse.json({ error: result.error }, { status: result.status });
+        } else {
+            return NextResponse.json(result.data, { status: result.status });
         }
     } catch (error) {
         console.error("Error serving logs:", error);

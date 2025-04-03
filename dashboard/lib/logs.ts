@@ -330,7 +330,7 @@ export async function serveRemoteLogs(remoteUrl: string, positions: FilePosition
         try {
             const data = await response.json();
             return { data, status: 200 };
-        } catch (e) {
+        } catch {
             try {
                 // Check if serving raw logs as text
                 const textData = await responseClone.text();

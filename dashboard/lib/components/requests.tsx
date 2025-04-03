@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { NginxLog } from "../types";
-import { getDateRange, getPeriodRange, hoursInRange, Period, periodStart } from "../period";
+import { getPeriodRange, hoursInRange, Period, periodStart } from "../period";
 
 function getRequestsByTime(data: NginxLog[], period: Period) {
     // Get period start date (if applicable)

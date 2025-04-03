@@ -23,12 +23,12 @@ function initializeLookups(): Promise<void> {
             cityLookup = await maxmind.open<CityResponse>('GeoLite2-City.mmdb');
             console.log('GeoLite2 City database loaded successfully');
             return;
-        } catch (error) {
+        } catch {
             try {
                 countryLookup = await maxmind.open<CountryResponse>('GeoLite2-Country.mmdb');
                 console.log('GeoLite2 Country database loaded successfully');
             } catch (error) {
-                console.log('Failed to load both GeoLite2 City and Country databases');
+                console.log('Failed to load both GeoLite2 City and Country databases', error);
             }
         }
     })();

@@ -71,7 +71,7 @@ export default function NetworkBackground() {
 
         // Add subtle glow effect
         node.append("title")
-            .text(d => "Drag me!");
+            .text(_ => "Drag me!");
 
         // Add subtle animations
         function animate() {

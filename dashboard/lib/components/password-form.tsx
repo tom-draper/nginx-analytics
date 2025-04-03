@@ -32,7 +32,7 @@ export default function PasswordForm() {
 				setTimeout(() => setInputError(false), 1000);
 				setIsLoading(false);
 			}
-		} catch (error) {
+		} catch {
 			setError('An error occurred while submitting the password.');
 			setIsLoading(false);
 		}
