@@ -10,6 +10,8 @@ export const password = process.env.NGINX_ANALYTICS_PASSWORD;
 
 export const systemMonitoringEnabled = process.env.NGINX_ANALYTICS_SYSTEM_MONITORING === 'true';
 
+export const systemMonitoringInterval = parseInt(process.env.NGINX_ANALYTICS_SYSTEM_MONITORING_INTERVAL || '2000', 10);
+
 export const usingFileUpload = (
     !serverUrl &&
     !nginxAccessPath &&

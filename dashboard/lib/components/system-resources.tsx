@@ -7,6 +7,7 @@ import { LogFiles } from "@/lib/components/log-files";
 import { HistoryData, LogSizes, SystemInfo } from "../types";
 import { useEffect, useState } from "react";
 import { generateRandomLogSizes, generateSystemProfile, updateSystemUsage } from "../demo";
+import { systemMonitoringInterval } from "../environment";
 
 export function SystemResources({ demo }: { demo: boolean }) {
     const [resources, setResources] = useState<SystemInfo | null>(null);
@@ -91,7 +92,7 @@ export function SystemResources({ demo }: { demo: boolean }) {
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 2000);
+        const interval = setInterval(fetchData, systemMonitoringInterval);
         return () => clearInterval(interval);
     }, [demo]);
 
@@ -125,7 +126,7 @@ export function SystemResources({ demo }: { demo: boolean }) {
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 600_000);
+        const interval = setInterval(fetchData, 600_000); // 10 minute interval
         return () => clearInterval(interval);
     }, [demo]);
 
