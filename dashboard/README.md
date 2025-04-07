@@ -21,13 +21,13 @@ docker build -t nginx-analytics .
 docker run -d -p 3000:3000 nginx-analytics
 ```
 
-In a `.env` file, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory containing your log files.
+In a `.env` file, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory containing your log files. This is likely to be the default location `/var/log/nginx`.
 
 ```env
 NGINX_ANALYTICS_ACCESS_PATH=/path/to/nginx/access/logs
 ```
 
-Update your Nginx configuration to make the app publically accessible.
+You may need to update your Nginx configuration to make the app publically accessible.
 
 ```nginx
 server {
@@ -55,6 +55,12 @@ By default, system monitoring is disabled. To enable it, set the `NGINX_ANALYTIC
 
 ```env
 NGINX_ANALYTICS_SYSTEM_MONITORING=true
+```
+
+You can control how often resource usage is polled by adjusting `NGINX_ANALYTICS_MONITOR_INTERVAL`.
+
+```env
+NGINX_ANALYTICS_SYSTEM_MONITORING=2000  # 2s interval (default)
 ```
 
 ### Password Protection
