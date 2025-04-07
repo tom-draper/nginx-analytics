@@ -63,7 +63,7 @@ server {
 }
 ```
 
-If you wish to serve the dashboard on a specific path e.g. `/analytics`, remember to update `next.config.js` with the `basePath` as well as your Nginx config.
+If you wish to serve the dashboard on a specific path e.g. `https://yourdomain.com/analytics`, remember to update `next.config.js` with the `basePath` as well as your Nginx config.
 
 ```js
 const nextConfig = {
