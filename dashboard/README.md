@@ -2,7 +2,7 @@
 
 ## Deployment Guide
 
-Deploy the dashboard on the same server as Nginx.
+Deploy the Next.js dashboard on the same server as Nginx.
 
 ```bash
 git clone https://github.com/tom-draper/nginx-analytics.git
@@ -11,6 +11,12 @@ npm install
 npm run build
 npm start
 ```
+
+> You can use `pm2` to run the dashboard as a background process.
+> ```bash
+> pm2 start npm --name "nginx-analytics" -- start
+> ```
+
 
 Or use Docker if preferred.
 
@@ -21,7 +27,7 @@ docker build -t nginx-analytics .
 docker run -d -p 3000:3000 nginx-analytics
 ```
 
-In a `.env` file, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory containing your log files. This is likely to be the default location `/var/log/nginx`.
+In a `.env` file, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory containing your log files. It's likely to be the default location `/var/log/nginx/`.
 
 ```env
 NGINX_ANALYTICS_ACCESS_PATH=/path/to/nginx/access/logs
@@ -34,7 +40,7 @@ server {
     listen 80;
     server_name yourdomain.com;
 
-    location /analytics {
+    location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -42,7 +48,28 @@ server {
         proxy_set_header Host $host;
         proxy_cache_bypass $http_upgrade;
     }
+
+    location /_next/static/ {
+        alias /path/to/your/app/.next/static/;
+        expires 1y;
+        access_log off;
+    }
+
+    location /public/ {
+        alias /path/to/your/app/public/;
+        expires 1y;
+        access_log off;
+    }
 }
+```
+
+If you wish to serve the dashboard on a specific path e.g. `/analytics`, remember to update `next.config.js` with the `basePath` as well as your Nginx config.
+
+```js
+const nextConfig = {
+    basePath: '/analytics',
+    // Other Next.js configurations...
+};
 ```
 
 ### Locations
