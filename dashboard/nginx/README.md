@@ -43,4 +43,4 @@ Run the CLI from anywhere, with an environment variable set pointing to your ser
 
 ```env
 NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
-``
+```
