@@ -14,21 +14,21 @@ A modern, flexible and privacy-focused analytics solution for Nginx.
 
 #### Option 1: Dashboard
 
-Deploy the dashboard to the same server as Nginx.
+Deploy a single Next.js dashboard to the same server as Nginx.
 
 Follow the <a href="./dashboard/README.md">dashboard deployment guide</a>.
 
 #### Option 2: Dashboard + Agent
 
-Deploy the lightweight agent to your server to securely expose your log files to the dashboard, and stream log file content and changes in real-time. Deploy the dashboard anywhere. 
+Deploy the lightweight agent to your server to securely expose your log files to the dashboard, and stream log file content and changes in real-time. Deploy the Next.js dashboard anywhere. 
 
-Best when server resources are tight, or log files are large.
+Best if server resources are tight, or log files are large.
 
 Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
 #### Option 3: Dashboard + Nginx
 
-Update your Nginx configuration to serve your log files over HTTP as restricted static files. Deploy the dashboard anywhere.
+Update your existing Nginx configuration to serve your log files as restricted static files. Deploy the Next.js dashboard anywhere.
 
 Limited functionality; best if you want to avoid further deployments to your server.
 
@@ -44,13 +44,13 @@ If you prefer to work in the terminal, a CLI is available as an alternative to t
 
 #### Option 1: CLI
 
-Deploy the CLI to the server running Nginx, and access via SSH.
+Deploy the CLI to the server running Nginx. Access via SSH.
 
 Follow the <a href="./cli/README.md">CLI deployment guide</a>.
 
 #### Option 2: CLI + Agent 
 
-Deploy the agent to the server, and run the CLI from anywhere.
+Deploy the agent to the server. Run the CLI from anywhere.
 
 Follow the <a href="./agent/README.md">agent deployment guide</a>. -->
 
@@ -58,11 +58,11 @@ Follow the <a href="./agent/README.md">agent deployment guide</a>. -->
 
 #### Locations
 
-IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
+IP-location inference can be set up easily, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-City.mmdb` or `GeoLite2-Country.mmdb` file in the root folder of the agent or dashboard deployment on your server.
 
 #### System Monitoring
 
-System resource monitoring for CPU, memory and storage usage is disabled by default. Enable it by setting `NGINX_ANALYTICS_SYSTEM_MONITORING=true` in the environment variables of your agent or dashboard deployment.
+Monitoring of system resources (CPU, memory, and storage) is supported but disabled by default. Enable it by setting `NGINX_ANALYTICS_SYSTEM_MONITORING=true` in the environment variables of the agent or dashboard deployment on your server.
 
 #### Authentication
 
