@@ -5,7 +5,7 @@ A modern, flexible and privacy-focused analytics solution for Nginx.
 ![Nginx Analytics](https://github.com/user-attachments/assets/b0fc1334-22e0-4d2c-9219-29d69a86a679)
 
 <p align="center">
-  <a href="https://nginx-analytics.vercel.app/dashboard/demo">Demo</a>
+  <a href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
 </p>
 
 ## Getting Started
@@ -36,7 +36,7 @@ Follow the <a href="./dashboard/nginx/README.md">Nginx configuration guide</a>.
 
 #### Options 4: File Upload
 
-Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="https://nginx-analytics.vercel.app/dashboard">our deployment</a>.
+Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="https://nginx.apianalytics.dev/dashboard">our deployment</a>.
 
 <!-- ### CLI
 
