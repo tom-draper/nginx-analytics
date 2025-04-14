@@ -614,11 +614,17 @@ export default function TiltedGlobeSingleTarget() {
   return (
     <div className="w-full h-screen bg-[var(--background)]">
       <div className="w-full absolute top-0">
-        <nav className="py-4 px-6 m-auto font-medium flex text-center">
+        <nav className="py-4 px-6 m-auto flex text-center font-semibold text-[#3f3f3f]" style={{fontFamily: 'Helvetica, Geist, Helveica, Arial, sans-serif'}}>
           <div>
             <img src="/lightning-green.svg" alt="" className="h-8"/>
           </div>
-          <div className="mx-5 mr-8 my-auto text-md text-[#ffffff51] font-medium" style={{fontFamily: 'Geist, Helveica, Arial, sans-serif'}}>API Analytics for NGINX</div>
+          <div className="mx-5 mr-8 my-auto text-md" >API Analytics | NGINX</div>
+
+          <div className="my-auto ml-auto font-medium">
+            <a href="" className="mx-2 text-sm hover:text-[white]">Home</a>
+            <a href="" className="mx-2 text-sm hover:text-[white]">About</a>
+            <a href="https://github.com/tom-draper/nginx-analytics" className="mx-2 text-sm hover:text-[white]">Source</a>
+          </div>
         </nav>
       </div>
       <h1 className="w-full text-center text-white pt-[53.5vh] font-bold text-3xl" style={{fontFamily: 'Arial, Helvetica, sans-serif'}}>It&apos;s you versus the world.</h1>
