@@ -51,7 +51,6 @@ export default function TiltedGlobeSingleTarget() {
 		scene.add(globeGroup);
 
 
-
 		// Create a points material for land dots
 		const dotMaterial = new THREE.PointsMaterial({
 			color: 0x1af073,
@@ -160,31 +159,31 @@ export default function TiltedGlobeSingleTarget() {
 		// Create land dots
 		const { pointCloud: landDots, allLandCoords } = createDenseLandDots();
 
-		// Select a random target point from land coordinates
+		// Modify the target point color from red to white
 		const getRandomTargetPoint = () => {
 			const randomIndex = Math.floor(Math.random() * allLandCoords.length);
 			const targetLatLon = allLandCoords[randomIndex];
 			const targetPosition = latLongToVector3(targetLatLon[0], targetLatLon[1], globeRadius);
 
-			// Create a visible target marker
+			// Create a visible target marker (changed from red to white)
 			const targetMarker = new THREE.Mesh(
 				new THREE.SphereGeometry(2.5, 16, 16),
-				new THREE.MeshBasicMaterial({ color: 0xff3366 })
+				new THREE.MeshBasicMaterial({ color: 0x1af073 }) // Changed from 0xff3366 to 0xffffff
 			);
 			targetMarker.position.copy(targetPosition);
 			targetMarker.rotation.x = tiltAngle; // Apply tilt to marker
 			globeGroup.add(targetMarker);
 
-			// Create a pulsing effect for the target
-			const pulsingLight = new THREE.PointLight(0xff3366, 1, 20);
+			// Create a pulsing effect for the target (changed from red to white)
+			const pulsingLight = new THREE.PointLight(0x1af073, 1, 20); // Changed from 0xff3366 to 0xffffff
 			pulsingLight.position.copy(targetPosition);
 			globeGroup.add(pulsingLight);
 
-			// Create a glow sphere
+			// Create a glow sphere (changed from red to white)
 			const glowSphere = new THREE.Mesh(
 				new THREE.SphereGeometry(4, 16, 16),
 				new THREE.MeshBasicMaterial({
-					color: 0xff3366,
+					color: 0x1af073, // Changed from 0xff3366 to 0xffffff
 					transparent: true,
 					opacity: 0.3
 				})
@@ -201,12 +200,193 @@ export default function TiltedGlobeSingleTarget() {
 			};
 		};
 
+		// Select a random target point from land coordinates
+		// const getRandomTargetPoint = () => {
+		// 	const randomIndex = Math.floor(Math.random() * allLandCoords.length);
+		// 	const targetLatLon = allLandCoords[randomIndex];
+		// 	const targetPosition = latLongToVector3(targetLatLon[0], targetLatLon[1], globeRadius);
+
+		// 	// Create a visible target marker
+		// 	const targetMarker = new THREE.Mesh(
+		// 		new THREE.SphereGeometry(2.5, 16, 16),
+		// 		new THREE.MeshBasicMaterial({ color: 0xff3366 })
+		// 	);
+		// 	targetMarker.position.copy(targetPosition);
+		// 	targetMarker.rotation.x = tiltAngle; // Apply tilt to marker
+		// 	globeGroup.add(targetMarker);
+
+		// 	// Create a pulsing effect for the target
+		// 	const pulsingLight = new THREE.PointLight(0xff3366, 1, 20);
+		// 	pulsingLight.position.copy(targetPosition);
+		// 	globeGroup.add(pulsingLight);
+
+		// 	// Create a glow sphere
+		// 	const glowSphere = new THREE.Mesh(
+		// 		new THREE.SphereGeometry(4, 16, 16),
+		// 		new THREE.MeshBasicMaterial({
+		// 			color: 0xff3366,
+		// 			transparent: true,
+		// 			opacity: 0.3
+		// 		})
+		// 	);
+		// 	glowSphere.position.copy(targetPosition);
+		// 	globeGroup.add(glowSphere);
+
+		// 	return {
+		// 		position: targetPosition,
+		// 		marker: targetMarker,
+		// 		light: pulsingLight,
+		// 		glow: glowSphere,
+		// 		latLon: targetLatLon
+		// 	};
+		// };
+
 		// Set the single target for all connections
 		const target = getRandomTargetPoint();
 
 		// Active connections lines
 		const connections: any[] = [];
 		const maxConnections = 25;
+
+		// Function to create a new connection
+		// function createConnection() {
+		// 	if (connections.length >= maxConnections) return;
+
+		// 	// Get random start point but fixed end point (target)
+		// 	const startContinent = Math.floor(Math.random() * landPoints.length);
+		// 	const startPointArray = landPoints[startContinent][Math.floor(Math.random() * landPoints[startContinent].length)];
+
+		// 	// Make sure start point is not too close to target
+		// 	const distance = Math.sqrt(
+		// 		Math.pow(startPointArray[0] - target.latLon[0], 2) +
+		// 		Math.pow(startPointArray[1] - target.latLon[1], 2)
+		// 	);
+
+		// 	if (distance < 15) return; // Too close, try again next time
+
+		// 	// Convert to 3D positions
+		// 	const startPosition = latLongToVector3(startPointArray[0], startPointArray[1], globeRadius);
+		// 	const endPosition = target.position;
+
+		// 	// Create midpoint for arced path
+		// 	const midPoint = new THREE.Vector3().addVectors(startPosition, endPosition).multiplyScalar(0.5);
+
+		// 	// Push midpoint outward
+		// 	const midPointLength = midPoint.length();
+		// 	midPoint.normalize().multiplyScalar(midPointLength * 1.3);
+
+		// 	// Create curve
+		// 	const curve = new THREE.QuadraticBezierCurve3(
+		// 		startPosition,
+		// 		midPoint,
+		// 		endPosition
+		// 	);
+
+		// 	// Create the return curve (from target back to origin)
+		// 	const returnCurve = new THREE.QuadraticBezierCurve3(
+		// 		endPosition,
+		// 		midPoint,
+		// 		startPosition
+		// 	);
+
+		// 	// Create curve points
+		// 	const curvePoints = curve.getPoints(50);
+		// 	const returnCurvePoints = returnCurve.getPoints(50);
+
+		// 	// Create an empty line geometry - will be updated during animation
+		// 	const lineGeometry = new THREE.BufferGeometry().setFromPoints([curvePoints[0]]);
+		// 	const returnLineGeometry = new THREE.BufferGeometry().setFromPoints([returnCurvePoints[0]]);
+
+		// 	// Create line material - blue for all connections with fade capability
+		// 	const lineMaterial = new THREE.LineBasicMaterial({
+		// 		// color: 0x3a86ff,
+		// 		color: 0x00bfff,
+		// 		transparent: true,
+		// 		opacity: 0.6
+		// 	});
+
+		// 	const returnLineMaterial = new THREE.LineBasicMaterial({
+		// 		// color: 0x3a86ff, // Same color for return path
+		// 		color: 0x00bfff,
+		// 		transparent: true,
+		// 		opacity: 0.6
+		// 	});
+
+		// 	const line = new THREE.Line(lineGeometry, lineMaterial);
+		// 	const returnLine = new THREE.Line(returnLineGeometry, returnLineMaterial);
+		// 	globeGroup.add(line);
+		// 	globeGroup.add(returnLine);
+
+		// 	// Create moving dot for outbound path
+		// 	const dotGeometry = new THREE.SphereGeometry(1, 8, 8);
+		// 	const dotMaterial = new THREE.MeshBasicMaterial({
+		// 		color: 0x3a86ff,
+		// 		transparent: true,
+		// 		opacity: 0.9
+		// 	});
+
+		// 	const movingDot = new THREE.Mesh(dotGeometry, dotMaterial);
+		// 	movingDot.position.copy(startPosition);
+		// 	globeGroup.add(movingDot);
+
+		// 	// Create moving dot for return path
+		// 	const returnDotMaterial = new THREE.MeshBasicMaterial({
+		// 		color: 0x3a86ff,
+		// 		transparent: true,
+		// 		opacity: 0.9
+		// 	});
+
+		// 	const returnDot = new THREE.Mesh(dotGeometry, returnDotMaterial);
+		// 	returnDot.position.copy(endPosition);
+		// 	returnDot.visible = false; // Hidden until outbound journey completes
+		// 	globeGroup.add(returnDot);
+
+		// 	connections.push({
+		// 		// Outbound properties
+		// 		line,
+		// 		movingDot,
+		// 		curve,
+		// 		points: curvePoints,
+		// 		progress: 0,
+
+		// 		// Return journey properties
+		// 		returnLine,
+		// 		returnDot,
+		// 		returnCurve,
+		// 		returnPoints: returnCurvePoints,
+		// 		returnProgress: 0,
+
+		// 		// Shared properties
+		// 		totalPoints: curvePoints.length,
+		// 		duration: 2 + Math.random() * 3, // Random duration between 2-5 seconds
+		// 		startTime: Date.now(),
+		// 		returnStartTime: null, // Will be set when outbound journey completes
+
+		// 		// States
+		// 		complete: false,
+		// 		outboundComplete: false,
+		// 		returnComplete: false,
+
+		// 		// Fade properties
+		// 		fadeStartTime: null,
+		// 		fadeDuration: 1.2, // Seconds to fade out
+		// 		fading: false
+		// 	});
+		// }
+
+		// Function to get a random color based on specified probabilities
+		function getRandomRequestColor() {
+			const rand = Math.random();
+			if (rand < 0.4) {
+				return 0x1af073; // 40% chance for green
+			} else if (rand < 0.8) {
+				return 0x00bfff; // 40% chance for blue
+			} else if (rand < 0.9) {
+				return 0xffaa4b; // 10% chance for orange
+			} else {
+				return 0xff5050; // 10% chance for red
+			}
+		}
 
 		// Function to create a new connection
 		function createConnection() {
@@ -257,17 +437,18 @@ export default function TiltedGlobeSingleTarget() {
 			const lineGeometry = new THREE.BufferGeometry().setFromPoints([curvePoints[0]]);
 			const returnLineGeometry = new THREE.BufferGeometry().setFromPoints([returnCurvePoints[0]]);
 
-			// Create line material - blue for all connections with fade capability
+			// Get random color for this connection based on specified distribution
+			const connectionColor = getRandomRequestColor();
+
+			// Create line material with the random color
 			const lineMaterial = new THREE.LineBasicMaterial({
-				// color: 0x3a86ff,
-				color: 0x00bfff,
+				color: connectionColor, // Using random color instead of fixed blue
 				transparent: true,
 				opacity: 0.6
 			});
 
 			const returnLineMaterial = new THREE.LineBasicMaterial({
-				// color: 0x3a86ff, // Same color for return path
-				color: 0x00bfff,
+				color: connectionColor, // Same random color for return path
 				transparent: true,
 				opacity: 0.6
 			});
@@ -278,9 +459,9 @@ export default function TiltedGlobeSingleTarget() {
 			globeGroup.add(returnLine);
 
 			// Create moving dot for outbound path
-			const dotGeometry = new THREE.SphereGeometry(1, 8, 8);
+			const dotGeometry = new THREE.SphereGeometry(0.8, 8, 8);
 			const dotMaterial = new THREE.MeshBasicMaterial({
-				color: 0x3a86ff,
+				color: connectionColor, // Using random color instead of fixed blue
 				transparent: true,
 				opacity: 0.9
 			});
@@ -291,7 +472,7 @@ export default function TiltedGlobeSingleTarget() {
 
 			// Create moving dot for return path
 			const returnDotMaterial = new THREE.MeshBasicMaterial({
-				color: 0x3a86ff,
+				color: connectionColor, // Using random color instead of fixed blue
 				transparent: true,
 				opacity: 0.9
 			});
@@ -333,6 +514,7 @@ export default function TiltedGlobeSingleTarget() {
 				fading: false
 			});
 		}
+
 
 		// Update connections
 		function updateConnections() {
@@ -560,12 +742,17 @@ export default function TiltedGlobeSingleTarget() {
 			</div>
 			<h1 className="w-full text-center text-white pt-[53.5vh] font-bold text-3xl" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>It&apos;s you versus the world.</h1>
 
-			<div ref={mountRef} className="w-full h-full absolute top-[50vh] overflow-hidden" />
+			<div className="absolute w-full h-full top-[50vh]">
+				<div className="relative">
+					<div ref={mountRef} className="w-full h-full overflow-hidden"></div>
+					<div className="absolute inset-0" style={{background: 'linear-gradient(transparent 50%, #0a0a0a 60%)'}}></div>
+				</div>
+			</div>
 
-			<div className="absolute bottom-6 w-full grid place-items-center">
+			<div className="absolute bottom-4 w-full grid place-items-center">
 				<div className="w-fit rounded p-3 border border-[var(--border-color)] flex gap-3 bg-opacity-80 backdrop-blur-sm">
-					<a className="cursor-pointer bg-[var(--highlight)] rounded p-4 py-2 w-30 text-black text-center place-content-center" href="https://github.com/tom-draper/nginx-analytics">Get Started</a>
-					<a className="cursor-pointer rounded p-4 bg-[var(--card-background)] text-[#ffffffdd] border border-[var(--border-color)] w-30 py-2 text-center place-content-center" href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
+					<a className="cursor-pointer bg-[var(--highlight)] rounded p-4 py-2 w-30 text-black text-center place-content-center bg-opacity-80 backdrop-blur-sm" href="https://github.com/tom-draper/nginx-analytics">Get Started</a>
+					<a className="cursor-pointer rounded p-4 bg-[var(--card-background)] text-[#ffffffdd] border border-[var(--border-color)] w-30 py-2 text-center place-content-center bg-opacity-80 backdrop-blur-sm" href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
 				</div>
 			</div>
 		</div>
