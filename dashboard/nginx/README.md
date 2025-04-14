@@ -1,21 +1,21 @@
-# NGINXConfiguration for NGINXAnalytics
+# NGINX Configuration
 
 ## Configuration Guide
 
-Update your existing NGINXconfiguration to securely expose your log files.
+Update your existing NGINX configuration to securely expose your log files.
 
 ```nginx
 server {
     listen 80;
     server_name yourserver.com;
 
-    location /logs/access {
+    location /api/logs/access {
         alias /var/log/nginx/access.log;
         allow your.ip.address;  # Restrict IP access
         deny all;
     }
 
-    location /logs/error {
+    location /api/logs/error {
         alias /var/log/nginx/error.log;
         allow your.ip.address;  # Restrict IP access
         deny all;
