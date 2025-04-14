@@ -1,8 +1,8 @@
-# Nginx Configuration for Nginx Analytics
+# NGINXConfiguration for NGINXAnalytics
 
 ## Configuration Guide
 
-Update your existing Nginx configuration to securely expose your log files.
+Update your existing NGINXconfiguration to securely expose your log files.
 
 ```nginx
 server {

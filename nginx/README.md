@@ -1,6 +1,6 @@
-# Nginx Configuration
+# NGINXConfiguration
 
-Nginx can be configured to get more out of your analytics.
+NGINXcan be configured to get more out of your analytics.
 
 After making any changes to the log rotate file, you can confirm `logrotate` runs without errors by triggering it manually.
 
@@ -10,7 +10,7 @@ sudo logrotate -fv /etc/logrotate.d/nginx
 
 ## More Logs
 
-By default Nginx keeps retains your log files for 14 days. You can increase this number in `/etc/logrotate.d/nginx`.
+By default NGINXkeeps retains your log files for 14 days. You can increase this number in `/etc/logrotate.d/nginx`.
 
 ```nginx
 /var/log/nginx/*.log {
@@ -39,7 +39,7 @@ compressoptions -9
 
 ## Better Names
 
-Enabling `dateext` means Nginx will append a date suffix to rotated log files instead of using `.1`, `.2`, etc.
+Enabling `dateext` means NGINXwill append a date suffix to rotated log files instead of using `.1`, `.2`, etc.
 
 ```
 access.log -> access.log-2025-03-31 -> access.log-2025-03-30.gz ...
