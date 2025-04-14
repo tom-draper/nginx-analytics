@@ -1,4 +1,4 @@
-# Nginx Analytics Agent
+# NGINXAnalytics Agent
 
 A lightweight agent to securely expose log files and monitor system resources, written in Go.
 
@@ -11,7 +11,7 @@ ssh user@yourserver
 chmod +x /usr/local/bin/nginx-analytics-agent
 ```
 
-> If your Nginx log path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
+> If your NGINXlog path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
 >
 > ```env
 > NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
@@ -19,7 +19,7 @@ chmod +x /usr/local/bin/nginx-analytics-agent
 > ```
 <br>
 
-Update your existing Nginx configuration to redirect to the agent, or copy the below config into `/etc/nginx/conf.d/nginx-analytics-agent.conf`.
+Update your existing NGINXconfiguration to redirect to the agent, or copy the below config into `/etc/nginx/conf.d/nginx-analytics-agent.conf`.
 
 ```nginx
 server {
@@ -64,7 +64,7 @@ Setup a systemd service `/etc/systemd/system/nginx-analytics-agent.service` to r
 
 ```service
 [Unit]
-Description=Nginx Analytics Agent
+Description=NGINXAnalytics Agent
 After=network.target
 
 [Service]
