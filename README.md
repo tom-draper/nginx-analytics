@@ -66,9 +66,9 @@ Monitoring of system resources (CPU, memory, and storage) is supported but disab
 
 #### Authentication
 
-When using the agent, it's recommended to use an auth token, by setting the same private environment variable `NGINX_ANALYTICS_AUTH_TOKEN` for both the agent (server) and the dashboard/CLI (client) deployment.
+When using the agent, it's recommended to use an authentication token. Set the private environment variable `NGINX_ANALYTICS_AUTH_TOKEN` to the same value for both the agent (server) and the dashboard (client) deployment.
 
-The agent will check that the auth token provided by the client matches the value it has stored locally before granting access to the logs.
+The agent will verify that the auth token sent by the client matches the locally stored value before allowing access to the logs.
 
 #### Password Protection
 
@@ -80,7 +80,7 @@ Deploying with HTTPS is always recommended. Without this, you risk exposing any 
 
 #### NGINX
 
-Currently this solution only works with the default NGINX log format, but future plans include support for custom formats.
+Only the default NGINX log format is supported currently, but future plans include support for custom formats.
 
 To better configure NGINX to get the most out of your analytics, take a look at the <a href="./nginx/README.md">NGINX configuration guide</a>.
 
