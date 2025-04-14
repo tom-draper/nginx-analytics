@@ -110,6 +110,13 @@ Contributions, issues and feature requests are welcome.
 
 ---
 
+> **Disclaimer**
+>
+> This project is not affiliated with, sponsored by, or endorsed by F5, Inc. or the official NGINX project.
+> NGINX is a registered trademark of F5, Inc. This is an independent project created by Tom Draper.
+
+---
+
 If you find value in my work, consider supporting me.
 
 Buy Me a Coffee: https://www.buymeacoffee.com/tomdraper<br>
