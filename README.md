@@ -1,8 +1,8 @@
-# Nginx Analytics
+# API Analytics for NGINX
 
-A modern, flexible and privacy-focused analytics solution for Nginx.
+A modern, flexible and privacy-focused analytics solution for NGINX.
 
-![Nginx Analytics](https://github.com/user-attachments/assets/b0fc1334-22e0-4d2c-9219-29d69a86a679)
+![NGINX Analytics](https://github.com/user-attachments/assets/b0fc1334-22e0-4d2c-9219-29d69a86a679)
 
 <p align="center">
   <a href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
@@ -14,7 +14,7 @@ A modern, flexible and privacy-focused analytics solution for Nginx.
 
 #### Option 1: Dashboard
 
-Deploy a single Next.js dashboard to the same server as Nginx.
+Deploy a single Next.js dashboard to the same server as NGINX.
 
 Follow the <a href="./dashboard/README.md">dashboard deployment guide</a>.
 
@@ -26,13 +26,13 @@ Best if server resources are tight, or log files are large.
 
 Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
-#### Option 3: Dashboard + Nginx
+#### Option 3: Dashboard + NGINX
 
-Update your existing Nginx configuration to serve your log files as restricted static files. Deploy the Next.js dashboard anywhere.
+Update your existing NGINX configuration to serve your log files as restricted static files. Deploy the Next.js dashboard anywhere.
 
 Limited functionality; best if you want to avoid further deployments to your server.
 
-Follow the <a href="./dashboard/nginx/README.md">Nginx configuration guide</a>.
+Follow the <a href="./dashboard/nginx/README.md">NGINX configuration guide</a>.
 
 #### Options 4: File Upload
 
@@ -44,7 +44,7 @@ If you prefer to work in the terminal, a CLI is available as an alternative to t
 
 #### Option 1: CLI
 
-Deploy the CLI to the server running Nginx. Access via SSH.
+Deploy the CLI to the server running NGINX. Access via SSH.
 
 Follow the <a href="./cli/README.md">CLI deployment guide</a>.
 
@@ -78,11 +78,11 @@ If your dashboard is publically accessible, set up password protection by assign
 
 Deploying with HTTPS is always recommended. Without this, you risk exposing any personal information within your log files such as IP addresses.
 
-#### Nginx
+#### NGINX
 
-Currently this solution only works with the default Nginx log format, but future plans include support for custom formats.
+Currently this solution only works with the default NGINX log format, but future plans include support for custom formats.
 
-To better configure Nginx to get the most out of your analytics, take a look at the <a href="./nginx/README.md">Nginx configuration guide</a>.
+To better configure NGINX to get the most out of your analytics, take a look at the <a href="./nginx/README.md">NGINX configuration guide</a>.
 
 ## Contributions
 
@@ -93,6 +93,13 @@ Contributions, issues and feature requests are welcome.
 - Commit your changes (`git commit -am 'Add some feature'`)
 - Push to the branch (`git push origin my-new-feature`)
 - Create a new Pull Request
+
+---
+
+> **Disclaimer**
+>
+> This project is not affiliated with, sponsored by, or endorsed by F5, Inc. or the official NGINX project.
+> NGINX is a registered trademark of F5, Inc. This is an independent project created by Tom Draper.
 
 ---
 
