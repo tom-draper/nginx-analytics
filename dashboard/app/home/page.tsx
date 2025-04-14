@@ -2,18 +2,37 @@
 
 import { landPoints } from '@/lib/globe';
 import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import {
+  Scene,
+  PerspectiveCamera,
+  WebGLRenderer,
+  SphereGeometry,
+  MeshBasicMaterial,
+  Mesh,
+  BufferGeometry,
+  BufferAttribute,
+  Float32BufferAttribute,
+  PointsMaterial,
+  Points,
+  Group,
+  Vector3,
+  PointLight,
+  LineBasicMaterial,
+  Line,
+  QuadraticBezierCurve3,
+  AmbientLight
+} from 'three';
 
 export default function TiltedGlobeSingleTarget() {
 	const mountRef = useRef<HTMLDivElement | null>(null);
 
 	useEffect(() => {
 		// Initialize Three.js scene
-		const scene = new THREE.Scene();
-		const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+		const scene = new Scene();
+		const camera = new PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 		camera.position.z = 300;
 
-		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+		const renderer = new WebGLRenderer({ antialias: true, alpha: true });
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.setClearColor(0x000000, 0);
 
@@ -26,18 +45,18 @@ export default function TiltedGlobeSingleTarget() {
 		const globeRadius = 115;
 
 		// Create globe base (nearly invisible)
-		const shellGeometry = new THREE.SphereGeometry(globeRadius, 64, 64);
-		const shellMaterial = new THREE.MeshBasicMaterial({
+		const shellGeometry = new SphereGeometry(globeRadius, 64, 64);
+		const shellMaterial = new MeshBasicMaterial({
 			color: 0x1a1a2e,
 			transparent: true,
 			opacity: 0.2,
 			wireframe: true
 		});
-		const globe = new THREE.Mesh(shellGeometry, shellMaterial);
+		const globe = new Mesh(shellGeometry, shellMaterial);
 
 		// Initialize outside the loop
-		const lineGeometry = new THREE.BufferGeometry();
-		const positionAttribute = new THREE.BufferAttribute(new Float32Array(51 * 3), 3);
+		const lineGeometry = new BufferGeometry();
+		const positionAttribute = new BufferAttribute(new Float32Array(51 * 3), 3);
 		lineGeometry.setAttribute('position', positionAttribute);
 
 		// Apply tilt to the globe (23.5 degrees like Earth's axial tilt)
@@ -46,13 +65,13 @@ export default function TiltedGlobeSingleTarget() {
 		scene.add(globe);
 
 		// Globe group to contain all elements that should rotate together
-		const globeGroup = new THREE.Group();
+		const globeGroup = new Group();
 		globeGroup.add(globe);
 		scene.add(globeGroup);
 
 
 		// Create a points material for land dots
-		const dotMaterial = new THREE.PointsMaterial({
+		const dotMaterial = new PointsMaterial({
 			color: 0x1af073,
 			size: 1.2,
 			opacity: 0.8,
@@ -91,10 +110,10 @@ export default function TiltedGlobeSingleTarget() {
 				});
 			});
 
-			const geometry = new THREE.BufferGeometry();
-			geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+			const geometry = new BufferGeometry();
+			geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
 
-			const pointCloud = new THREE.Points(geometry, dotMaterial);
+			const pointCloud = new Points(geometry, dotMaterial);
 			pointCloud.rotation.x = tiltAngle; // Apply same tilt as the globe
 			globeGroup.add(pointCloud);
 
@@ -153,7 +172,7 @@ export default function TiltedGlobeSingleTarget() {
 			const y = radius * Math.cos(phi);
 			const z = radius * Math.sin(phi) * Math.sin(theta);
 
-			return new THREE.Vector3(x, y, z);
+			return new Vector3(x, y, z);
 		}
 
 		// Create land dots
@@ -166,23 +185,23 @@ export default function TiltedGlobeSingleTarget() {
 			const targetPosition = latLongToVector3(targetLatLon[0], targetLatLon[1], globeRadius);
 
 			// Create a visible target marker (changed from red to white)
-			const targetMarker = new THREE.Mesh(
-				new THREE.SphereGeometry(2.5, 16, 16),
-				new THREE.MeshBasicMaterial({ color: 0x1af073 }) // Changed from 0xff3366 to 0xffffff
+			const targetMarker = new Mesh(
+				new SphereGeometry(2.5, 16, 16),
+				new MeshBasicMaterial({ color: 0x1af073 }) // Changed from 0xff3366 to 0xffffff
 			);
 			targetMarker.position.copy(targetPosition);
 			targetMarker.rotation.x = tiltAngle; // Apply tilt to marker
 			globeGroup.add(targetMarker);
 
 			// Create a pulsing effect for the target (changed from red to white)
-			const pulsingLight = new THREE.PointLight(0x1af073, 1, 20); // Changed from 0xff3366 to 0xffffff
+			const pulsingLight = new PointLight(0x1af073, 1, 20); // Changed from 0xff3366 to 0xffffff
 			pulsingLight.position.copy(targetPosition);
 			globeGroup.add(pulsingLight);
 
 			// Create a glow sphere (changed from red to white)
-			const glowSphere = new THREE.Mesh(
-				new THREE.SphereGeometry(4, 16, 16),
-				new THREE.MeshBasicMaterial({
+			const glowSphere = new Mesh(
+				new SphereGeometry(4, 16, 16),
+				new MeshBasicMaterial({
 					color: 0x1af073, // Changed from 0xff3366 to 0xffffff
 					transparent: true,
 					opacity: 0.3
@@ -199,180 +218,6 @@ export default function TiltedGlobeSingleTarget() {
 				latLon: targetLatLon
 			};
 		};
-
-		// Select a random target point from land coordinates
-		// const getRandomTargetPoint = () => {
-		// 	const randomIndex = Math.floor(Math.random() * allLandCoords.length);
-		// 	const targetLatLon = allLandCoords[randomIndex];
-		// 	const targetPosition = latLongToVector3(targetLatLon[0], targetLatLon[1], globeRadius);
-
-		// 	// Create a visible target marker
-		// 	const targetMarker = new THREE.Mesh(
-		// 		new THREE.SphereGeometry(2.5, 16, 16),
-		// 		new THREE.MeshBasicMaterial({ color: 0xff3366 })
-		// 	);
-		// 	targetMarker.position.copy(targetPosition);
-		// 	targetMarker.rotation.x = tiltAngle; // Apply tilt to marker
-		// 	globeGroup.add(targetMarker);
-
-		// 	// Create a pulsing effect for the target
-		// 	const pulsingLight = new THREE.PointLight(0xff3366, 1, 20);
-		// 	pulsingLight.position.copy(targetPosition);
-		// 	globeGroup.add(pulsingLight);
-
-		// 	// Create a glow sphere
-		// 	const glowSphere = new THREE.Mesh(
-		// 		new THREE.SphereGeometry(4, 16, 16),
-		// 		new THREE.MeshBasicMaterial({
-		// 			color: 0xff3366,
-		// 			transparent: true,
-		// 			opacity: 0.3
-		// 		})
-		// 	);
-		// 	glowSphere.position.copy(targetPosition);
-		// 	globeGroup.add(glowSphere);
-
-		// 	return {
-		// 		position: targetPosition,
-		// 		marker: targetMarker,
-		// 		light: pulsingLight,
-		// 		glow: glowSphere,
-		// 		latLon: targetLatLon
-		// 	};
-		// };
-
-		// Set the single target for all connections
-		const target = getRandomTargetPoint();
-
-		// Active connections lines
-		const connections: any[] = [];
-		const maxConnections = 25;
-
-		// Function to create a new connection
-		// function createConnection() {
-		// 	if (connections.length >= maxConnections) return;
-
-		// 	// Get random start point but fixed end point (target)
-		// 	const startContinent = Math.floor(Math.random() * landPoints.length);
-		// 	const startPointArray = landPoints[startContinent][Math.floor(Math.random() * landPoints[startContinent].length)];
-
-		// 	// Make sure start point is not too close to target
-		// 	const distance = Math.sqrt(
-		// 		Math.pow(startPointArray[0] - target.latLon[0], 2) +
-		// 		Math.pow(startPointArray[1] - target.latLon[1], 2)
-		// 	);
-
-		// 	if (distance < 15) return; // Too close, try again next time
-
-		// 	// Convert to 3D positions
-		// 	const startPosition = latLongToVector3(startPointArray[0], startPointArray[1], globeRadius);
-		// 	const endPosition = target.position;
-
-		// 	// Create midpoint for arced path
-		// 	const midPoint = new THREE.Vector3().addVectors(startPosition, endPosition).multiplyScalar(0.5);
-
-		// 	// Push midpoint outward
-		// 	const midPointLength = midPoint.length();
-		// 	midPoint.normalize().multiplyScalar(midPointLength * 1.3);
-
-		// 	// Create curve
-		// 	const curve = new THREE.QuadraticBezierCurve3(
-		// 		startPosition,
-		// 		midPoint,
-		// 		endPosition
-		// 	);
-
-		// 	// Create the return curve (from target back to origin)
-		// 	const returnCurve = new THREE.QuadraticBezierCurve3(
-		// 		endPosition,
-		// 		midPoint,
-		// 		startPosition
-		// 	);
-
-		// 	// Create curve points
-		// 	const curvePoints = curve.getPoints(50);
-		// 	const returnCurvePoints = returnCurve.getPoints(50);
-
-		// 	// Create an empty line geometry - will be updated during animation
-		// 	const lineGeometry = new THREE.BufferGeometry().setFromPoints([curvePoints[0]]);
-		// 	const returnLineGeometry = new THREE.BufferGeometry().setFromPoints([returnCurvePoints[0]]);
-
-		// 	// Create line material - blue for all connections with fade capability
-		// 	const lineMaterial = new THREE.LineBasicMaterial({
-		// 		// color: 0x3a86ff,
-		// 		color: 0x00bfff,
-		// 		transparent: true,
-		// 		opacity: 0.6
-		// 	});
-
-		// 	const returnLineMaterial = new THREE.LineBasicMaterial({
-		// 		// color: 0x3a86ff, // Same color for return path
-		// 		color: 0x00bfff,
-		// 		transparent: true,
-		// 		opacity: 0.6
-		// 	});
-
-		// 	const line = new THREE.Line(lineGeometry, lineMaterial);
-		// 	const returnLine = new THREE.Line(returnLineGeometry, returnLineMaterial);
-		// 	globeGroup.add(line);
-		// 	globeGroup.add(returnLine);
-
-		// 	// Create moving dot for outbound path
-		// 	const dotGeometry = new THREE.SphereGeometry(1, 8, 8);
-		// 	const dotMaterial = new THREE.MeshBasicMaterial({
-		// 		color: 0x3a86ff,
-		// 		transparent: true,
-		// 		opacity: 0.9
-		// 	});
-
-		// 	const movingDot = new THREE.Mesh(dotGeometry, dotMaterial);
-		// 	movingDot.position.copy(startPosition);
-		// 	globeGroup.add(movingDot);
-
-		// 	// Create moving dot for return path
-		// 	const returnDotMaterial = new THREE.MeshBasicMaterial({
-		// 		color: 0x3a86ff,
-		// 		transparent: true,
-		// 		opacity: 0.9
-		// 	});
-
-		// 	const returnDot = new THREE.Mesh(dotGeometry, returnDotMaterial);
-		// 	returnDot.position.copy(endPosition);
-		// 	returnDot.visible = false; // Hidden until outbound journey completes
-		// 	globeGroup.add(returnDot);
-
-		// 	connections.push({
-		// 		// Outbound properties
-		// 		line,
-		// 		movingDot,
-		// 		curve,
-		// 		points: curvePoints,
-		// 		progress: 0,
-
-		// 		// Return journey properties
-		// 		returnLine,
-		// 		returnDot,
-		// 		returnCurve,
-		// 		returnPoints: returnCurvePoints,
-		// 		returnProgress: 0,
-
-		// 		// Shared properties
-		// 		totalPoints: curvePoints.length,
-		// 		duration: 2 + Math.random() * 3, // Random duration between 2-5 seconds
-		// 		startTime: Date.now(),
-		// 		returnStartTime: null, // Will be set when outbound journey completes
-
-		// 		// States
-		// 		complete: false,
-		// 		outboundComplete: false,
-		// 		returnComplete: false,
-
-		// 		// Fade properties
-		// 		fadeStartTime: null,
-		// 		fadeDuration: 1.2, // Seconds to fade out
-		// 		fading: false
-		// 	});
-		// }
 
 		// Function to get a random color based on specified probabilities
 		function getRandomRequestColor() {
@@ -409,21 +254,21 @@ export default function TiltedGlobeSingleTarget() {
 			const endPosition = target.position;
 
 			// Create midpoint for arced path
-			const midPoint = new THREE.Vector3().addVectors(startPosition, endPosition).multiplyScalar(0.5);
+			const midPoint = new Vector3().addVectors(startPosition, endPosition).multiplyScalar(0.5);
 
 			// Push midpoint outward
 			const midPointLength = midPoint.length();
 			midPoint.normalize().multiplyScalar(midPointLength * 1.3);
 
 			// Create curve
-			const curve = new THREE.QuadraticBezierCurve3(
+			const curve = new QuadraticBezierCurve3(
 				startPosition,
 				midPoint,
 				endPosition
 			);
 
 			// Create the return curve (from target back to origin)
-			const returnCurve = new THREE.QuadraticBezierCurve3(
+			const returnCurve = new QuadraticBezierCurve3(
 				endPosition,
 				midPoint,
 				startPosition
@@ -434,50 +279,50 @@ export default function TiltedGlobeSingleTarget() {
 			const returnCurvePoints = returnCurve.getPoints(50);
 
 			// Create an empty line geometry - will be updated during animation
-			const lineGeometry = new THREE.BufferGeometry().setFromPoints([curvePoints[0]]);
-			const returnLineGeometry = new THREE.BufferGeometry().setFromPoints([returnCurvePoints[0]]);
+			const lineGeometry = new BufferGeometry().setFromPoints([curvePoints[0]]);
+			const returnLineGeometry = new BufferGeometry().setFromPoints([returnCurvePoints[0]]);
 
 			// Get random color for this connection based on specified distribution
 			const connectionColor = getRandomRequestColor();
 
 			// Create line material with the random color
-			const lineMaterial = new THREE.LineBasicMaterial({
+			const lineMaterial = new LineBasicMaterial({
 				color: connectionColor, // Using random color instead of fixed blue
 				transparent: true,
 				opacity: 0.6
 			});
 
-			const returnLineMaterial = new THREE.LineBasicMaterial({
+			const returnLineMaterial = new LineBasicMaterial({
 				color: connectionColor, // Same random color for return path
 				transparent: true,
 				opacity: 0.6
 			});
 
-			const line = new THREE.Line(lineGeometry, lineMaterial);
-			const returnLine = new THREE.Line(returnLineGeometry, returnLineMaterial);
+			const line = new Line(lineGeometry, lineMaterial);
+			const returnLine = new Line(returnLineGeometry, returnLineMaterial);
 			globeGroup.add(line);
 			globeGroup.add(returnLine);
 
 			// Create moving dot for outbound path
-			const dotGeometry = new THREE.SphereGeometry(0.8, 8, 8);
-			const dotMaterial = new THREE.MeshBasicMaterial({
+			const dotGeometry = new SphereGeometry(0.8, 8, 8);
+			const dotMaterial = new MeshBasicMaterial({
 				color: connectionColor, // Using random color instead of fixed blue
 				transparent: true,
 				opacity: 0.9
 			});
 
-			const movingDot = new THREE.Mesh(dotGeometry, dotMaterial);
+			const movingDot = new Mesh(dotGeometry, dotMaterial);
 			movingDot.position.copy(startPosition);
 			globeGroup.add(movingDot);
 
 			// Create moving dot for return path
-			const returnDotMaterial = new THREE.MeshBasicMaterial({
+			const returnDotMaterial = new MeshBasicMaterial({
 				color: connectionColor, // Using random color instead of fixed blue
 				transparent: true,
 				opacity: 0.9
 			});
 
-			const returnDot = new THREE.Mesh(dotGeometry, returnDotMaterial);
+			const returnDot = new Mesh(dotGeometry, returnDotMaterial);
 			returnDot.position.copy(endPosition);
 			returnDot.visible = false; // Hidden until outbound journey completes
 			globeGroup.add(returnDot);
@@ -515,6 +360,12 @@ export default function TiltedGlobeSingleTarget() {
 			});
 		}
 
+		// Set the single target for all connections
+		const target = getRandomTargetPoint();
+
+		// Active connections lines
+		const connections: any[] = [];
+		const maxConnections = 25;
 
 		// Update connections
 		function updateConnections() {
@@ -532,17 +383,8 @@ export default function TiltedGlobeSingleTarget() {
 
 					// Update line geometry to draw up to current point
 					const linePoints = connection.points.slice(0, pointIndex + 1);
-					// const positions = connection.line.geometry.attributes.position.array;
-					// for (let i = 0; i <= pointIndex; i++) {
-					//   const point = connection.points[i];
-					//   positions[i * 3] = point.x;
-					//   positions[i * 3 + 1] = point.y;
-					//   positions[i * 3 + 2] = point.z;
-					// }
-					// connection.line.geometry.attributes.position.needsUpdate = true;
-					// connection.line.geometry.setDrawRange(0, pointIndex + 1);
 					connection.line.geometry.dispose();
-					connection.line.geometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+					connection.line.geometry = new BufferGeometry().setFromPoints(linePoints);
 
 					// Update moving dot position
 					if (pointIndex < connection.totalPoints) {
@@ -568,7 +410,7 @@ export default function TiltedGlobeSingleTarget() {
 					// Update return line geometry
 					const returnLinePoints = connection.returnPoints.slice(0, returnPointIndex + 1);
 					connection.returnLine.geometry.dispose();
-					connection.returnLine.geometry = new THREE.BufferGeometry().setFromPoints(returnLinePoints);
+					connection.returnLine.geometry = new BufferGeometry().setFromPoints(returnLinePoints);
 
 					// Update return dot position
 					if (returnPointIndex < connection.totalPoints) {
@@ -603,24 +445,6 @@ export default function TiltedGlobeSingleTarget() {
 				}
 			});
 
-			// Remove completed connections
-			// for (let i = connectionsToRemove.length - 1; i >= 0; i--) {
-			//   const index = connectionsToRemove[i];
-			//   const connection = connections[index];
-
-			//   // Remove all elements from scene
-			//   globeGroup.remove(connection.line);
-			//   globeGroup.remove(connection.returnLine);
-			//   globeGroup.remove(connection.movingDot);
-			//   globeGroup.remove(connection.returnDot);
-
-			//   // Dispose of geometries to prevent memory leaks
-			//   connection.line.geometry.dispose();
-			//   connection.returnLine.geometry.dispose();
-
-			//   // Remove from connections array
-			//   connections.splice(index, 1);
-			// }
 			// Remove completed connections
 			for (let i = connectionsToRemove.length - 1; i >= 0; i--) {
 				const index = connectionsToRemove[i];
@@ -658,7 +482,7 @@ export default function TiltedGlobeSingleTarget() {
 		}
 
 		// Add ambient light
-		const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+		const ambientLight = new AmbientLight(0xffffff, 0.6);
 		scene.add(ambientLight);
 
 		// Rotation settings
