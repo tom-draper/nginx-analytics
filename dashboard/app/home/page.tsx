@@ -34,8 +34,12 @@ export default function TiltedGlobeSingleTarget() {
     });
     const globe = new THREE.Mesh(shellGeometry, shellMaterial);
 
+    // Initialize outside the loop
+    const lineGeometry = new THREE.BufferGeometry();
+    const positionAttribute = new THREE.BufferAttribute(new Float32Array(51 * 3), 3);
+    lineGeometry.setAttribute('position', positionAttribute);
+
     // Apply tilt to the globe (23.5 degrees like Earth's axial tilt)
-    // const tiltAngle = 23.5 * (Math.PI / 180);
     const tiltAngle = 23.5 * (Math.PI / 180);
     globe.rotation.x = tiltAngle;
     scene.add(globe);
@@ -273,11 +277,11 @@ export default function TiltedGlobeSingleTarget() {
     const connections = [];
     const maxConnections = 25;
 
-    // Function to create a new connection to the single target
+    // Function to create a new connection
     function createConnection() {
       if (connections.length >= maxConnections) return;
 
-      // Get random start point but fixed end point
+      // Get random start point but fixed end point (target)
       const startContinent = Math.floor(Math.random() * landPoints.length);
       const startPointArray = landPoints[startContinent][Math.floor(Math.random() * landPoints[startContinent].length)];
 
@@ -307,21 +311,42 @@ export default function TiltedGlobeSingleTarget() {
         endPosition
       );
 
+      // Create the return curve (from target back to origin)
+      const returnCurve = new THREE.QuadraticBezierCurve3(
+        endPosition,
+        midPoint,
+        startPosition
+      );
+
       // Create curve points
       const curvePoints = curve.getPoints(50);
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints([curvePoints[0], curvePoints[0]]);
+      const returnCurvePoints = returnCurve.getPoints(50);
 
-      // Create line material - blue for all connections
+      // Create an empty line geometry - will be updated during animation
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints([curvePoints[0]]);
+      const returnLineGeometry = new THREE.BufferGeometry().setFromPoints([returnCurvePoints[0]]);
+
+      // Create line material - blue for all connections with fade capability
       const lineMaterial = new THREE.LineBasicMaterial({
-        color: 0x3a86ff,
+        // color: 0x3a86ff,
+        color: 0x00bfff,
+        transparent: true,
+        opacity: 0.6
+      });
+
+      const returnLineMaterial = new THREE.LineBasicMaterial({
+        // color: 0x3a86ff, // Same color for return path
+        color: 0x00bfff,
         transparent: true,
         opacity: 0.6
       });
 
       const line = new THREE.Line(lineGeometry, lineMaterial);
+      const returnLine = new THREE.Line(returnLineGeometry, returnLineMaterial);
       globeGroup.add(line);
+      globeGroup.add(returnLine);
 
-      // Create moving dot
+      // Create moving dot for outbound path
       const dotGeometry = new THREE.SphereGeometry(1, 8, 8);
       const dotMaterial = new THREE.MeshBasicMaterial({
         color: 0x3a86ff,
@@ -333,16 +358,48 @@ export default function TiltedGlobeSingleTarget() {
       movingDot.position.copy(startPosition);
       globeGroup.add(movingDot);
 
+      // Create moving dot for return path
+      const returnDotMaterial = new THREE.MeshBasicMaterial({
+        color: 0x3a86ff,
+        transparent: true,
+        opacity: 0.9
+      });
+
+      const returnDot = new THREE.Mesh(dotGeometry, returnDotMaterial);
+      returnDot.position.copy(endPosition);
+      returnDot.visible = false; // Hidden until outbound journey completes
+      globeGroup.add(returnDot);
+
       connections.push({
+        // Outbound properties
         line,
         movingDot,
         curve,
         points: curvePoints,
         progress: 0,
+
+        // Return journey properties
+        returnLine,
+        returnDot,
+        returnCurve,
+        returnPoints: returnCurvePoints,
+        returnProgress: 0,
+
+        // Shared properties
         totalPoints: curvePoints.length,
         duration: 2 + Math.random() * 3, // Random duration between 2-5 seconds
         startTime: Date.now(),
-        complete: false
+        returnStartTime: null, // Will be set when outbound journey completes
+
+        // States
+        complete: false,
+        outboundComplete: false,
+        returnComplete: false,
+
+        // Fade properties
+        fadeStartTime: null,
+        fadeDuration: 1.2, // Seconds to fade out
+        fading: false
       });
     }
 
@@ -352,50 +409,139 @@ export default function TiltedGlobeSingleTarget() {
       const connectionsToRemove = [];
 
       connections.forEach((connection, index) => {
-        const elapsedTime = (now - connection.startTime) / 1000;
-        connection.progress = Math.min(elapsedTime / connection.duration, 1);
+        // Handle outbound journey if not complete
+        if (!connection.outboundComplete) {
+          const elapsedTime = (now - connection.startTime) / 1000;
+          connection.progress = Math.min(elapsedTime / connection.duration, 1);
 
-        // Calculate current point index
-        const pointIndex = Math.floor(connection.progress * (connection.totalPoints - 1));
+          // Calculate current point index
+          const pointIndex = Math.floor(connection.progress * (connection.totalPoints - 1));
 
-        // Update line geometry to draw up to current point
-        const linePoints = connection.points.slice(0, pointIndex + 1);
-        connection.line.geometry.dispose();
-        connection.line.geometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+          // Update line geometry to draw up to current point
+          const linePoints = connection.points.slice(0, pointIndex + 1);
+          // const positions = connection.line.geometry.attributes.position.array;
+          // for (let i = 0; i <= pointIndex; i++) {
+          //   const point = connection.points[i];
+          //   positions[i * 3] = point.x;
+          //   positions[i * 3 + 1] = point.y;
+          //   positions[i * 3 + 2] = point.z;
+          // }
+          // connection.line.geometry.attributes.position.needsUpdate = true;
+          // connection.line.geometry.setDrawRange(0, pointIndex + 1);
+          connection.line.geometry.dispose();
+          connection.line.geometry = new THREE.BufferGeometry().setFromPoints(linePoints);
 
-        // Update moving dot position
-        if (pointIndex < connection.totalPoints) {
-          connection.movingDot.position.copy(connection.points[pointIndex]);
+          // Update moving dot position
+          if (pointIndex < connection.totalPoints) {
+            connection.movingDot.position.copy(connection.points[pointIndex]);
+          }
+
+          // Check if outbound journey is complete
+          if (connection.progress >= 1) {
+            connection.outboundComplete = true;
+            connection.returnStartTime = now;
+            connection.returnDot.visible = true; // Show return dot
+          }
         }
 
-        // Mark completed connections
-        if (connection.progress >= 1) {
-          connection.complete = true;
-          // Remove after a short delay to show the full path briefly
-          setTimeout(() => {
+        // Handle return journey if outbound is complete but return is not
+        if (connection.outboundComplete && !connection.returnComplete) {
+          const returnElapsedTime = (now - connection.returnStartTime) / 1000;
+          connection.returnProgress = Math.min(returnElapsedTime / connection.duration, 1);
+
+          // Calculate current point index for return journey
+          const returnPointIndex = Math.floor(connection.returnProgress * (connection.totalPoints - 1));
+
+          // Update return line geometry
+          const returnLinePoints = connection.returnPoints.slice(0, returnPointIndex + 1);
+          connection.returnLine.geometry.dispose();
+          connection.returnLine.geometry = new THREE.BufferGeometry().setFromPoints(returnLinePoints);
+
+          // Update return dot position
+          if (returnPointIndex < connection.totalPoints) {
+            connection.returnDot.position.copy(connection.returnPoints[returnPointIndex]);
+          }
+
+          // Check if return journey is complete
+          if (connection.returnProgress >= 1) {
+            connection.returnComplete = true;
+            connection.fadeStartTime = now;
+            connection.fading = true;
+          }
+        }
+
+        // Handle fading after both journeys are complete
+        if (connection.fading) {
+          const fadeElapsedTime = (now - connection.fadeStartTime) / 1000;
+          const fadeProgress = Math.min(fadeElapsedTime / connection.fadeDuration, 1);
+
+          // Fade out both lines and dots
+          const remainingOpacity = 0.6 * (1 - fadeProgress);
+          connection.line.material.opacity = remainingOpacity;
+          connection.returnLine.material.opacity = remainingOpacity;
+          connection.movingDot.material.opacity = remainingOpacity;
+          connection.returnDot.material.opacity = remainingOpacity;
+
+          // When fade is complete, mark for removal
+          if (fadeProgress >= 1) {
+            connection.complete = true;
             connectionsToRemove.push(index);
-          }, 200);
+          }
         }
       });
 
       // Remove completed connections
+      // for (let i = connectionsToRemove.length - 1; i >= 0; i--) {
+      //   const index = connectionsToRemove[i];
+      //   const connection = connections[index];
+
+      //   // Remove all elements from scene
+      //   globeGroup.remove(connection.line);
+      //   globeGroup.remove(connection.returnLine);
+      //   globeGroup.remove(connection.movingDot);
+      //   globeGroup.remove(connection.returnDot);
+
+      //   // Dispose of geometries to prevent memory leaks
+      //   connection.line.geometry.dispose();
+      //   connection.returnLine.geometry.dispose();
+
+      //   // Remove from connections array
+      //   connections.splice(index, 1);
+      // }
+      // Remove completed connections
       for (let i = connectionsToRemove.length - 1; i >= 0; i--) {
         const index = connectionsToRemove[i];
         const connection = connections[index];
+
+        // Remove all elements from scene
         globeGroup.remove(connection.line);
+        globeGroup.remove(connection.returnLine);
         globeGroup.remove(connection.movingDot);
+        globeGroup.remove(connection.returnDot);
+
+        // Dispose of geometries and materials
+        connection.line.geometry.dispose();
+        connection.line.material.dispose();
+        connection.returnLine.geometry.dispose();
+        connection.returnLine.material.dispose();
+        connection.movingDot.geometry.dispose();
+        connection.movingDot.material.dispose();
+        connection.returnDot.geometry.dispose();
+        connection.returnDot.material.dispose();
+
+        // Remove from connections array
         connections.splice(index, 1);
       }
 
-      // Create new connections periodically
-      if (Math.random() < 0.05) {
+      // Create new connections to maintain flow
+      if (connections.length < maxConnections && Math.random() < 0.05) {
         createConnection();
       }
 
       // Pulse the target
-      const pulseScale = 1 + 0.2 * Math.sin(Date.now() * 0.005);
+      const pulseScale = 1 + 0.2 * Math.sin(now * 0.005);
       target.glow.scale.set(pulseScale, pulseScale, pulseScale);
-      target.light.intensity = 1 + 0.5 * Math.sin(Date.now() * 0.005);
+      target.light.intensity = 1 + 0.5 * Math.sin(now * 0.005);
     }
 
     // Add ambient light
@@ -434,38 +580,56 @@ export default function TiltedGlobeSingleTarget() {
 
     animate();
 
-    // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
+
+      // Dispose of all Three.js objects
+      renderer.dispose();
+
+      // Dispose of all geometries and materials
+      globe.geometry.dispose();
+      globe.material.dispose();
+
+      // Dispose of all connections
+      connections.forEach(connection => {
+        connection.line.geometry.dispose();
+        connection.line.material.dispose();
+        connection.returnLine.geometry.dispose();
+        connection.returnLine.material.dispose();
+        connection.movingDot.geometry.dispose();
+        connection.movingDot.material.dispose();
+        connection.returnDot.geometry.dispose();
+        connection.returnDot.material.dispose();
+      });
+
+      // Clear all references
+      scene.clear();
+
       if (mountRef.current) {
         mountRef.current.innerHTML = '';
       }
-      renderer.dispose();
-      scene.clear();
     };
   }, []);
 
   return (
     <div className="w-full h-screen bg-[var(--background)]">
       <div className="w-full absolute top-0">
-
-        <nav className="py-4 px-6  m-auto font-medium flex">
+        <nav className="py-4 px-6 m-auto font-medium flex text-center">
           <div>
-            <img src="/logo.svg" alt="" className="h-[32px]" />
+            <img src="/lightning-green.svg" alt="" className="h-8"/>
           </div>
-          <div className="mx-4 my-auto font-semibold text-md text-red">API Analytics for Nginx</div>
+          <div className="mx-5 mr-8 my-auto text-md text-[#ffffff51] font-medium" style={{fontFamily: 'Geist, Helveica, Arial, sans-serif'}}>API Analytics for NGINX</div>
         </nav>
       </div>
-      <h1 className="w-full text-center text-white pt-[53.5vh] font-bold text-3xl">It&apos;s you versus the world.</h1>
+      <h1 className="w-full text-center text-white pt-[53.5vh] font-bold text-3xl" style={{fontFamily: 'Arial, Helvetica, sans-serif'}}>It&apos;s you versus the world.</h1>
 
       <div ref={mountRef} className="w-full h-full absolute top-[50vh] overflow-hidden" />
 
-      <div className="absolute bottom-[1.5em] w-full grid place-items-center">
-        <div className="w-fit rounded p-3 border border-[var(--border-color)] flex gap-3 bg-opacity-80 backdrop-blur-sm ">
-          <button className="cursor-pointer bg-[var(--highlight)] rounded p-4 py-2 w-[115px] text-black">Get Started</button>
-          <button className="cursor-pointer rounded p-4 bg-[var(--card-background)] border border-[var(--border-color)] w-[115px] py-2">Demo</button>
+      <div className="absolute bottom-6 w-full grid place-items-center">
+        <div className="w-fit rounded p-3 border border-[var(--border-color)] flex gap-3 bg-opacity-80 backdrop-blur-sm">
+          <a className="cursor-pointer bg-[var(--highlight)] rounded p-4 py-2 w-30 text-black text-center place-content-center" href="https://github.com/tom-draper/nginx-analytics">Get Started</a>
+          <a className="cursor-pointer rounded p-4 bg-[var(--card-background)] text-[#ffffffdd] border border-[var(--border-color)] w-30 py-2 text-center place-content-center" href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
         </div>
-
       </div>
     </div>
   );
