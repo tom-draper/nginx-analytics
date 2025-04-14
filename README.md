@@ -94,14 +94,14 @@ Contributions, issues and feature requests are welcome.
 - Push to the branch (`git push origin my-new-feature`)
 - Create a new Pull Request
 
----
+<br>
 
 > **Disclaimer**
 >
 > This project is not affiliated with, sponsored by, or endorsed by F5, Inc. or the official NGINX project.
 > NGINX is a registered trademark of F5, Inc. This is an independent project created by Tom Draper.
 
----
+<br>
 
 If you find value in my work, consider supporting me.
 
