@@ -229,7 +229,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
                     <FileUpload setAccessLogs={setAccessLogs} setErrorLogs={setErrorLogs} />
                     <div className="absolute w-full bottom-6 text-center z-20 pointer-events-auto font-normal text-sm">
-                        <a href="/dashboard/demo" target="_blank" className="text-[var(--text-muted3)] hover:text-[var(--text)] cursor-pointer">Try the demo</a>
+                        <a href="/dashboard/demo" target="_blank" className="text-[var(--text-muted3)] hover:text-[var(--text)] cursor-pointer transition-colors duration-100 ease-in-out">Try the demo</a>
                     </div>
                 </div>
             </div>

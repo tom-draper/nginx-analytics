@@ -551,16 +551,15 @@ export default function TiltedGlobeSingleTarget() {
 	return (
 		<div className="w-full h-screen bg-[var(--background)]">
 			<div className="w-full absolute top-0">
-				<nav className="py-4 px-6 m-auto flex text-center font-semibold text-[#3f3f3f]" style={{ fontFamily: 'Helvetica, Geist, Helveica, Arial, sans-serif' }}>
+				<nav className="py-6 px-6 m-auto flex text-center font-semibold text-[#3f3f3f]" style={{ fontFamily: 'Helvetica, Geist, Helveica, Arial, sans-serif' }}>
 					<div>
-						<img src="/lightning-green.svg" alt="" className="h-8" />
+						<img src="/logo.svg" alt="" className="h-8" />
 					</div>
-					<div className="mx-5 mr-8 my-auto text-md" >API Analytics | NGINX</div>
-
+					<div className="mx-4 mr-8 my-auto text-md" >API Analytics | NGINX</div>
 					<div className="my-auto ml-auto font-medium">
-						<a href="" className="mx-2 text-sm hover:text-[white]">Home</a>
-						<a href="" className="mx-2 text-sm hover:text-[white]">About</a>
-						<a href="https://github.com/tom-draper/nginx-analytics" className="mx-2 text-sm hover:text-[white]">Source</a>
+						<a href="" className="mx-2 text-sm hover:text-[var(--text)] transition-colors duration-100 ease-in-out">Home</a>
+						<a href="" className="mx-2 text-sm hover:text-[var(--text)] transition-colors duration-100 ease-in-out">About</a>
+						<a href="https://github.com/tom-draper/nginx-analytics" className="mx-2 text-sm hover:text-[var(--text)] transition-colors duration-100 ease-in-out">Source</a>
 					</div>
 				</nav>
 			</div>
@@ -569,14 +568,14 @@ export default function TiltedGlobeSingleTarget() {
 			<div className="absolute w-full h-full top-[50vh]">
 				<div className="relative">
 					<div ref={mountRef} className="w-full h-full overflow-hidden"></div>
-					<div className="absolute inset-0" style={{background: 'linear-gradient(transparent 50%, #0a0a0a 60%)'}}></div>
+					<div className="absolute inset-0" style={{background: 'linear-gradient(transparent 50%, #08090a 54%)'}}></div>
 				</div>
 			</div>
 
 			<div className="absolute bottom-4 w-full grid place-items-center">
 				<div className="w-fit rounded p-3 border border-[var(--border-color)] flex gap-3 bg-opacity-80 backdrop-blur-sm">
 					<a className="cursor-pointer bg-[var(--highlight)] rounded p-4 py-2 w-30 text-black text-center place-content-center bg-opacity-80 backdrop-blur-sm" href="https://github.com/tom-draper/nginx-analytics">Get Started</a>
-					<a className="cursor-pointer rounded p-4 bg-[var(--card-background)] text-[#ffffffdd] border border-[var(--border-color)] w-30 py-2 text-center place-content-center bg-opacity-80 backdrop-blur-sm" href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
+					<a className="cursor-pointer rounded p-4 text-[#ffffffdd] border border-[var(--border-color)] w-30 py-2 text-center place-content-center bg-opacity-80 backdrop-blur-sm" href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
 				</div>
 			</div>
 		</div>
