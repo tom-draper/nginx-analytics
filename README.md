@@ -1,4 +1,4 @@
-# API Analytics for NGINX
+# API Analytics | NGINX
 
 A modern, flexible and privacy-focused analytics solution for NGINX.
 
@@ -102,20 +102,6 @@ Contributions, issues and feature requests are welcome.
 > NGINX is a registered trademark of F5, Inc. This is an independent project created by Tom Draper.
 
 <br>
-
-> **Disclaimer**
->
-> This project is not affiliated with, sponsored by, or endorsed by F5, Inc. or the official NGINX project.
-> NGINX is a registered trademark of F5, Inc. This is an independent project created by Tom Draper.
-
----
-
-> **Disclaimer**
->
-> This project is not affiliated with, sponsored by, or endorsed by F5, Inc. or the official NGINX project.
-> NGINX is a registered trademark of F5, Inc. This is an independent project created by Tom Draper.
-
----
 
 If you find value in my work, consider supporting me.
 
