@@ -73,7 +73,7 @@ const ErrorRow = ({
     return (
         <>
             <tr
-                className={`cursor-pointer overflow-hidden hover:text-[var(--text)] border-b text-[var(--text-muted)] border-[var(--border-color)] last:border-none ${isExpanded ? 'bg-opacity-10 !text-[var(--text)]' : ''}`}
+                className={`cursor-pointer overflow-hidden hover:text-[var(--text)] transition-colors duration-50 ease-in-out border-b text-[var(--text-muted)] border-[var(--border-color)] last:border-none ${isExpanded ? 'bg-opacity-10 !text-[var(--text)]' : ''}`}
                 onClick={() => setExpandedError(isExpanded ? null : index)}
             >
                 <td className="py-2 px-2 whitespace-nowrap">

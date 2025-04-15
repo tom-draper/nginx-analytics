@@ -132,22 +132,22 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
             <h2 className="font-semibold">
                 Endpoints
             </h2>
-            <div className="absolute flex top-[14px] right-4 text-xs text-[var(--text-muted3)]">
+            <div className="absolute flex top-[14px] right-4 text-xs text-[var(--text-muted3)] transition-colors duration-50 ease-in-out">
                 {(filterPath !== null || filterMethod !== null || filterStatus !== null)  && (
                     <button className="px-[0.5em] text-[var(--text)] cursor-pointer" onClick={clearEndpointFilter}>
                         Clear
                     </button>
                 )}
-                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectSuccessStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [200, 299][i])) ? 'var(--highlight)' : '' }}>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer transition-colors duration-50 ease-in-out" onClick={selectSuccessStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [200, 299][i])) ? 'var(--highlight)' : '' }}>
                     Success
                 </button>
-                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectRedirectStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [300, 399][i])) ? 'var(--info)' : '' }}>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer transition-colors duration-50 ease-in-out" onClick={selectRedirectStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [300, 399][i])) ? 'var(--info)' : '' }}>
                     Redirect
                 </button>
-                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectClientErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [400, 499][i])) ? 'var(--warn)' : '' }}>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer transition-colors duration-50 ease-in-out" onClick={selectClientErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [400, 499][i])) ? 'var(--warn)' : '' }}>
                     Client
                 </button>
-                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer" onClick={selectServerErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [500, 599][i])) ? 'var(--error)' : '' }}>
+                <button className="px-[0.5em] hover:text-[var(--text)] cursor-pointer transition-colors duration-50 ease-in-out" onClick={selectServerErrorStatus} style={{ color: Array.isArray(filterStatus) && filterStatus.some(pair => pair.every((value, i) => value === [500, 599][i])) ? 'var(--error)' : '' }}>
                     Server
                 </button>
             </div>
