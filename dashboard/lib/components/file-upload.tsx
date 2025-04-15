@@ -188,10 +188,10 @@ export default function FileUpload({
 				<div className="p-8 pointer-events-auto">
 					<div className="flex flex-col items-center mb-8">
 						<div className="p-3 mb-4">
-							<img src="logo.svg" alt="Nginx Analytics Logo" className="h-14" />
+							<img src="/lightning-green.svg" alt="" className="h-12" />
 						</div>
 						<h1 className="text-xl font-bold text-gray-800 dark:text-white">
-							Nginx Analytics
+							API Analytics
 						</h1>
 						<p className="mt-2 text-gray-500 dark:text-gray-400 text-center">
 							Upload your Nginx log files
@@ -199,7 +199,7 @@ export default function FileUpload({
 					</div>
 
 					<div
-						className={`border-2 border-dashed rounded p-8 text-center mb-6 transition-colors
+						className={`border-2 border-dashed rounded p-8 text-center mb-8 transition-colors
               ${isDragging
 								? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
 								: "border-gray-300 dark:border-gray-700"
@@ -305,7 +305,7 @@ export default function FileUpload({
 													e.stopPropagation();
 													removeFile(index);
 												}}
-												className="text-[var(--error)] opacity-80 hover:opacity-50 text-xs cursor-pointer"
+												className="opacity-80 text-[#ffffff62] hover:text-[var(--error)] text-xs cursor-pointer"
 											>
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
