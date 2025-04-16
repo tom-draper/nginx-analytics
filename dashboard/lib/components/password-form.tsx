@@ -46,7 +46,7 @@ export default function PasswordForm() {
 						<div className="p-3 mb-4">
 							<img src="logo.svg" alt="Nginx Analytics Logo" className="h-14" />
 						</div>
-						<h1 className="text-xl font-bold text-gray-800 dark:text-white">Nginx Analytics</h1>
+						<h1 className="text-xl font-bold text-gray-800 dark:text-white">API Analytics | NGINX</h1>
 						{/* <p className="mt-2 text-gray-500 dark:text-gray-400 text-center">Please enter your password to access the dashboard</p> */}
 					</div>
 					<form onSubmit={handleSubmit} className="space-y-6">
