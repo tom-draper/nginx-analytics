@@ -37,14 +37,14 @@ export default function TiltedGlobeSingleTarget() {
 	return (
 		<div className="relative w-full bg-[var(--background)]">
 			{/* Fixed navbar */}
-			<nav className="fixed top-0 left-0 right-0 z-50 py-6 px-6 flex text-center font-semibold text-[#3f3f3f] bg-[var(--background)] bg-opacity-80 backdrop-blur-sm" style={{ fontFamily: 'Helvetica, Geist, Helveica, Arial, sans-serif' }}>
+			<nav className="fixed top-0 left-0 right-0 z-50 py-6 px-6 flex text-center font-semibold text-[#3f3f3f] bg-[var(--background)] bg-opacity-80 backdrop-blur-sm">
 				<div>
 					<img src="/logo.svg" alt="Logo" className="h-8" />
 				</div>
 				<div className="mx-4 mr-8 my-auto text-[16px]">API Analytics | NGINX</div>
 				<div className="my-auto ml-auto">
 					<a href="" className="mx-2 text-[14px] hover:text-[var(--text)] transition-colors duration-100 ease-in-out">Home</a>
-					<a href="" className="mx-2 text-[14px] hover:text-[var(--text)] transition-colors duration-100 ease-in-out">About</a>
+					<a href="" className="mx-2 text-[14px] hover:text-[var(--text)] transition-colors duration-100 ease-in-out">Docs</a>
 					<a href="https://github.com/tom-draper/nginx-analytics" className="mx-2 text-sm hover:text-[var(--text)] transition-colors duration-100 ease-in-out">Source</a>
 				</div>
 			</nav>
@@ -73,15 +73,30 @@ export default function TiltedGlobeSingleTarget() {
 				</div>
 
 				{/* Call to action buttons */}
-				<div
+				{/* <div
 					className="absolute bottom-4 w-full grid place-items-center"
-					style={{ opacity: 1 - scrollProgress * 2 }}
+					// style={{ opacity: 1 - scrollProgress * 2, willChange: 'opacity' }}
+					style={{
+						opacity: 1 - scrollProgress * 2,
+					}}
 				>
 					<div className="w-fit rounded p-3 border border-[var(--border-color)] flex gap-3 bg-opacity-80 backdrop-blur-sm">
 						<a className="cursor-pointer bg-[var(--highlight)] rounded p-4 py-2 w-30 text-black text-center place-content-center bg-opacity-80 backdrop-blur-sm" href="https://github.com/tom-draper/nginx-analytics">Get Started</a>
 						<a className="cursor-pointer rounded p-4 text-[#ffffffdd] border border-[var(--border-color)] w-30 py-2 text-center place-content-center bg-opacity-80 backdrop-blur-sm" href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
 					</div>
-				</div>
+				</div> */}
+
+				<div
+  className="absolute bottom-4 w-full grid place-items-center"
+  style={{
+    opacity: 1 - scrollProgress * 2,
+  }}
+>
+  <div className="w-fit rounded p-3 border border-[var(--border-color)] flex gap-3 bg-opacity-80 backdrop-blur-sm" style={{ willChange: 'transform' }}>
+    <a className="cursor-pointer bg-[var(--highlight)] rounded p-4 py-2 w-30 text-black text-center place-content-center bg-opacity-80 backdrop-blur-sm" href="https://github.com/tom-draper/nginx-analytics">Get Started</a>
+    <a className="cursor-pointer rounded p-4 text-[#ffffffdd] border border-[var(--border-color)] w-30 py-2 text-center place-content-center bg-opacity-80 backdrop-blur-sm" href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
+  </div>
+</div>
 			</section>
 
 			{/* Content section start marker */}
@@ -135,6 +150,51 @@ export default function TiltedGlobeSingleTarget() {
 							Comprehensive analytics for your NGINX server, providing real-time insights into API performance, usage patterns, and geographic distribution.
 						</p>
 						{/* More content sections can be added here */}
+					</div>
+
+					<div className='grid grid-cols-2'>
+						<div className='min-w-128 rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
+							Highly Flexible
+
+						</div>
+
+						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
+							Real-Time
+
+						</div>
+
+						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
+							100% Private
+
+						</div>
+
+						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
+							Intuitive
+
+						</div>
+
+						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
+							Log-based
+
+						</div>
+
+						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
+							Customisable
+
+						</div>
+
+						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
+							System Monitoring
+
+						</div>
+
+						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
+							Location Tracking
+
+						</div>
+
+
+
 					</div>
 				</div>
 			</section>
