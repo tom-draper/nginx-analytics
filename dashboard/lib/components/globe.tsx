@@ -23,11 +23,7 @@ import {
   AmbientLight
 } from 'three';
 
-interface GlobeProps {
-  // You can add props here if needed
-}
-
-export default function Globe({ }: GlobeProps) {
+export default function Globe() {
   const globeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {

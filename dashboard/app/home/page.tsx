@@ -125,7 +125,7 @@ export default function TiltedGlobeSingleTarget() {
 /> */}
 
 					<div className="w-4/5 max-w-4xl mt-12 text-center text-white">
-						<h2 className="font-semibold text-3xl">See what others can't.</h2>
+						<h2 className="font-semibold text-3xl">See what others can&apos;t.</h2>
 					</div>
 
 					{/* Add more content here */}
