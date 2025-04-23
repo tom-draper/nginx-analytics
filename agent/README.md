@@ -53,7 +53,7 @@ server {
 }
 ```
 
-Reload Nginx:
+Reload NGINX:
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
@@ -64,7 +64,7 @@ Setup a systemd service `/etc/systemd/system/nginx-analytics-agent.service` to r
 
 ```service
 [Unit]
-Description=NGINXAnalytics Agent
+Description=NGINX Analytics Agent
 After=network.target
 
 [Service]

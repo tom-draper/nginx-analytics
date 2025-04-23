@@ -180,8 +180,8 @@ func getArguments() Arguments {
 	// Define command-line flags
 	cmdAuthToken := flag.String("auth-token", "", "Authentication token (recommended)")
 	cmdPort := flag.String("port", "", fmt.Sprintf("Port to run the server on (default %s)", defaultPort))
-	cmdNginxAccessPath := flag.String("nginx-access-path", "", "Path to the Nginx access log file or parent directory")
-	cmdNginxErrorPath := flag.String("nginx-error-path", "", "Path to the Nginx error log file or parent directory")
+	cmdNginxAccessPath := flag.String("nginx-access-path", "", "Path to the NGINX access log file or parent directory")
+	cmdNginxErrorPath := flag.String("nginx-error-path", "", "Path to the NGINX error log file or parent directory")
 	cmdSystemMonitoring := flag.String("system-monitoring", "", fmt.Sprintf("System resource monitoring toggle (default %t)", defaultSystemMonitoring))
 	flag.Parse()
 
@@ -221,19 +221,19 @@ func getArguments() Arguments {
 	}
 
 	if nginxAccessPath != "" {
-		log.Println("Using Nginx access log path: " + nginxAccessPath)
+		log.Println("Using NGINX access log path: " + nginxAccessPath)
 	} else if nginxErrorPath != "" && isDir(nginxErrorPath) {
-		log.Println("No access log path set. Using Nginx error log path for access log files: " + nginxErrorPath)
+		log.Println("No access log path set. Using NGINX error log path for access log files: " + nginxErrorPath)
 	} else {
-		log.Println("Using default Nginx access log directory: " + defaultNginxPath)
+		log.Println("Using default NGINX access log directory: " + defaultNginxPath)
 	}
 
 	if nginxErrorPath != "" {
-		log.Println("Using Nginx error log path: " + nginxErrorPath)
+		log.Println("Using NGINX error log path: " + nginxErrorPath)
 	} else if nginxAccessPath != "" && isDir(nginxAccessPath) {
-		log.Println("No error log path set. Using Nginx error log path for error log files: " + nginxAccessPath)
+		log.Println("No error log path set. Using NGINX error log path for error log files: " + nginxAccessPath)
 	} else {
-		log.Println("Using default Nginx error log directory: " + defaultNginxPath)
+		log.Println("Using default NGINX error log directory: " + defaultNginxPath)
 	}
 
 	systemMonitoring := defaultSystemMonitoring
