@@ -23,7 +23,7 @@ server {
 }
 ```
 
-Reload Nginx:
+Reload NGINX:
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx

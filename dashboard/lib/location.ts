@@ -3,7 +3,9 @@ import maxmind, { CityResponse, CountryResponse, Reader } from 'maxmind';
 export type Location = {
     ipAddress: string;
     country: string;
-    city: string;
+    city: string | null;
+    latitude: number | null;
+    longitude: number | null;
 }
 
 let cityLookup: Reader<CityResponse> | undefined;
@@ -40,11 +42,14 @@ export async function locationLookup(ipAddress: string) {
     await initializeLookups(); // Ensure DBs are initialized
 
     if (cityLookup) {
-        const response = cityLookup.get(ipAddress);
+        const response = cityLookup.get('89.145.221.177');
+        console.log(response);
         return {
             ipAddress,
             country: response?.country?.iso_code || null,
             city: response?.city?.names?.en || null,
+            latitude: response?.location?.latitude || null,
+            longitude: response?.location?.longitude || null,
         };
     } else if (countryLookup) {
         const response = countryLookup.get(ipAddress);
@@ -52,12 +57,16 @@ export async function locationLookup(ipAddress: string) {
             ipAddress,
             country: response?.country?.iso_code || null,
             city: null,
+            latitude: null,
+            longitude: null,
         };
     } else {
         return {
             ipAddress,
             country: null,
             city: null,
+            latitude: null,
+            longitude: null,
         };
     }
 }

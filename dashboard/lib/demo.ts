@@ -2,7 +2,7 @@ import { Location } from "@/lib/location";
 import { LogFilesSizes, LogFilesSummary, LogSizes, SystemInfo } from "./types";
 
 /**
- * Generates random LogSizes data mimicking Nginx log file structure
+ * Generates random LogSizes data mimicking NGINX log file structure
  * @returns A random LogSizes object
  */
 export function generateRandomLogSizes(): LogSizes {
@@ -437,7 +437,7 @@ interface ErrorLogGeneratorOptions {
 }
 
 /**
- * Generates realistic Nginx error log entries
+ * Generates realistic NGINX error log entries
  * @param options Configuration options for error log generation
  * @returns Array of error log entries as strings
  */
@@ -612,7 +612,7 @@ export function generateNginxErrorLogs(options: ErrorLogGeneratorOptions): strin
 
 
 /**
- * Generates realistic Nginx log entries in either Common Log Format or Extended Log Format
+ * Generates realistic NGINX log entries in either Common Log Format or Extended Log Format
  * with improved distribution patterns and more realistic data
  */
 

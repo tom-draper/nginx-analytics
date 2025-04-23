@@ -27,6 +27,7 @@ import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
 import NetworkBackground from "./network-background";
 import FileUpload from "./file-upload";
+import LiveView from "./live-view";
 
 
 export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, demo: boolean }) {
@@ -286,11 +287,13 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                             <div className="max-xl:!w-full flex-1" style={{ width: 'calc(100vw - 48px - 48px - 416px - 28em)' }}>
                                 <UsageTime data={filteredData} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
+                                <LiveView data={filteredData} locationMap={locationMap} />
                             </div>
                             <div>
                                 <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                             </div>
                         </div>
+
 
                     </div>
                 </div>

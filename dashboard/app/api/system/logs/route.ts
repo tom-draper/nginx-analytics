@@ -40,7 +40,7 @@ export async function GET() {
 
         if (!path) {
             return NextResponse.json(
-                { message: 'Nginx log path not found' },
+                { message: 'NGINX log path not found' },
                 { status: 403 }
             );
         }
@@ -96,7 +96,7 @@ const tryGetLogPath = (nginxPath: string | undefined) => {
             return path.dirname(nginxPath);
         }
     } catch (error) {
-        console.warn(`Could not access Nginx log path: ${error}`);
+        console.warn(`Could not access NGINX log path: ${error}`);
         return null;
     }
 }
