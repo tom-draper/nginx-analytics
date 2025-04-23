@@ -32,7 +32,6 @@ export const exportCSV = (logs: NginxLog[]) => {
     const a = document.createElement('a')
     a.href = url
     const filename = `nginx-analytics-${new Date().toJSON().replace(/[: ._]/g, '-')}.csv`;
-    console.log(filename);
     a.download = filename;
     a.click()
 }

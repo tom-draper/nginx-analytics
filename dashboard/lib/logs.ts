@@ -183,7 +183,11 @@ export function combineLogResults(
 
         // Only track positions for .log files
         if (filePositions[index].filename?.endsWith('.log')) {
-            newPositions.push(filePositions[index]);
+            // Use the position returned from readLogFile instead of the original
+            newPositions.push({
+                filename: filePositions[index].filename,
+                position: result.positions[0]?.position || filePositions[index].position
+            });
         }
     });
 
@@ -193,6 +197,7 @@ export function combineLogResults(
 /**
  * Read from a log file with special handling for error logs with size 0
  */
+
 export async function readLogFile(filePath: string, position: number): Promise<LogResult> {
     try {
         // For gzipped files, use specialized reader
@@ -215,7 +220,6 @@ export async function readLogFile(filePath: string, position: number): Promise<L
             return { logs: [], positions: [{ position }] };
         }
 
-        // Read file using stream
         return new Promise((resolve, reject) => {
             const stream = fs.createReadStream(filePath, {
                 start: position,
@@ -227,13 +231,17 @@ export async function readLogFile(filePath: string, position: number): Promise<L
 
             stream.on('data', (chunk) => {
                 data += chunk;
+
                 const lines = data.split('\n');
+                // Keep the last line in 'data' as it might be incomplete
                 data = lines.pop() || '';
                 newLogs.push(...lines.filter(line => line.trim() !== ''));
             });
 
             stream.on('end', () => {
-                const newPosition = data.length === 0 ? fileSize : fileSize - data.length;
+                // If data is not empty, it's an incomplete line, so set the position
+                // to before this incomplete line
+                const newPosition = fileSize - Buffer.byteLength(data, 'utf8');
                 resolve({ logs: newLogs, positions: [{ position: newPosition }] });
             });
 
@@ -340,7 +348,7 @@ export async function serveRemoteLogs(remoteUrl: string, positions: FilePosition
                     positions: positions, // Maintain original positions since we can't get new ones
                     complete: true // One-time request, avoid fetching for live updates
                 };
-                
+
                 return { data: processedData, status: 200 }
             } catch (error) {
                 console.error("Error fetching remote logs:", error);

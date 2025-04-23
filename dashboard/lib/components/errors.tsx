@@ -192,7 +192,6 @@ export default function Errors({
                 const data = await response.json();
 
                 if (data.logs && data.logs.length > 0) {
-                    console.log('Errors', data)
                     setErrorLogs(prevLogs => [...prevLogs, ...data.logs]);
 
                     if (data.positions) {

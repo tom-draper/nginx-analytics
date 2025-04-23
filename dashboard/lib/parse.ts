@@ -1,5 +1,10 @@
 import { NginxError, NginxLog } from "./types";
 
+function randomIPAddress() {
+    const randomIP = () => Math.floor(Math.random() * 256);
+    return `${randomIP()}.${randomIP()}.${randomIP()}.${randomIP()}`;
+}
+
 export function parseNginxLogs(logs: string[]) {
     const regex = /^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]+)" "([^"]+)"/;
 

@@ -38,12 +38,12 @@ function initializeLookups(): Promise<void> {
     return initializationPromise;
 }
 
+
 export async function locationLookup(ipAddress: string) {
     await initializeLookups(); // Ensure DBs are initialized
 
     if (cityLookup) {
-        const response = cityLookup.get('89.145.221.177');
-        console.log(response);
+        const response = cityLookup.get(ipAddress);
         return {
             ipAddress,
             country: response?.country?.iso_code || null,

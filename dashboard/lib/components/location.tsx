@@ -78,7 +78,7 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
         const fetchData = async () => {
             setLoading(true);
             const ipAddresses = data.map((row) => row.ipAddress);
-            const unknown = ipAddresses.filter((ip) => !locationMap.has(ip));
+            const unknown = [...new Set(ipAddresses.filter((ip) => !locationMap.has(ip)))];
 
             if (unknown.length > 0) {
                 try {
