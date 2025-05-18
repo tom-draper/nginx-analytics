@@ -1,6 +1,6 @@
-# NGINXConfiguration
+# NGINX Configuration
 
-NGINXcan be configured to get more out of your analytics.
+NGINX can be configured to get more out of your analytics.
 
 After making any changes to the log rotate file, you can confirm `logrotate` runs without errors by triggering it manually.
 
@@ -39,7 +39,7 @@ compressoptions -9
 
 ## Better Names
 
-Enabling `dateext` means NGINXwill append a date suffix to rotated log files instead of using `.1`, `.2`, etc.
+Enabling `dateext` means NGINX will append a date suffix to rotated log files instead of using `.1`, `.2`, etc.
 
 ```
 access.log -> access.log-2025-03-31 -> access.log-2025-03-30.gz ...
