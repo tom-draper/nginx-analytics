@@ -10,7 +10,7 @@ sudo logrotate -fv /etc/logrotate.d/nginx
 
 ## More Logs
 
-By default NGINXkeeps retains your log files for 14 days. You can increase this number in `/etc/logrotate.d/nginx`.
+By default NGINX keeps retains your log files for 14 days. You can increase this number in `/etc/logrotate.d/nginx`.
 
 ```nginx
 /var/log/nginx/*.log {
