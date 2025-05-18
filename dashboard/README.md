@@ -1,4 +1,4 @@
-# NGINXAnalytics Dashboard
+# NGINX Analytics Dashboard
 
 ## Deployment Guide
 
@@ -33,7 +33,7 @@ In a `.env` file, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory co
 NGINX_ANALYTICS_ACCESS_PATH=/path/to/nginx/access/logs
 ```
 
-You may need to update your NGINXconfiguration to make the app publically accessible.
+You may need to update your NGINX configuration to make the app publically accessible.
 
 ```nginx
 server {
@@ -63,7 +63,7 @@ server {
 }
 ```
 
-If you wish to serve the dashboard on a specific path e.g. `https://yourdomain.com/analytics`, remember to update `next.config.js` with the `basePath` as well as your NGINXconfig.
+If you wish to serve the dashboard on a specific path e.g. `https://yourdomain.com/analytics`, remember to update `next.config.js` with the `basePath` as well as your NGINX config.
 
 ```js
 const nextConfig = {
