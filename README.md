@@ -20,17 +20,17 @@ Follow the <a href="./dashboard/README.md">dashboard deployment guide</a>.
 
 #### Option 2: Dashboard + Agent
 
-Deploy the lightweight agent to your server to securely expose your log files to the dashboard, and stream log file content and changes in real-time. Deploy the Next.js dashboard anywhere. 
+> Best if server resources are tight, or log files are large.
 
-Best if server resources are tight, or log files are large.
+Deploy the lightweight agent to your server to securely expose your log files to the dashboard, and stream log file content and changes in real-time. Deploy the Next.js dashboard anywhere. 
 
 Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
 #### Option 3: Dashboard + NGINX
 
-Update your existing NGINX configuration to serve your log files as restricted static files. Deploy the Next.js dashboard anywhere.
+> Limited functionality; best if you want to avoid further deployments to your server.
 
-Limited functionality; best if you want to avoid further deployments to your server.
+Update your existing NGINX configuration to serve your log files as restricted static files. Deploy the Next.js dashboard anywhere.
 
 Follow the <a href="./dashboard/nginx/README.md">NGINX configuration guide</a>.
 
