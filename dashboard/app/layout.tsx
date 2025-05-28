@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "API Analytics | NGINX",
+	title: "NGINX Analytics",
 	description: "A modern, flexible and privacy-focused analytics solution for NGINX."
 };
 

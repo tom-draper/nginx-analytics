@@ -191,7 +191,7 @@ export default function FileUpload({
 							<img src="/logo.svg" alt="" className="h-14" />
 						</div>
 						<h1 className="text-xl font-bold text-gray-800 dark:text-white">
-							API Analytics | NGINX
+							NGINX Analytics
 						</h1>
 						<p className="mt-2 text-gray-500 dark:text-gray-400 text-center">
 							Upload your Nginx log files

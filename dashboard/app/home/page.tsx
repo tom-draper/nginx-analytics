@@ -41,7 +41,7 @@ export default function TiltedGlobeSingleTarget() {
 				<div>
 					<img src="/logo.svg" alt="Logo" className="h-8" />
 				</div>
-				<div className="mx-4 mr-8 my-auto text-[16px]">API Analytics | NGINX</div>
+				<div className="mx-4 mr-8 my-auto text-[16px]">NGINX Analytics</div>
 				<div className="my-auto ml-auto">
 					<a href="" className="mx-2 text-[14px] hover:text-[var(--text)] transition-colors duration-100 ease-in-out">Home</a>
 					<a href="" className="mx-2 text-[14px] hover:text-[var(--text)] transition-colors duration-100 ease-in-out">Docs</a>
