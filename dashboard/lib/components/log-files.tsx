@@ -39,7 +39,7 @@ export function LogFiles({ logSizes, loading }: { logSizes: LogSizes | null, loa
                         <div
                             key={index}
                             className="h-full"
-                            title={file.name}
+                            title={`${file.name}\n${formatBytes(file.size, 1)}`}
                             style={{
                                 width: `${(file.size / logSizes.summary.totalSize) * 100}%`,
                                 backgroundColor: colors[index]
