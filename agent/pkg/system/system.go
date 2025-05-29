@@ -1,10 +1,7 @@
-package routes
+package system
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -16,32 +13,28 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
-// SystemInfo represents system information
 type SystemInfo struct {
-	Uptime    int64     `json:"uptime"`
-	Timestamp string    `json:"timestamp"`
-	CPU       CPUInfo   `json:"cpu"`
-	Memory    MemInfo   `json:"memory"`
+	Uptime    int64      `json:"uptime"`
+	Timestamp string     `json:"timestamp"`
+	CPU       CPUInfo    `json:"cpu"`
+	Memory    MemoryInfo `json:"memory"`
 	Disk      []DiskInfo `json:"disk"`
 }
 
-// CPUInfo represents CPU information
 type CPUInfo struct {
-	Model  string  `json:"model"`
-	Cores  int     `json:"cores"`
-	Speed  float64 `json:"speed"`
-	Usage  float64 `json:"usage"`
+	Model string  `json:"model"`
+	Cores int     `json:"cores"`
+	Speed float64 `json:"speed"`
+	Usage float64 `json:"usage"`
 }
 
-// MemInfo represents memory information
-type MemInfo struct {
+type MemoryInfo struct {
 	Free      uint64 `json:"free"`
 	Available uint64 `json:"available"`
 	Used      uint64 `json:"used"`
 	Total     uint64 `json:"total"`
 }
 
-// DiskInfo represents disk information
 type DiskInfo struct {
 	Filesystem string `json:"filesystem"`
 	Size       uint64 `json:"size"`
@@ -49,26 +42,7 @@ type DiskInfo struct {
 	MountedOn  string `json:"mountedOn"`
 }
 
-func ServeSystemResources(w http.ResponseWriter) {
-	systemInfo, err := collectSystemInfo()
-	if err != nil {
-		log.Printf("Error collecting system info: %v", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Failed to collect system information",
-		})
-		return
-	}
-	
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(systemInfo)
-}
-
-// collectSystemInfo gathers all system information
-func collectSystemInfo() (SystemInfo, error) {
+func MeasureSystem() (SystemInfo, error) {
 	uptime, err := getUptime()
 	if err != nil {
 		return SystemInfo{}, err
@@ -98,7 +72,6 @@ func collectSystemInfo() (SystemInfo, error) {
 	}, nil
 }
 
-// getUptime retrieves system uptime in seconds
 func getUptime() (int64, error) {
 	if runtime.GOOS == "windows" {
 		// For Windows, parse the output of systeminfo command
@@ -107,7 +80,7 @@ func getUptime() (int64, error) {
 		if err != nil {
 			return 0, err
 		}
-		
+
 		lines := strings.Split(string(output), "\n")
 		for _, line := range lines {
 			if strings.Contains(line, "System Boot Time") {
@@ -122,7 +95,7 @@ func getUptime() (int64, error) {
 		}
 		return 0, fmt.Errorf("could not determine system uptime")
 	}
-	
+
 	// For Linux and macOS
 	cmd := exec.Command("cat", "/proc/uptime")
 	output, err := cmd.Output()
@@ -134,7 +107,7 @@ func getUptime() (int64, error) {
 			if err != nil {
 				return 0, err
 			}
-			
+
 			// Parse the output to get boot time
 			// Format is typically: { sec = 1234567890, usec = 123456 } Thu Jan 1 00:00:00 2000
 			parts := strings.Split(string(output), "sec = ")
@@ -147,63 +120,61 @@ func getUptime() (int64, error) {
 			if err != nil {
 				return 0, err
 			}
-			
+
 			currentTime := time.Now().Unix()
 			return currentTime - bootTime, nil
 		}
 		return 0, err
 	}
-	
+
 	uptimeStr := strings.Split(string(output), " ")[0]
 	uptimeFloat, err := strconv.ParseFloat(uptimeStr, 64)
 	if err != nil {
 		return 0, err
 	}
-	
+
 	return int64(uptimeFloat), nil
 }
 
-// getCPUInfo retrieves CPU information
 func getCPUInfo() (CPUInfo, error) {
 	cpuUsage, err := cpu.Percent(100*time.Millisecond, false)
 	if err != nil {
 		return CPUInfo{}, err
 	}
-	
+
 	cpuInfo, err := cpu.Info()
 	if err != nil {
 		return CPUInfo{}, err
 	}
-	
+
 	if len(cpuInfo) == 0 {
 		return CPUInfo{}, fmt.Errorf("no CPU info available")
 	}
-	
+
 	model := cpuInfo[0].ModelName
 	cores := len(cpuInfo)
 	speed := cpuInfo[0].Mhz
-	
+
 	var usage float64
 	if len(cpuUsage) > 0 {
 		usage = cpuUsage[0]
 	}
-	
+
 	return CPUInfo{
-		Model:  model,
-		Cores:  cores,
-		Speed:  speed,
-		Usage:  parseFloat(usage, 1),
+		Model: model,
+		Cores: cores,
+		Speed: speed,
+		Usage: parseFloat(usage, 1),
 	}, nil
 }
 
-// getMemoryInfo retrieves memory information
-func getMemoryInfo() (MemInfo, error) {
+func getMemoryInfo() (MemoryInfo, error) {
 	vmStat, err := mem.VirtualMemory()
 	if err != nil {
-		return MemInfo{}, err
+		return MemoryInfo{}, err
 	}
-	
-	return MemInfo{
+
+	return MemoryInfo{
 		Free:      vmStat.Free,
 		Available: vmStat.Available,
 		Used:      vmStat.Used,
@@ -211,21 +182,20 @@ func getMemoryInfo() (MemInfo, error) {
 	}, nil
 }
 
-// getDiskInfo retrieves disk information
 func getDiskInfo() ([]DiskInfo, error) {
 	var disks []DiskInfo
-	
+
 	partitions, err := disk.Partitions(false)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for _, partition := range partitions {
 		usage, err := disk.Usage(partition.Mountpoint)
 		if err != nil {
 			continue // Skip this partition if there's an error
 		}
-		
+
 		disks = append(disks, DiskInfo{
 			Filesystem: partition.Device,
 			Size:       usage.Total,
@@ -233,11 +203,10 @@ func getDiskInfo() ([]DiskInfo, error) {
 			MountedOn:  partition.Mountpoint,
 		})
 	}
-	
+
 	return disks, nil
 }
 
-// parseFloat parses a float and rounds to specified decimal places
 func parseFloat(val float64, precision int) float64 {
 	format := fmt.Sprintf("%%.%df", precision)
 	formatted := fmt.Sprintf(format, val)

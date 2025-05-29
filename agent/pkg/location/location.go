@@ -1,11 +1,8 @@
-package routes
+package location
 
 import (
-	"encoding/json"
-	"io"
 	"log"
 	"net"
-	"net/http"
 	"sync"
 
 	"github.com/oschwald/geoip2-golang"
@@ -25,43 +22,6 @@ var (
 	initErr       error
 	initDone      = make(chan struct{})
 )
-
-func ServeLocations(w http.ResponseWriter, r *http.Request) {
-	log.Println("Serving locations...")
-
-	// Ensure request body is closed after reading
-	defer r.Body.Close()
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Println("Failed to read request body:", err)
-		http.Error(w, "Failed to read request body", http.StatusBadRequest)
-		return
-	}
-
-	var ipAddresses []string
-	if err := json.Unmarshal(body, &ipAddresses); err != nil {
-		log.Println("Failed to parse request body:", err)
-		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
-		return
-	}
-
-	var locations []*Location
-	if len(ipAddresses) > 0 {
-		log.Printf("Resolving %d locations\n", len(ipAddresses))
-		locations, err = GetLocations(ipAddresses)
-		if err != nil {
-			log.Println("Failed to get locations:", err)
-			http.Error(w, "Failed to get locations", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	// Set header before writing response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(locations)
-}
 
 func LocationsEnabled() bool {
 	err := InitializeLookups()
@@ -147,7 +107,7 @@ func LocationLookup(ipAddress string) (*Location, error) {
 }
 
 // GetLocations performs geolocation lookups for multiple IP addresses
-func GetLocations(ipAddresses []string) ([]*Location, error) {
+func ResolveLocations(ipAddresses []string) ([]*Location, error) {
 	// Ensure databases are initialized
 	if err := InitializeLookups(); err != nil && cityReader == nil && countryReader == nil {
 		// Return empty locations if neither database is available

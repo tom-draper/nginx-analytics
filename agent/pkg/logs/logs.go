@@ -1,12 +1,10 @@
-package routes
+package logs
 
 import (
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,36 +23,35 @@ type LogResult struct {
 }
 
 // ServeLogs handles requests for logs, supporting multiple files and positions
-func ServeLogs(w http.ResponseWriter, r *http.Request, path string, positions []Position, isErrorLog bool, includeCompressed bool) {
-	w.Header().Set("Content-Type", "application/json")
-
+func GetLogs(path string, positions []Position, isErrorLog bool, includeCompressed bool) (LogResult, error) {
 	// Check if we're serving a directory or a single file
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Path error: %v", err), http.StatusInternalServerError)
-		return
+		return LogResult{}, fmt.Errorf("path error: %w", err)
 	}
 
+	var result LogResult
 	if fileInfo.IsDir() {
 		// Serve logs from directory
-		serveDirectoryLogs(w, path, positions, isErrorLog, includeCompressed)
+		result, err = GetDirectoryLogs(path, positions, isErrorLog, includeCompressed)
 	} else {
 		// Serve a single log file
 		singlePos := int64(0)
 		if len(positions) > 0 {
 			singlePos = positions[0].Position
 		}
-		serveLog(w, path, singlePos)
+		result, err = GetLog(path, singlePos)
 	}
+
+	return result, err
 }
 
 // serveSingleLog serves logs from a single file
-func serveLog(w http.ResponseWriter, filePath string, position int64) {
+func GetLog(filePath string, position int64) (LogResult, error) {
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		log.Println("File not found")
-		respondWithError(w, "File not found", http.StatusNotFound)
-		return
+		return LogResult{}, fmt.Errorf("file not found: %s", filePath)
 	}
 
 	var result LogResult
@@ -62,21 +59,22 @@ func serveLog(w http.ResponseWriter, filePath string, position int64) {
 
 	// Handle different file types
 	if strings.HasSuffix(filePath, ".gz") {
-		result, err = readGzippedLogFile(filePath)
+		result, err = readCompressedLogFile(filePath)
+		if err != nil {
+			return LogResult{}, fmt.Errorf("error reading compressed log file: %w", err)
+		}
 	} else {
-		result, err = readNormalLogFile(filePath, position)
+		result, err = readLogFile(filePath, position)
+		if err != nil {
+			return LogResult{}, fmt.Errorf("error reading log file: %w", err)
+		}
 	}
 
-	if err != nil {
-		respondWithError(w, fmt.Sprintf("Error reading log file: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	respondWithJSON(w, result)
+	return result, nil
 }
 
-// readNormalLogFile reads content from a normal log file starting at the given position
-func readNormalLogFile(filePath string, position int64) (LogResult, error) {
+// readLogFile reads content from a normal log file starting at the given position
+func readLogFile(filePath string, position int64) (LogResult, error) {
 	// Get file info
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
@@ -112,7 +110,6 @@ func readNormalLogFile(filePath string, position int64) (LogResult, error) {
 	var logs []string
 	var buffer strings.Builder
 	buf := make([]byte, 4096)
-	// var lastChar byte
 
 	for {
 		n, err := file.Read(buf)
@@ -135,7 +132,6 @@ func readNormalLogFile(filePath string, position int64) (LogResult, error) {
 			} else {
 				buffer.WriteByte(c)
 			}
-			// lastChar = c
 		}
 	}
 
@@ -147,7 +143,10 @@ func readNormalLogFile(filePath string, position int64) (LogResult, error) {
 
 	newPosition := fileSize
 
-	return LogResult{Logs: logs, Positions: []Position{{Position: newPosition}}}, nil
+	return LogResult{
+		Logs: logs, 
+		Positions: []Position{{Position: newPosition}},
+	}, nil
 }
 
 // readErrorLogDirectly handles special case for error logs that report size 0 but contain data
@@ -178,13 +177,13 @@ func readErrorLogDirectly(filePath string, position int64) (LogResult, error) {
 	}
 
 	return LogResult{
-		Logs:     lines,
+		Logs:      lines,
 		Positions: []Position{{Position: int64(len(strContent))}},
 	}, nil
 }
 
-// readGzippedLogFile reads and decompresses a gzipped log file
-func readGzippedLogFile(filePath string) (LogResult, error) {
+// readCompressedLogFile reads and decompresses a gzipped log file
+func readCompressedLogFile(filePath string) (LogResult, error) {
 	// Open file
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -214,18 +213,17 @@ func readGzippedLogFile(filePath string) (LogResult, error) {
 	}
 
 	return LogResult{
-		Logs:     logs,
+		Logs:      logs,
 		Positions: []Position{{Position: 0}}, // Always return 0 as position for gzipped files
 	}, nil
 }
 
 // serveDirectoryLogs serves logs from a directory containing multiple log files
-func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Position, isErrorLog bool, includeCompressed bool) {
+func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, includeCompressed bool) (LogResult, error) {
 	// Read directory entries
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		respondWithError(w, fmt.Sprintf("Failed to read directory: %v", err), http.StatusInternalServerError)
-		return
+		return LogResult{}, fmt.Errorf("failed to read directory: %w", err)
 	}
 
 	// Filter log files
@@ -253,8 +251,7 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 	}
 
 	if len(logFiles) == 0 {
-		respondWithJSON(w, LogResult{Logs: []string{}})
-		return
+		return LogResult{Logs: []string{}}, nil
 	}
 
 	// Initialize file positions
@@ -277,9 +274,9 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 		var err error
 
 		if isGzFile {
-			result, err = readGzippedLogFile(fullPath)
+			result, err = readCompressedLogFile(fullPath)
 		} else {
-			result, err = readNormalLogFile(fullPath, filePos.Position)
+			result, err = readLogFile(fullPath, filePos.Position)
 		}
 
 		if err != nil {
@@ -310,10 +307,10 @@ func serveDirectoryLogs(w http.ResponseWriter, dirPath string, positions []Posit
 	}
 
 	// Respond with combined results
-	respondWithJSON(w, LogResult{
+	return LogResult{
 		Logs:      allLogs,
 		Positions: newPositions,
-	})
+	}, nil
 }
 
 // initializeFilePositions initializes positions for each log file
@@ -343,69 +340,3 @@ func initializeFilePositions(logFiles []string, positions []Position) []Position
 
 	return filePositions
 }
-
-// respondWithJSON sends a JSON response
-func respondWithJSON(w http.ResponseWriter, data interface{}) {
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Write(jsonData)
-}
-
-// respondWithError sends an error response
-func respondWithError(w http.ResponseWriter, message string, status int) {
-	errorResp := map[string]string{"error": message}
-	jsonData, _ := json.Marshal(errorResp)
-	w.WriteHeader(status)
-	w.Write(jsonData)
-}
-
-// func ServeLog(w http.ResponseWriter, r *http.Request, filePath string) {
-// 	serveLog(w, r, filePath)
-// }
-
-// func ServeErrorLog(w http.ResponseWriter, r *http.Request, filePath string) {
-// 	serveLog(w, r, filePath)
-// }
-
-// ServeLog handles requests for logs from a single file
-// func serveLog(w http.ResponseWriter, r *http.Request, filePath string) {
-// 	// Set JSON content type
-// 	w.Header().Set("Content-Type", "application/json")
-
-// 	// Get position from the query parameters
-// 	var position int64 = 0
-// 	posStr := r.URL.Query().Get("position")
-// 	if posStr != "" {
-// 		pos, err := strconv.ParseInt(posStr, 10, 64)
-// 		if err == nil {
-// 			position = pos
-// 		}
-// 	}
-
-// 	// Check if file exists
-// 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-// 		respondWithError(w, fmt.Sprintf("File not found: %s", filePath), http.StatusNotFound)
-// 		return
-// 	}
-
-// 	var result LogResult
-// 	var err error
-
-// 	// Handle different file types
-// 	if strings.HasSuffix(filePath, ".gz") {
-// 		result, err = readGzippedLogFile(filePath)
-// 	} else {
-// 		result, err = readNormalLogFile(filePath, position)
-// 	}
-
-// 	if err != nil {
-// 		respondWithError(w, fmt.Sprintf("Error reading log file: %v", err), http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	// Respond with results
-// 	respondWithJSON(w, result)
-// }

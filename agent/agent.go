@@ -13,7 +13,8 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/tom-draper/nginx-analytics/agent/routes"
+	"github.com/tom-draper/nginx-analytics/agent/internal/routes"
+	logs "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 )
 
 const defaultPort string = "5000"
@@ -60,7 +61,7 @@ func main() {
 		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
 
 		positionsStr := r.URL.Query().Get("positions")
-		var positions []routes.Position
+		var positions []logs.Position
 		if positionsStr != "" {
 			if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
 				http.Error(w, fmt.Sprintf("Failed to parse positions: %v", err), http.StatusBadRequest)
@@ -81,7 +82,7 @@ func main() {
 		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
 
 		positionsStr := r.URL.Query().Get("positions")
-		var positions []routes.Position
+		var positions []logs.Position
 		if positionsStr != "" {
 			if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
 				http.Error(w, fmt.Sprintf("Failed to parse positions: %v", err), http.StatusBadRequest)
@@ -109,9 +110,9 @@ func main() {
 		if args.nginxAccessPath != "" {
 			routes.ServeLogSize(w, r, args.nginxAccessPath)
 		} else if args.nginxErrorPath != "" {
-			routes.ServeLogsSize(w, r, args.nginxErrorPath)
+			routes.ServeLogSizes(w, r, args.nginxErrorPath)
 		} else {
-			routes.ServeLogsSize(w, r, defaultNginxPath)
+			routes.ServeLogSizes(w, r, defaultNginxPath)
 		}
 	})
 
