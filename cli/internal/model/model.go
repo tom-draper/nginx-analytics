@@ -1,22 +1,14 @@
 package model
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/guptarohit/asciigraph"
 
 	"github.com/tom-draper/nginx-analytics/cli/internal/data"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui"
 )
-
-var TitleStyle = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(lipgloss.Color("205"))
 
 // Model represents the application state
 type Model struct {
@@ -88,20 +80,15 @@ func (m Model) View() string {
 		return "Initializing..."
 	}
 
-	var s strings.Builder
 	card := m.Cards[m.ActiveCard]
-
-	graph := asciigraph.Plot(
-		card.Data,
-		asciigraph.Width(40),
-		asciigraph.Height(10),
-		asciigraph.Caption(fmt.Sprintf("Last %d points", len(card.Data))),
-	)
-
-	s.WriteString(TitleStyle.Render(card.Title) + "\n\n")
-	s.WriteString(graph)
-	s.WriteString(fmt.Sprintf("\nCurrent: %.2f | Min: %.2f | Max: %.2f",
-		card.GetLatestValue(), card.GetMin(), card.GetMax()))
-
-	return s.String()
+	
+	// Render compact card for top-left corner
+	cardView := card.RenderCompact(true)
+	
+	// Add some navigation help at the bottom
+	help := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Render("\n\n← → Navigate cards | ↑ ↓ Adjust values | q Quit")
+	
+	return cardView + help
 }
