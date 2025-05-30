@@ -29,7 +29,7 @@ type Model struct {
 	Config      config.Config
 	Grid        *dashboard.DashboardGrid
 	Help        help.Model
-	Keys        ui.KeyMap
+	Keys        keymap.KeyMap
 	Width       int
 	Height      int
 	Initialized bool
