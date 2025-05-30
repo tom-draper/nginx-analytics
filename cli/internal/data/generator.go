@@ -35,9 +35,3 @@ func GenerateSampleData(n int, min, max float64) []float64 {
 	
 	return data
 }
-
-// You could add more data generators here:
-// - LoadDataFromCSV
-// - FetchDataFromAPI
-// - GenerateHistoricalData
-// etc.
