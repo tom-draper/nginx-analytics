@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	// "fmt"
 	"log"
 	"os"
 
@@ -9,8 +9,8 @@ import (
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
 	"github.com/tom-draper/nginx-analytics/cli/internal/model"
-	grid "github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
-	cards "github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
+	// grid "github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
+	// cards "github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
 )
 
 func main() {
@@ -31,31 +31,31 @@ func main() {
 }
 
 // If you want to create cards programmatically elsewhere:
-func createCustomDashboard() {
-	// Create individual card renderers
-	successRenderer := cards.NewSuccessRateCard(850, 900) // 94.4% success
-	requestRenderer := cards.NewRequestsCard(50000, 23.5) // 50K requests, 23.5/s
-	userRenderer := cards.NewUsersCard(432, 5600)         // 432 active users
+// func createCustomDashboard() {
+// 	// Create individual card renderers
+// 	successRenderer := cards.NewSuccessRateCard(850, 900) // 94.4% success
+// 	requestRenderer := cards.NewRequestsCard(50000, 23.5) // 50K requests, 23.5/s
+// 	userRenderer := cards.NewUsersCard(432, 5600)         // 432 active users
 
-	// Create base cards
-	successCard := cards.NewBaseCard("API Success", successRenderer)
-	requestCard := cards.NewBaseCard("Total Reqs", requestRenderer)
-	userCard := cards.NewBaseCard("Online", userRenderer)
-	placeholderCard := cards.NewBaseCard("Status", cards.NewPlaceholderCard("All Good"))
+// 	// Create base cards
+// 	successCard := cards.NewCard("API Success", successRenderer)
+// 	requestCard := cards.NewCard("Total Reqs", requestRenderer)
+// 	userCard := cards.NewCard("Online", userRenderer)
+// 	placeholderCard := cards.NewCard("Status", cards.NewPlaceholderCard("All Good"))
 
-	// Set compact sizes
-	for _, card := range []*cards.BaseCard{successCard, requestCard, userCard, placeholderCard} {
-		card.SetSize(18, 5) // Even smaller if needed
-	}
+// 	// Set compact sizes
+// 	for _, card := range []*cards.Card{successCard, requestCard, userCard, placeholderCard} {
+// 		card.SetSize(18, 5) // Even smaller if needed
+// 	}
 
-	// Create grid and add cards
-	grid := grid.NewDashboardGrid(2, 2)
-	grid.AddCard(placeholderCard) // Top-left
-	grid.AddCard(successCard)     // Top-right
-	grid.AddCard(requestCard)     // Bottom-left
-	grid.AddCard(userCard)        // Bottom-right
+// 	// Create grid and add cards
+// 	grid := grid.NewDashboardGrid(2, 2)
+// 	grid.AddCard(placeholderCard) // Top-left
+// 	grid.AddCard(successCard)     // Top-right
+// 	grid.AddCard(requestCard)     // Bottom-left
+// 	grid.AddCard(userCard)        // Bottom-right
 
-	// Render the dashboard
-	dashboard := grid.RenderGrid()
-	fmt.Println(dashboard)
-}
+// 	// Render the dashboard
+// 	dashboard := grid.RenderGrid()
+// 	fmt.Println(dashboard)
+// }
