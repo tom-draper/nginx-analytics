@@ -65,6 +65,10 @@ func New(cfg config.Config) Model {
 	sidebarContentCard := cards.NewCard("Activity", cards.NewPlaceholderCard("")) // Assuming cards.NewCard exists
 	grid.AddSidebarCard(sidebarContentCard)
 
+	grid.AddMiddleCard(cards.NewCard("Endpoints", cards.NewPlaceholderCard("")))
+	grid.AddBottomCard(cards.NewCard("Location", cards.NewPlaceholderCard(""))) // Add success card to bottom
+	grid.AddBottomCard(cards.NewCard("Device", cards.NewPlaceholderCard(""))) // Add requests card to bottom
+
 	// Set first card as active
 	grid.SetActiveCard(0)
 
