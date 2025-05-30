@@ -1,4 +1,4 @@
-package ui
+package styles
 
 import (
 	"github.com/charmbracelet/lipgloss"
@@ -6,7 +6,6 @@ import (
 
 var (
 	// Colors
-	BorderColor    = lipgloss.Color("63")
 	HighlightColor = lipgloss.Color("170")
 	
 	// Card styles
