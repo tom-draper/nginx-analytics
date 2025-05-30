@@ -29,7 +29,7 @@ type Model struct {
 	Config      config.Config
 	Grid        *dashboard.DashboardGrid
 	Help        help.Model
-	Keys        keymap.KeyMap
+	Keys        ui.KeyMap
 	Width       int
 	Height      int
 	Initialized bool
@@ -163,6 +163,9 @@ func New(cfg config.Config) Model {
 	grid.AddSidebarSubGridCard(allCards[9])
 	grid.AddSidebarSubGridCard(allCards[10])
 	grid.AddSidebarSubGridCard(allCards[11])
+
+	sidebarContentCard := cards.NewCard("Activity", cards.NewPlaceholderCard("")) // Assuming cards.NewCard exists
+	grid.AddSidebarCard(sidebarContentCard)
 
 	// Set first card as active
 	grid.SetActiveCard(0)
