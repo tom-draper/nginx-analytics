@@ -2,24 +2,28 @@ package model
 
 import (
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/term"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
-	cards "github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
-	grid "github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
-	keymap "github.com/tom-draper/nginx-analytics/cli/internal/ui"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
 // Model represents the application state
 type Model struct {
 	Config      config.Config
-	Grid        *grid.DashboardGrid
+	Grid        *dashboard.DashboardGrid
 	Help        help.Model
-	Keys        keymap.KeyMap
+	Keys        ui.KeyMap
 	Width       int
 	Height      int
 	Initialized bool
@@ -38,24 +42,28 @@ func New(cfg config.Config) Model {
 	usersCard := cards.NewUsersCard(1250, 15600)             // 1.25K active of 15.6K total
 
 	// Create base cards with renderers
-	placeholderCard := cards.NewBaseCard("Dashboard", cards.NewPlaceholderCard("Analytics"))
-	successCard := cards.NewBaseCard("Success Rate", successRateCard)
-	requestCard := cards.NewBaseCard("Requests", requestsCard)
-	userCard := cards.NewBaseCard("Users", usersCard)
+	placeholderCard := cards.NewCard("", cards.NewLogoCard())
+	successCard := cards.NewCard("Success Rate", successRateCard)
+	requestCard := cards.NewCard("Requests", requestsCard)
+	userCard := cards.NewCard("Users", usersCard)
 
 	// Set small sizes for compact display
-	cardWidth, cardHeight := 20, 6
+	cardWidth, cardHeight := 18, 4
 	placeholderCard.SetSize(cardWidth, cardHeight)
 	successCard.SetSize(cardWidth, cardHeight)
 	requestCard.SetSize(cardWidth, cardHeight)
 	userCard.SetSize(cardWidth, cardHeight)
 
 	// Create grid (2x2 for top-left placement)
-	grid := grid.NewDashboardGrid(2, 2)
+	termWidth, _, _ := term.GetSize(os.Stdout.Fd())
+	grid := dashboard.NewDashboardGrid(2, 2, termWidth)
 	grid.AddCard(placeholderCard)
 	grid.AddCard(successCard)
 	grid.AddCard(requestCard)
 	grid.AddCard(userCard)
+
+	sidebarContentCard := cards.NewCard("Activity", cards.NewPlaceholderCard("")) // Assuming cards.NewCard exists
+	grid.AddSidebarCard(sidebarContentCard)
 
 	// Set first card as active
 	grid.SetActiveCard(0)
@@ -64,7 +72,7 @@ func New(cfg config.Config) Model {
 		Config:          cfg,
 		Grid:            grid,
 		Help:            help.New(),
-		Keys:            keymap.NewKeyMap(),
+		Keys:            ui.NewKeyMap(),
 		Initialized:     false,
 		successRateCard: successRateCard,
 		requestsCard:    requestsCard,
@@ -122,37 +130,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Height = msg.Height
 		m.Width = msg.Width
 		m.Initialized = true
+		m.Grid.SetTerminalWidth(msg.Width)
 	}
 
 	return m, nil
 }
 
 func (m *Model) updateCardData() {
-	// Simulate data changes
-	rand.Seed(time.Now().UnixNano())
-
 	// Update success rate (fluctuate around 95%)
 	successful := 9500 + rand.Intn(500)
 	total := 10000 + rand.Intn(200)
 	m.successRateCard.Update(successful, total)
 
 	// Update requests (simulate traffic changes)
-	currentRequests := m.requestsCard.Count + rand.Intn(200) - 100
-	if currentRequests < 0 {
-		currentRequests = 0
-	}
+	currentRequests := max(m.requestsCard.Count + rand.Intn(200) - 100, 0)
 	rate := 35.0 + rand.Float64()*20.0 // 35-55 req/s
 	m.requestsCard.Update(currentRequests, rate)
 
 	// Update users (gradual changes)
 	activeChange := rand.Intn(20) - 10
-	newActive := m.usersCard.ActiveUsers + activeChange
-	if newActive < 0 {
-		newActive = 0
-	}
-	if newActive > m.usersCard.TotalUsers {
-		newActive = m.usersCard.TotalUsers
-	}
+	newActive := min(max(m.usersCard.ActiveUsers+activeChange, 0), m.usersCard.TotalUsers)
 	m.usersCard.Update(newActive, m.usersCard.TotalUsers)
 }
 
@@ -165,11 +162,22 @@ func (m Model) View() string {
 	gridView := m.Grid.RenderGrid()
 
 	// Add some navigation help at the bottom
-	help := "\n\n" +
-		"Navigation: ← → ↑ ↓  |  Quit: q\n" +
-		"Data updates every 2 seconds"
+	help := "\n\n← → ↑ ↓    [q] quit "
 
-	return gridView + help
+	// Create a lipgloss style for faint white color
+
+	// faintWhiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("238")) // A common faint white/light gray
+
+	// Render the help text right-aligned at the bottom
+	// We need to calculate padding based on the current terminal width
+	// The gridView already takes up space, so we want the help to be below it.
+	// We'll calculate the horizontal padding for right alignment based on m.Width.
+	// Since the help is below the grid, we use m.Width for alignment.
+	helpLine := lipgloss.NewStyle().
+		Width(m.Width).
+		Align(lipgloss.Right).Foreground(styles.BorderColor).Render(help)
+
+	return gridView + helpLine
 }
 
 // Alternative view for just the top-left placement
