@@ -13,6 +13,7 @@ type Env struct {
 	ErrorPath        string
 	SystemMonitoring bool
 	AuthToken        string
+	LogFormat        string
 }
 
 func LoadEnv() Env {
@@ -21,13 +22,12 @@ func LoadEnv() Env {
 		log.Println("No .env file found, using system environment variables")
 	}
 
-	env := Env{
-		Port: os.Getenv("PORT"),
+	return Env{
+		Port:             os.Getenv("PORT"),
 		AccessPath:       os.Getenv("NGINX_ANALYTICS_ACCESS_PATH"),
 		ErrorPath:        os.Getenv("NGINX_ANALYTICS_ERROR_PATH"),
 		SystemMonitoring: os.Getenv("NGINX_ANALYTICS_SYSTEM_MONITORING") == "true",
 		AuthToken:        os.Getenv("NGINX_ANALYTICS_AUTH_TOKEN"),
+		LogFormat:        os.Getenv("NGINX_ANALYTICS_LOG_FORMAT"),
 	}
-
-	return env
 }

@@ -11,23 +11,21 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
 	"github.com/tom-draper/nginx-analytics/agent/internal/routes"
-	cfg "github.com/tom-draper/nginx-analytics/agent/internal/config"
-	logs "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 )
-
-
 
 var startTime = time.Now()
 
 func main() {
-	config := cfg.LoadConfig()
+	cfg := config.LoadConfig()
+	logConfig(cfg)
 
-	isAccessDir := isDir(config.AccessPath)
-	isErrorDir := isDir(config.ErrorPath)
+	isAccessDir := isDir(cfg.AccessPath)
+	isErrorDir := isDir(cfg.ErrorPath)
 
 	// Define HTTP routes
-	// setupRoute creates a route handler with common middleware
 	setupRoute := func(path string, method string, logMessage string, handler func(http.ResponseWriter, *http.Request)) {
 		http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 			if logMessage != "" {
@@ -41,7 +39,7 @@ func main() {
 			}
 
 			// Check authentication
-			if !isAuthenticated(r, config.AuthToken) {
+			if !isAuthenticated(r, cfg.AuthToken) {
 				log.Println("Forbidden: Invalid auth token")
 				http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
 				return
@@ -51,7 +49,6 @@ func main() {
 		})
 	}
 
-	// Set up routes with common middleware
 	setupRoute("/api/logs/access", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Polling access logs")
 
@@ -66,12 +63,12 @@ func main() {
 			}
 		}
 
-		if config.AccessPath != "" {
-			routes.ServeLogs(w, r, config.AccessPath, positions, false, includeCompressed)
-		} else if config.ErrorPath != "" && isErrorDir {
-			routes.ServeLogs(w, r, config.ErrorPath, positions, false, includeCompressed)
+		if cfg.AccessPath != "" {
+			routes.ServeLogs(w, r, cfg.AccessPath, positions, false, includeCompressed)
+		} else if cfg.ErrorPath != "" && isErrorDir {
+			routes.ServeLogs(w, r, cfg.ErrorPath, positions, false, includeCompressed)
 		} else {
-			routes.ServeLogs(w, r, cfg.DefaultConfig.AccessPath, positions, false, includeCompressed)
+			routes.ServeLogs(w, r, config.DefaultConfig.AccessPath, positions, false, includeCompressed)
 		}
 	})
 
@@ -88,28 +85,28 @@ func main() {
 		}
 
 		log.Println("Polling error logs")
-		if config.ErrorPath != "" {
-			routes.ServeLogs(w, r, config.ErrorPath, positions, true, includeCompressed)
-		} else if config.AccessPath != "" && isAccessDir {
-			routes.ServeLogs(w, r, config.AccessPath, positions, true, includeCompressed)
+		if cfg.ErrorPath != "" {
+			routes.ServeLogs(w, r, cfg.ErrorPath, positions, true, includeCompressed)
+		} else if cfg.AccessPath != "" && isAccessDir {
+			routes.ServeLogs(w, r, cfg.AccessPath, positions, true, includeCompressed)
 		} else {
-			routes.ServeLogs(w, r, cfg.DefaultConfig.AccessPath, positions, true, includeCompressed)
+			routes.ServeLogs(w, r, config.DefaultConfig.AccessPath, positions, true, includeCompressed)
 		}
 	})
 
 	setupRoute("/api/system/logs", http.MethodGet, "Checking log size", func(w http.ResponseWriter, r *http.Request) {
-		if !config.SystemMonitoring {
+		if !cfg.SystemMonitoring {
 			log.Println("Forbidden: System monitoring disabled")
 			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)
 			return
 		}
 
-		if config.AccessPath != "" {
-			routes.ServeLogSize(w, r, config.AccessPath)
-		} else if config.ErrorPath != "" {
-			routes.ServeLogSizes(w, r, config.ErrorPath)
+		if cfg.AccessPath != "" {
+			routes.ServeLogSize(w, r, cfg.AccessPath)
+		} else if cfg.ErrorPath != "" {
+			routes.ServeLogSizes(w, r, cfg.ErrorPath)
 		} else {
-			routes.ServeLogSizes(w, r, cfg.DefaultConfig.AccessPath)
+			routes.ServeLogSizes(w, r, config.DefaultConfig.AccessPath)
 		}
 	})
 
@@ -124,11 +121,11 @@ func main() {
 	})
 
 	setupRoute("/api/status", http.MethodGet, "Checking status", func(w http.ResponseWriter, r *http.Request) {
-		routes.ServeServerStatus(w, config.AccessPath, config.ErrorPath, startTime)
+		routes.ServeServerStatus(w, cfg.AccessPath, cfg.ErrorPath, startTime)
 	})
 
 	setupRoute("/api/system", http.MethodGet, "Checking system resources", func(w http.ResponseWriter, r *http.Request) {
-		if !config.SystemMonitoring {
+		if !cfg.SystemMonitoring {
 			log.Println("Forbidden: System monitoring disabled")
 			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)
 			return
@@ -139,8 +136,8 @@ func main() {
 
 	// Handle graceful shutdown
 	go func() {
-		log.Printf("Agent running on port %s...\n", config.Port)
-		if err := http.ListenAndServe(":"+config.Port, nil); err != nil {
+		log.Printf("Agent running on port %s...\n", cfg.Port)
+		if err := http.ListenAndServe(":"+cfg.Port, nil); err != nil {
 			log.Fatalf("Server failed: %v", err)
 		}
 	}()
@@ -151,6 +148,20 @@ func main() {
 	<-sigchan
 
 	log.Println("Shutting down...")
+}
+
+func logConfig(cfg config.Config) {
+	if cfg.AuthToken == "" {
+		log.Println("Auth token not set in environment or command line argument. Access may be insecure.")
+	}
+	log.Println("Using NGINX access log path:", cfg.AccessPath)
+	log.Println("Using NGINX error log path:", cfg.ErrorPath)
+
+	if cfg.SystemMonitoring {
+		log.Println("System monitoring enabled")
+	} else {
+		log.Println("System monitoring disabled")
+	}
 }
 
 func isDir(path string) bool {

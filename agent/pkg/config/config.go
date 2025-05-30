@@ -1,8 +1,6 @@
 package config
 
 import (
-	"log"
-
 	"github.com/tom-draper/nginx-analytics/agent/internal/args"
 	"github.com/tom-draper/nginx-analytics/agent/internal/env"
 )
@@ -12,6 +10,8 @@ const (
 	defaultAccessPath       = "/var/log/nginx"
 	defaultErrorPath        = "/var/log/nginx"
 	defaultSystemMonitoring = false
+	// Default log format for NGINX access logs, for reference
+	defaultLogFormat = "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\""
 )
 
 type Config struct {
@@ -20,6 +20,7 @@ type Config struct {
 	ErrorPath        string
 	SystemMonitoring bool
 	AuthToken        string
+	LogFormat        string
 }
 
 var DefaultConfig = Config{
@@ -28,22 +29,21 @@ var DefaultConfig = Config{
 	ErrorPath:        defaultErrorPath,
 	SystemMonitoring: defaultSystemMonitoring,
 	AuthToken:        "",
+	LogFormat:        defaultLogFormat,
 }
 
 func LoadConfig() Config {
 	env := env.LoadEnv()
 	args := args.Parse(args.Arguments(DefaultConfig))
 
-	final := Config{
+	return Config{
 		Port:             resolveValue(args.Port, env.Port, defaultPort),
 		AccessPath:       resolveValue(args.AccessPath, env.AccessPath, defaultAccessPath),
 		ErrorPath:        resolveValue(args.ErrorPath, env.ErrorPath, defaultErrorPath),
 		SystemMonitoring: resolveBool(args.SystemMonitoring, env.SystemMonitoring, defaultSystemMonitoring),
 		AuthToken:        resolveValue(args.AuthToken, env.AuthToken, ""),
+		LogFormat:        resolveValue(args.LogFormat, env.LogFormat, defaultLogFormat),
 	}
-
-	logConfig(final)
-	return final
 }
 
 func resolveValue(argVal, envVal, defaultVal string) string {
@@ -64,18 +64,4 @@ func resolveBool(argVal, envVal, defaultVal bool) bool {
 		return true
 	}
 	return defaultVal
-}
-
-func logConfig(cfg Config) {
-	if cfg.AuthToken == "" {
-		log.Println("Auth token not set in environment or command line argument. Access may be insecure.")
-	}
-	log.Println("Using Nginx access log path:", cfg.AccessPath)
-	log.Println("Using Nginx error log path:", cfg.ErrorPath)
-
-	if cfg.SystemMonitoring {
-		log.Println("System monitoring enabled")
-	} else {
-		log.Println("System monitoring disabled")
-	}
 }
