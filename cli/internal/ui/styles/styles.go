@@ -10,7 +10,7 @@ var (
 	HighlightColor = lipgloss.Color("170")
 	
 	// Card styles
-	CardStyle = lipgloss.NewStyle().
+	CardStyle_ = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(BorderColor).
 		Padding(1).
@@ -20,7 +20,7 @@ var (
 		Foreground(HighlightColor).
 		Bold(true)
 	
-	ActiveCardStyle = CardStyle.Copy().
+	ActiveCardStyle_ = CardStyle_.Copy().
 		BorderForeground(HighlightColor)
 		
 	InfoStyle = lipgloss.NewStyle().
