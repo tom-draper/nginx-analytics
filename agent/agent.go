@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,24 +11,21 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
-	"github.com/tom-draper/nginx-analytics/agent/routes"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
+	"github.com/tom-draper/nginx-analytics/agent/internal/routes"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 )
-
-const defaultPort string = "5000"
-const defaultNginxPath string = "/var/log/nginx"
-const defaultSystemMonitoring bool = false
 
 var startTime = time.Now()
 
 func main() {
-	args := getArguments()
+	cfg := config.LoadConfig()
+	logConfig(cfg)
 
-	isAccessDir := isDir(args.nginxAccessPath)
-	isErrorDir := isDir(args.nginxErrorPath)
+	isAccessDir := isDir(cfg.AccessPath)
+	isErrorDir := isDir(cfg.ErrorPath)
 
 	// Define HTTP routes
-	// setupRoute creates a route handler with common middleware
 	setupRoute := func(path string, method string, logMessage string, handler func(http.ResponseWriter, *http.Request)) {
 		http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 			if logMessage != "" {
@@ -43,7 +39,7 @@ func main() {
 			}
 
 			// Check authentication
-			if !isAuthenticated(r, args.authToken) {
+			if !isAuthenticated(r, cfg.AuthToken) {
 				log.Println("Forbidden: Invalid auth token")
 				http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
 				return
@@ -53,14 +49,13 @@ func main() {
 		})
 	}
 
-	// Set up routes with common middleware
 	setupRoute("/api/logs/access", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Polling access logs")
 
 		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
 
 		positionsStr := r.URL.Query().Get("positions")
-		var positions []routes.Position
+		var positions []logs.Position
 		if positionsStr != "" {
 			if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
 				http.Error(w, fmt.Sprintf("Failed to parse positions: %v", err), http.StatusBadRequest)
@@ -68,12 +63,12 @@ func main() {
 			}
 		}
 
-		if args.nginxAccessPath != "" {
-			routes.ServeLogs(w, r, args.nginxAccessPath, positions, false, includeCompressed)
-		} else if args.nginxErrorPath != "" && isErrorDir {
-			routes.ServeLogs(w, r, args.nginxErrorPath, positions, false, includeCompressed)
+		if cfg.AccessPath != "" {
+			routes.ServeLogs(w, r, cfg.AccessPath, positions, false, includeCompressed)
+		} else if cfg.ErrorPath != "" && isErrorDir {
+			routes.ServeLogs(w, r, cfg.ErrorPath, positions, false, includeCompressed)
 		} else {
-			routes.ServeLogs(w, r, defaultNginxPath, positions, false, includeCompressed)
+			routes.ServeLogs(w, r, config.DefaultConfig.AccessPath, positions, false, includeCompressed)
 		}
 	})
 
@@ -81,7 +76,7 @@ func main() {
 		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
 
 		positionsStr := r.URL.Query().Get("positions")
-		var positions []routes.Position
+		var positions []logs.Position
 		if positionsStr != "" {
 			if err := json.Unmarshal([]byte(positionsStr), &positions); err != nil {
 				http.Error(w, fmt.Sprintf("Failed to parse positions: %v", err), http.StatusBadRequest)
@@ -90,28 +85,28 @@ func main() {
 		}
 
 		log.Println("Polling error logs")
-		if args.nginxErrorPath != "" {
-			routes.ServeLogs(w, r, args.nginxErrorPath, positions, true, includeCompressed)
-		} else if args.nginxAccessPath != "" && isAccessDir {
-			routes.ServeLogs(w, r, args.nginxAccessPath, positions, true, includeCompressed)
+		if cfg.ErrorPath != "" {
+			routes.ServeLogs(w, r, cfg.ErrorPath, positions, true, includeCompressed)
+		} else if cfg.AccessPath != "" && isAccessDir {
+			routes.ServeLogs(w, r, cfg.AccessPath, positions, true, includeCompressed)
 		} else {
-			routes.ServeLogs(w, r, defaultNginxPath, positions, true, includeCompressed)
+			routes.ServeLogs(w, r, config.DefaultConfig.AccessPath, positions, true, includeCompressed)
 		}
 	})
 
 	setupRoute("/api/system/logs", http.MethodGet, "Checking log size", func(w http.ResponseWriter, r *http.Request) {
-		if !args.systemMonitoring {
+		if !cfg.SystemMonitoring {
 			log.Println("Forbidden: System monitoring disabled")
 			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)
 			return
 		}
 
-		if args.nginxAccessPath != "" {
-			routes.ServeLogSize(w, r, args.nginxAccessPath)
-		} else if args.nginxErrorPath != "" {
-			routes.ServeLogsSize(w, r, args.nginxErrorPath)
+		if cfg.AccessPath != "" {
+			routes.ServeLogSize(w, r, cfg.AccessPath)
+		} else if cfg.ErrorPath != "" {
+			routes.ServeLogSizes(w, r, cfg.ErrorPath)
 		} else {
-			routes.ServeLogsSize(w, r, defaultNginxPath)
+			routes.ServeLogSizes(w, r, config.DefaultConfig.AccessPath)
 		}
 	})
 
@@ -126,11 +121,11 @@ func main() {
 	})
 
 	setupRoute("/api/status", http.MethodGet, "Checking status", func(w http.ResponseWriter, r *http.Request) {
-		routes.ServeServerStatus(w, args.nginxAccessPath, args.nginxErrorPath, startTime)
+		routes.ServeServerStatus(w, cfg.AccessPath, cfg.ErrorPath, startTime)
 	})
 
 	setupRoute("/api/system", http.MethodGet, "Checking system resources", func(w http.ResponseWriter, r *http.Request) {
-		if !args.systemMonitoring {
+		if !cfg.SystemMonitoring {
 			log.Println("Forbidden: System monitoring disabled")
 			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)
 			return
@@ -141,8 +136,8 @@ func main() {
 
 	// Handle graceful shutdown
 	go func() {
-		log.Printf("Agent running on port %s...\n", args.port)
-		if err := http.ListenAndServe(":"+args.port, nil); err != nil {
+		log.Printf("Agent running on port %s...\n", cfg.Port)
+		if err := http.ListenAndServe(":"+cfg.Port, nil); err != nil {
 			log.Fatalf("Server failed: %v", err)
 		}
 	}()
@@ -153,6 +148,20 @@ func main() {
 	<-sigchan
 
 	log.Println("Shutting down...")
+}
+
+func logConfig(cfg config.Config) {
+	if cfg.AuthToken == "" {
+		log.Println("Auth token not set in environment or command line argument. Access may be insecure.")
+	}
+	log.Println("Using NGINX access log path:", cfg.AccessPath)
+	log.Println("Using NGINX error log path:", cfg.ErrorPath)
+
+	if cfg.SystemMonitoring {
+		log.Println("System monitoring enabled")
+	} else {
+		log.Println("System monitoring disabled")
+	}
 }
 
 func isDir(path string) bool {
@@ -166,87 +175,6 @@ func isDir(path string) bool {
 	}
 
 	return fileInfo.IsDir()
-}
-
-type Arguments struct {
-	port             string
-	authToken        string
-	nginxAccessPath  string
-	nginxErrorPath   string
-	systemMonitoring bool
-}
-
-func getArguments() Arguments {
-	// Define command-line flags
-	cmdAuthToken := flag.String("auth-token", "", "Authentication token (recommended)")
-	cmdPort := flag.String("port", "", fmt.Sprintf("Port to run the server on (default %s)", defaultPort))
-	cmdNginxAccessPath := flag.String("nginx-access-path", "", "Path to the Nginx access log file or parent directory")
-	cmdNginxErrorPath := flag.String("nginx-error-path", "", "Path to the Nginx error log file or parent directory")
-	cmdSystemMonitoring := flag.String("system-monitoring", "", fmt.Sprintf("System resource monitoring toggle (default %t)", defaultSystemMonitoring))
-	flag.Parse()
-
-	// Load environment variables from .env file
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: Error loading .env file")
-	}
-
-	// Determine auth token
-	authToken := *cmdAuthToken
-	if authToken == "" {
-		authToken = os.Getenv("NGINX_ANALYTICS_AUTH_TOKEN")
-	}
-	if authToken == "" {
-		log.Println("Auth token not set in environment or command line argument. Access may be insecure.")
-	}
-
-	// Determine port
-	port := *cmdPort
-	if port == "" {
-		port = os.Getenv("PORT")
-		if port == "" {
-			port = defaultPort
-		}
-	}
-
-	// Determine access log path
-	nginxAccessPath := *cmdNginxAccessPath
-	if nginxAccessPath == "" {
-		nginxAccessPath = os.Getenv("NGINX_ANALYTICS_ACCESS_PATH")
-	}
-
-	// Determine error log path
-	nginxErrorPath := *cmdNginxErrorPath
-	if nginxErrorPath == "" {
-		nginxErrorPath = os.Getenv("NGINX_ANALYTICS_ERROR_PATH")
-	}
-
-	if nginxAccessPath != "" {
-		log.Println("Using Nginx access log path: " + nginxAccessPath)
-	} else if nginxErrorPath != "" && isDir(nginxErrorPath) {
-		log.Println("No access log path set. Using Nginx error log path for access log files: " + nginxErrorPath)
-	} else {
-		log.Println("Using default Nginx access log directory: " + defaultNginxPath)
-	}
-
-	if nginxErrorPath != "" {
-		log.Println("Using Nginx error log path: " + nginxErrorPath)
-	} else if nginxAccessPath != "" && isDir(nginxAccessPath) {
-		log.Println("No error log path set. Using Nginx error log path for error log files: " + nginxAccessPath)
-	} else {
-		log.Println("Using default Nginx error log directory: " + defaultNginxPath)
-	}
-
-	systemMonitoring := defaultSystemMonitoring
-	if *cmdSystemMonitoring == "" {
-		systemMonitoring = os.Getenv("NGINX_ANALYTICS_SYSTEM_MONITORING") == "true"
-	}
-	if systemMonitoring {
-		log.Println("System monitoring enabled")
-	} else {
-		log.Println("System monitoring disabled")
-	}
-
-	return Arguments{port, authToken, nginxAccessPath, nginxErrorPath, systemMonitoring}
 }
 
 func isAuthenticated(r *http.Request, authToken string) bool {

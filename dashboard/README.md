@@ -2,7 +2,7 @@
 
 ## Deployment Guide
 
-Deploy the Next.js dashboard on the same server as Nginx.
+Deploy the Next.js dashboard on the same server as NGINX.
 
 ```bash
 git clone https://github.com/tom-draper/nginx-analytics.git

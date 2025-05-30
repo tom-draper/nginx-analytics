@@ -194,7 +194,7 @@ export default function FileUpload({
 							NGINX Analytics
 						</h1>
 						<p className="mt-2 text-gray-500 dark:text-gray-400 text-center">
-							Upload your Nginx log files
+							Upload your NGINX log files
 						</p>
 					</div>
 
