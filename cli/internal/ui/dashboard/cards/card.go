@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ansi"
 )
 
 // CardRenderer defines the interface for rendering card content
@@ -37,14 +38,14 @@ func NewBaseCard(title string, renderer CardRenderer) *BaseCard {
 func (c *BaseCard) Render() string {
 	// Choose border style based on active state
 	borderColor := lipgloss.Color("238") // Gray
-	titleBg := lipgloss.Color("238")
+	titleColor := lipgloss.Color("238")
 	if c.IsActive {
 		borderColor = lipgloss.Color("39") // Blue
-		titleBg = lipgloss.Color("39")
+		titleColor = lipgloss.Color("39")
 	}
 
 	// Calculate content dimensions
-	contentWidth := c.Width - 4  // Account for border + padding
+	contentWidth := c.Width - 4   // Account for border + padding
 	contentHeight := c.Height - 3 // Account for border + padding (less because title overlay)
 
 	if contentWidth < 1 {
@@ -69,7 +70,7 @@ func (c *BaseCard) Render() string {
 	card := cardStyle.Render(content)
 
 	// Add title overlay
-	return c.addTitleOverlay(card, titleBg)
+	return c.addTitleOverlay(card, titleColor)
 }
 
 // SetActive sets the active state of the card
@@ -83,43 +84,41 @@ func (c *BaseCard) SetSize(width, height int) {
 	c.Height = height
 }
 
-// addTitleOverlay adds the title as an overlay on the top border
-func (c *BaseCard) addTitleOverlay(card string, titleBg lipgloss.Color) string {
+func (c *BaseCard) addTitleOverlay(card string, titleColor lipgloss.Color) string {
 	lines := strings.Split(card, "\n")
+
 	if len(lines) == 0 {
 		return card
 	}
 
-	// Style the title
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("15")).
-		Background(titleBg).
-		Padding(0, 1)
+		Foreground(titleColor)
 
-	styledTitle := titleStyle.Render(c.Title)
-	titleWidth := lipgloss.Width(styledTitle)
+	titleStart := 3 // Visual column where the title should start
 
-	// Calculate title position (centered)
-	startPos := (c.Width - titleWidth) / 2
-	if startPos < 0 {
-		startPos = 0
-	}
-
-	// Replace part of the top border with the title
 	if len(lines) > 0 {
-		topLine := []rune(lines[0])
-		styledTitleRunes := []rune(styledTitle)
+		originalTopLine := lines[0]
+		
+		rawTopLine := ansi.StripANSI(originalTopLine)
+		rawTopLineRunes := []rune(rawTopLine) // Use runes for correct character length with Unicode
 
-		// Insert title into the top border line
-		for i, r := range styledTitleRunes {
-			pos := startPos + i
-			if pos < len(topLine) {
-				topLine[pos] = r
-			}
+		styledTitleContent := " " + c.Title + " "
+		renderedTitle := titleStyle.Render(styledTitleContent)
+		renderedTitleVisualWidth := lipgloss.Width(renderedTitle)
+
+		prefixVisualLength := min(titleStart, len(rawTopLineRunes))
+		
+		titleEndInRaw := titleStart + renderedTitleVisualWidth
+
+		suffixRawRunes := []rune{}
+		if titleEndInRaw < len(rawTopLineRunes) {
+			suffixRawRunes = rawTopLineRunes[titleEndInRaw:]
 		}
 
-		lines[0] = string(topLine)
+		newTopLine := titleStyle.Render(string(rawTopLineRunes[:prefixVisualLength])) + renderedTitle + titleStyle.Render(string(suffixRawRunes))
+
+		lines[0] = newTopLine
 	}
 
 	return strings.Join(lines, "\n")
@@ -365,4 +364,3 @@ func (u *UsersCard) Update(active, total int) {
 	u.ActiveUsers = active
 	u.TotalUsers = total
 }
-

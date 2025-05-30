@@ -45,10 +45,10 @@ func (d *DashboardGrid) RenderGrid() string {
 
 	var gridRows []string
 
-	for row := 0; row < d.Rows; row++ {
+	for row := range d.Rows {
 		var rowCards []string
 
-		for col := 0; col < d.Cols; col++ {
+		for col := range d.Cols {
 			cardIndex := row*d.Cols + col
 			if cardIndex >= len(d.Cards) {
 				break
