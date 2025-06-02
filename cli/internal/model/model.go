@@ -13,10 +13,9 @@ import (
 	"github.com/charmbracelet/x/term"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
-	"github.com/tom-draper/nginx-analytics/agent/pkg/logs"
-	"github.com/tom-draper/nginx-analytics/cli/internal/filter"
-	"github.com/tom-draper/nginx-analytics/cli/internal/parse"
-	"github.com/tom-draper/nginx-analytics/cli/internal/period"
+	parse "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
+	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
+	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
@@ -34,7 +33,7 @@ type Model struct {
 	Initialized bool
 
 	// Period tabs
-	Periods           []period.Period
+	Periods           []p.Period
 	SelectedPeriod    int
 	TabNavigationMode bool // true when navigating tabs, false when navigating cards
 
@@ -44,28 +43,28 @@ type Model struct {
 	usersCard       *cards.UsersCard
 
 	logs       []string
-	parsedLogs []parse.NginxLog // Parsed logs for card updates
+	parsedLogs []l.NginxLog // Parsed logs for card updates
 
-	currentLogs []parse.NginxLog
+	currentLogs []l.NginxLog
 }
 
 // New creates a new model with initial state
 func New(cfg config.Config) Model {
 	logs, _ := getLogs(cfg.AccessPath)
-	parsedLogs := parse.ParseNginxLogs(logs)
+	parsedLogs := l.ParseNginxLogs(logs)
 
 	// Initialize periods
-	periods := []period.Period{
-		period.Period24Hours,
-		period.Period1Week,
-		period.Period30Days,
-		period.Period6Months,
-		period.PeriodAllTime,
+	periods := []p.Period{
+		p.Period24Hours,
+		p.Period1Week,
+		p.Period30Days,
+		p.Period6Months,
+		p.PeriodAllTime,
 	}
 	selectedPeriod := 2
 	period := periods[selectedPeriod]
 
-	currentLogs := filter.FilterLogs(parsedLogs, period)
+	currentLogs := l.FilterLogs(parsedLogs, period)
 
 	// Create specific card instances
 	successRateCard := cards.NewSuccessRateCard(9534, 10000)   // 95.34% success rate
@@ -343,7 +342,7 @@ func (m *Model) navigateDown() {
 }
 
 func (m *Model) updateCardData() {
-	m.currentLogs = filter.FilterLogs(m.parsedLogs, m.GetSelectedPeriod())
+	m.currentLogs = l.FilterLogs(m.parsedLogs, m.GetSelectedPeriod())
 
 	// Update success rate (fluctuate around 95%)
 	successful := 9500 + rand.Intn(500)
@@ -471,7 +470,7 @@ func (m Model) ViewCompact() string {
 }
 
 // GetSelectedPeriod returns the currently selected period
-func (m Model) GetSelectedPeriod() period.Period {
+func (m Model) GetSelectedPeriod() p.Period {
 	return m.Periods[m.SelectedPeriod]
 }
 
@@ -480,7 +479,7 @@ func getLogs(path string) ([]string, error) {
 		return []string{}, nil
 	}
 
-	logResult, err := logs.GetLogs(path, []logs.Position{}, false, true)
+	logResult, err := parse.GetLogs(path, []parse.Position{}, false, true)
 	if err != nil {
 		return []string{}, err
 	}
