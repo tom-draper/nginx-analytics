@@ -6,22 +6,22 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tom-draper/nginx-analytics/cli/internal/parse"
-	"github.com/tom-draper/nginx-analytics/cli/internal/period"
+	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
+	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
 // RequestsCard displays request count and rate
 type RequestsCard struct {
-	logs        []parse.NginxLog // Reference to log entries
-	period      period.Period
+	logs        []l.NginxLog // Reference to log entries
+	period      p.Period
 	lastLogHash uint64    // Hash of logs for change detection
 	Count       int       // Total request count (cached)
 	Rate        float64   // Requests per hour (cached)
 	lastUpdate  time.Time // When metrics were last calculated
 }
 
-func NewRequestsCard(logs []parse.NginxLog, period period.Period) *RequestsCard {
+func NewRequestsCard(logs []l.NginxLog, period p.Period) *RequestsCard {
 	card := &RequestsCard{logs: logs, period: period}
 
 	// Initial calculation
@@ -30,7 +30,7 @@ func NewRequestsCard(logs []parse.NginxLog, period period.Period) *RequestsCard 
 }
 
 // UpdateLogs should be called when the log slice content changes
-func (r *RequestsCard) UpdateLogs(newLogs []parse.NginxLog, period period.Period) {
+func (r *RequestsCard) UpdateLogs(newLogs []l.NginxLog, period p.Period) {
 	r.logs = newLogs
 	r.updateMetrics()
 }
@@ -38,7 +38,7 @@ func (r *RequestsCard) UpdateLogs(newLogs []parse.NginxLog, period period.Period
 // updateMetrics recalculates Count and Rate only if logs have changed
 func (r *RequestsCard) updateMetrics() {
 	r.Count = len(r.logs)
-	r.Rate = float64(r.Count) / float64(period.PeriodHours(r.period))
+	r.Rate = float64(r.Count) / float64(p.PeriodHours(r.period))
 }
 
 func (r *RequestsCard) RenderContent(width, height int) string {
