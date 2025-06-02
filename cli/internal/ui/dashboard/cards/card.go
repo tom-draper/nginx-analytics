@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tom-draper/nginx-analytics/cli/internal/ansi"
+	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
@@ -96,7 +96,7 @@ func (c *Card) addTitleOverlay(card string, borderColor lipgloss.Color) string {
 
 	if len(lines) > 0 {
 		originalTopLine := lines[0]
-		rawTopLine := ansi.StripANSI(originalTopLine)
+		rawTopLine := l.StripANSI(originalTopLine)
 		rawTopLineRunes := []rune(rawTopLine)
 
 		styledTitleContent := " " + c.Title + " "
