@@ -51,7 +51,7 @@ func getUserEvents(logs []nginx.NGINXLog) []plot.UserEvent {
 func userCount(logs []nginx.NGINXLog) int {
 	userSet := make(map[string]struct{})
 	for _, log := range logs {
-		userID := user.UserID(log)
+		userID := u.UserID(log)
 		userSet[userID] = struct{}{}
 	}
 	return len(userSet)
