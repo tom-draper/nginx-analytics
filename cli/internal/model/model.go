@@ -1,7 +1,6 @@
 package model
 
 import (
-	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -67,9 +66,9 @@ func New(cfg config.Config) Model {
 	currentLogs := l.FilterLogs(parsedLogs, period)
 
 	// Create specific card instances
-	successRateCard := cards.NewSuccessRateCard(9534, 10000)   // 95.34% success rate
-	requestsCard := cards.NewRequestsCard(currentLogs, period) // 125.6K requests at 42.3/s
-	usersCard := cards.NewUsersCard(currentLogs, period)       // 1.25K active of 15.6K total
+	successRateCard := cards.NewSuccessRateCard(currentLogs, period)
+	requestsCard := cards.NewRequestsCard(currentLogs, period)
+	usersCard := cards.NewUsersCard(currentLogs, period)
 
 	// Create base cards with renderers - these will all be treated uniformly
 	placeholderCard := cards.NewCard("", cards.NewLogoCard())
@@ -344,11 +343,7 @@ func (m *Model) navigateDown() {
 func (m *Model) updateCardData() {
 	m.currentLogs = l.FilterLogs(m.parsedLogs, m.GetSelectedPeriod())
 
-	// Update success rate (fluctuate around 95%)
-	successful := 9500 + rand.Intn(500)
-	total := 10000 + rand.Intn(200)
-	m.successRateCard.Update(successful, total)
-
+	m.successRateCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 	m.requestsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 	m.usersCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 
