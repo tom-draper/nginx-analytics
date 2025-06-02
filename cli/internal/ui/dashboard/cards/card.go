@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ansi"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
 // CardRenderer defines the interface for rendering card content
@@ -38,7 +39,7 @@ func (c *Card) Render() string {
 	// Choose border style based on active state
 	borderColor := lipgloss.Color("238") // Gray
 	if c.IsActive {
-		borderColor = lipgloss.Color("39") // Blue
+		borderColor = styles.Green
 	}
 
 	// Calculate content dimensions
