@@ -164,12 +164,43 @@ func New(cfg config.Config) Model {
 	grid.AddSidebarSubGridCard(allCards[10])
 	grid.AddSidebarSubGridCard(allCards[11])
 
-	sidebarContentCard := cards.NewCard("Activity", cards.NewPlaceholderCard("")) // Assuming cards.NewCard exists
-	grid.AddSidebarCard(sidebarContentCard)
+	// Add all cards to the grid - the grid will handle layout positioning
+	// The order here determines the navigation order
+	allCards := []*cards.Card{
+		placeholderCard, // 0 - top-left grid
+		successCard,     // 1 - top-right grid
+		requestCard,     // 2 - bottom-left grid
+		userCard,        // 3 - bottom-right grid
+		activityCard,    // 4 - sidebar
+		endpointsCard,   // 5 - middle
+		locationCard,    // 6 - bottom area
+		deviceCard,      // 7 - bottom area
+		cpuCard,         // 8 - sub-grid
+		memorycard,      // 9 - sub-grid
+		storageCard,     // 10 - sub-grid
+		logCard,         // 11 - sub-grid
+	}
 
-	grid.AddMiddleCard(cards.NewCard("Endpoints", cards.NewPlaceholderCard("")))
-	grid.AddBottomCard(cards.NewCard("Location", cards.NewPlaceholderCard(""))) // Add success card to bottom
-	grid.AddBottomCard(cards.NewCard("Device", cards.NewPlaceholderCard(""))) // Add requests card to bottom
+	// Add cards to grid with their layout positions
+	// Main grid cards (positions 0-3)
+	for i := range 4 {
+		grid.AddCard(allCards[i])
+	}
+
+	// Sidebar card (position 4)
+	grid.AddSidebarCard(allCards[4])
+
+	// Middle card (position 5)
+	grid.AddMiddleCard(allCards[5])
+
+	// Bottom cards (positions 6-7)
+	grid.AddBottomCard(allCards[6])
+	grid.AddBottomCard(allCards[7])
+
+	grid.AddSubGridCard(allCards[8])
+	grid.AddSubGridCard(allCards[9])
+	grid.AddSubGridCard(allCards[10])
+	grid.AddSubGridCard(allCards[11])
 
 	// Set first card as active
 	grid.SetActiveCard(0)
