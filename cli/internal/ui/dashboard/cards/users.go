@@ -3,35 +3,67 @@ package cards
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tom-draper/nginx-analytics/cli/internal/parse"
+	"github.com/tom-draper/nginx-analytics/cli/internal/period"
+	"github.com/tom-draper/nginx-analytics/cli/internal/user"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
-// UsersCard displays active user count
+// RequestsCard displays request count and rate
 type UsersCard struct {
-	ActiveUsers int
-	TotalUsers  int
+	logs        []parse.NginxLog // Reference to log entries
+	period      period.Period
+	Count       int       // Total request count (cached)
+	Rate        float64   // Requests per hour (cached)
+	lastUpdate  time.Time // When metrics were last calculated
 }
 
-func NewUsersCard(active, total int) *UsersCard {
-	return &UsersCard{
-		ActiveUsers: active,
-		TotalUsers:  total,
+func NewUsersCard(logs []parse.NginxLog, period period.Period) *UsersCard {
+	card := &UsersCard{logs: logs, period: period}
+
+	// Initial calculation
+	card.updateMetrics()
+	return card
+}
+
+// UpdateLogs should be called when the log slice content changes
+func (r *UsersCard) UpdateLogs(newLogs []parse.NginxLog, period period.Period) {
+	r.logs = newLogs
+	r.updateMetrics()
+}
+
+func (r *UsersCard) updateMetrics() {
+	r.Count = userCount(r.logs)
+	r.Rate = float64(r.Count) / float64(period.PeriodHours(r.period))
+}
+
+func userCount(logs []parse.NginxLog) int {
+	userSet := make(map[string]struct{})
+	for _, log := range logs {
+		userID := user.UserID(log)
+		userSet[userID] = struct{}{}
 	}
+	return len(userSet)
 }
 
-func (u *UsersCard) RenderContent(width, height int) string {
-	activeStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("46")).
+func (r *UsersCard) RenderContent(width, height int) string {
+	// Ensure metrics are up to date
+	r.updateMetrics()
+
+	countStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#ffffff")).
 		Bold(true)
 
-	totalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
+	rateStyle := lipgloss.NewStyle().
+		Foreground(styles.LightGray)
 
 	lines := []string{
 		"",
-		activeStyle.Render(u.formatUsers(u.ActiveUsers)),
-		totalStyle.Render(fmt.Sprintf("of %s", u.formatUsers(u.TotalUsers))),
+		countStyle.Render(r.formatCount()),
+		rateStyle.Render(fmt.Sprintf("%.1f/h", r.Rate)),
 		"",
 	}
 
@@ -54,20 +86,25 @@ func (u *UsersCard) RenderContent(width, height int) string {
 	return strings.Join(lines[:height], "\n")
 }
 
-func (u *UsersCard) formatUsers(count int) string {
-	if count >= 1000000 {
-		return fmt.Sprintf("%.1fM", float64(count)/1000000)
-	} else if count >= 1000 {
-		return fmt.Sprintf("%.1fK", float64(count)/1000)
+func (r *UsersCard) formatCount() string {
+	if r.Count >= 1000000 {
+		return fmt.Sprintf("%.1fM", float64(r.Count)/1000000)
+	} else if r.Count >= 1000 {
+		return fmt.Sprintf("%.1fK", float64(r.Count)/1000)
 	}
-	return fmt.Sprintf("%d", count)
+	return fmt.Sprintf("%d", r.Count)
 }
 
-func (u *UsersCard) GetTitle() string {
-	return "Users"
+func (r *UsersCard) GetTitle() string {
+	return "Requests"
 }
 
-func (u *UsersCard) Update(active, total int) {
-	u.ActiveUsers = active
-	u.TotalUsers = total
+// GetLastUpdate returns when metrics were last calculated
+func (r *UsersCard) GetLastUpdate() time.Time {
+	return r.lastUpdate
+}
+
+// ForceUpdate forces recalculation of metrics even if hash hasn't changed
+func (r *UsersCard) ForceUpdate() {
+	r.updateMetrics()
 }

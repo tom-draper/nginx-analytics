@@ -3,6 +3,7 @@ package model
 import (
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -12,6 +13,10 @@ import (
 	"github.com/charmbracelet/x/term"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logs"
+	"github.com/tom-draper/nginx-analytics/cli/internal/filter"
+	"github.com/tom-draper/nginx-analytics/cli/internal/parse"
+	"github.com/tom-draper/nginx-analytics/cli/internal/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
@@ -28,24 +33,58 @@ type Model struct {
 	Height      int
 	Initialized bool
 
+	// Period tabs
+	Periods           []period.Period
+	SelectedPeriod    int
+	TabNavigationMode bool // true when navigating tabs, false when navigating cards
+
 	// Data for cards
 	successRateCard *cards.SuccessRateCard
 	requestsCard    *cards.RequestsCard
 	usersCard       *cards.UsersCard
+
+	logs       []string
+	parsedLogs []parse.NginxLog // Parsed logs for card updates
+
+	currentLogs []parse.NginxLog
 }
 
 // New creates a new model with initial state
 func New(cfg config.Config) Model {
-	// Create specific card instances
-	successRateCard := cards.NewSuccessRateCard(9534, 10000) // 95.34% success rate
-	requestsCard := cards.NewRequestsCard(125600, 42.3)      // 125.6K requests at 42.3/s
-	usersCard := cards.NewUsersCard(1250, 15600)             // 1.25K active of 15.6K total
+	logs, _ := getLogs(cfg.AccessPath)
+	parsedLogs := parse.ParseNginxLogs(logs)
 
-	// Create base cards with renderers
+	// Initialize periods
+	periods := []period.Period{
+		period.Period24Hours,
+		period.Period1Week,
+		period.Period30Days,
+		period.Period6Months,
+		period.PeriodAllTime,
+	}
+	selectedPeriod := 2
+	period := periods[selectedPeriod]
+
+	currentLogs := filter.FilterLogs(parsedLogs, period)
+
+	// Create specific card instances
+	successRateCard := cards.NewSuccessRateCard(9534, 10000)   // 95.34% success rate
+	requestsCard := cards.NewRequestsCard(currentLogs, period) // 125.6K requests at 42.3/s
+	usersCard := cards.NewUsersCard(currentLogs, period)       // 1.25K active of 15.6K total
+
+	// Create base cards with renderers - these will all be treated uniformly
 	placeholderCard := cards.NewCard("", cards.NewLogoCard())
 	successCard := cards.NewCard("Success Rate", successRateCard)
 	requestCard := cards.NewCard("Requests", requestsCard)
 	userCard := cards.NewCard("Users", usersCard)
+	activityCard := cards.NewCard("Activity", cards.NewPlaceholderCard(""))
+	endpointsCard := cards.NewCard("Endpoints", cards.NewPlaceholderCard(""))
+	locationCard := cards.NewCard("Location", cards.NewPlaceholderCard(""))
+	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
+	cpuCard := cards.NewCard("CPU", cards.NewPlaceholderCard(""))
+	memorycard := cards.NewCard("Memory", cards.NewPlaceholderCard(""))
+	storageCard := cards.NewCard("Storage", cards.NewPlaceholderCard(""))
+	logCard := cards.NewCard("Logs", cards.NewPlaceholderCard(""))
 
 	// Set small sizes for compact display
 	cardWidth, cardHeight := 18, 4
@@ -53,34 +92,71 @@ func New(cfg config.Config) Model {
 	successCard.SetSize(cardWidth, cardHeight)
 	requestCard.SetSize(cardWidth, cardHeight)
 	userCard.SetSize(cardWidth, cardHeight)
+	activityCard.SetSize(cardWidth, cardHeight)
+	endpointsCard.SetSize(cardWidth, cardHeight)
+	locationCard.SetSize(cardWidth, cardHeight)
+	deviceCard.SetSize(cardWidth, cardHeight)
 
 	// Create grid (2x2 for top-left placement)
 	termWidth, _, _ := term.GetSize(os.Stdout.Fd())
 	grid := dashboard.NewDashboardGrid(2, 2, termWidth)
-	grid.AddCard(placeholderCard)
-	grid.AddCard(successCard)
-	grid.AddCard(requestCard)
-	grid.AddCard(userCard)
 
-	sidebarContentCard := cards.NewCard("Activity", cards.NewPlaceholderCard("")) // Assuming cards.NewCard exists
-	grid.AddSidebarCard(sidebarContentCard)
+	// Add all cards to the grid - the grid will handle layout positioning
+	// The order here determines the navigation order
+	allCards := []*cards.Card{
+		placeholderCard, // 0 - top-left grid
+		successCard,     // 1 - top-right grid
+		requestCard,     // 2 - bottom-left grid
+		userCard,        // 3 - bottom-right grid
+		activityCard,    // 4 - sidebar
+		endpointsCard,   // 5 - middle
+		locationCard,    // 6 - bottom area
+		deviceCard,      // 7 - bottom area
+		cpuCard,         // 8 - sub-grid
+		memorycard,      // 9 - sub-grid
+		storageCard,     // 10 - sub-grid
+		logCard,         // 11 - sub-grid
+	}
 
-	grid.AddMiddleCard(cards.NewCard("Endpoints", cards.NewPlaceholderCard("")))
-	grid.AddBottomCard(cards.NewCard("Location", cards.NewPlaceholderCard(""))) // Add success card to bottom
-	grid.AddBottomCard(cards.NewCard("Device", cards.NewPlaceholderCard(""))) // Add requests card to bottom
+	// Add cards to grid with their layout positions
+	// Main grid cards (positions 0-3)
+	for i := range 4 {
+		grid.AddCard(allCards[i])
+	}
+
+	// Sidebar card (position 4)
+	grid.AddSidebarCard(allCards[4])
+
+	// Middle card (position 5)
+	grid.AddMiddleCard(allCards[5])
+
+	// Bottom cards (positions 6-7)
+	grid.AddBottomCard(allCards[6])
+	grid.AddBottomCard(allCards[7])
+
+	grid.AddSubGridCard(allCards[8])
+	grid.AddSubGridCard(allCards[9])
+	grid.AddSubGridCard(allCards[10])
+	grid.AddSubGridCard(allCards[11])
 
 	// Set first card as active
 	grid.SetActiveCard(0)
 
 	return Model{
-		Config:          cfg,
-		Grid:            grid,
-		Help:            help.New(),
-		Keys:            ui.NewKeyMap(),
-		Initialized:     false,
-		successRateCard: successRateCard,
-		requestsCard:    requestsCard,
-		usersCard:       usersCard,
+		Config:            cfg,
+		Grid:              grid,
+		Help:              help.New(),
+		Keys:              ui.NewKeyMap(),
+		Initialized:       false,
+		Periods:           periods,
+		SelectedPeriod:    2, // Default to "30 days"
+		TabNavigationMode: false,
+		successRateCard:   successRateCard,
+		requestsCard:      requestsCard,
+		usersCard:         usersCard,
+		logs:              logs,
+		parsedLogs:        parsedLogs,
+		currentLogs:       currentLogs,
 	}
 }
 
@@ -108,26 +184,64 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.Keys.Quit):
 			return m, tea.Quit
-		case key.Matches(msg, m.Keys.Left):
-			newIndex := m.Grid.ActiveCard - 1
-			if newIndex < 0 {
-				newIndex = len(m.Grid.Cards) - 1
+		case msg.String() == "tab":
+			// Toggle between tab navigation and card navigation
+			m.TabNavigationMode = !m.TabNavigationMode
+		case msg.String() == "p":
+			// Navigate tabs right
+			if m.SelectedPeriod < len(m.Periods)-1 {
+				m.SelectedPeriod++
+			} else {
+				m.SelectedPeriod = 0 // Wrap to first tab
 			}
-			m.Grid.SetActiveCard(newIndex)
-		case key.Matches(msg, m.Keys.Right):
-			newIndex := (m.Grid.ActiveCard + 1) % len(m.Grid.Cards)
-			m.Grid.SetActiveCard(newIndex)
-		case key.Matches(msg, m.Keys.Up):
-			// Move up in grid
-			newIndex := m.Grid.ActiveCard - m.Grid.Cols
-			if newIndex >= 0 {
+			m.updateCardData()
+		case msg.String() == "P":
+			// Navigate tabs left
+			if m.SelectedPeriod > 0 {
+				m.SelectedPeriod--
+			} else {
+				m.SelectedPeriod = len(m.Periods) - 1 // Wrap to last tab
+			}
+			m.updateCardData()
+		case key.Matches(msg, m.Keys.Left):
+			if m.TabNavigationMode {
+				// Navigate tabs left
+				if m.SelectedPeriod > 0 {
+					m.SelectedPeriod--
+				} else {
+					m.SelectedPeriod = len(m.Periods) - 1 // Wrap to last tab
+				}
+				m.updateCardData()
+			} else {
+				// Cycle through all cards (backwards)
+				totalCards := m.Grid.GetTotalCardCount()
+				newIndex := (m.Grid.ActiveCard - 1 + totalCards) % totalCards
 				m.Grid.SetActiveCard(newIndex)
+			}
+		case key.Matches(msg, m.Keys.Right):
+			if m.TabNavigationMode {
+				// Navigate tabs right
+				if m.SelectedPeriod < len(m.Periods)-1 {
+					m.SelectedPeriod++
+				} else {
+					m.SelectedPeriod = 0 // Wrap to first tab
+				}
+				m.updateCardData()
+			} else {
+				// Cycle through all cards (forwards)
+				totalCards := m.Grid.GetTotalCardCount()
+				newIndex := (m.Grid.ActiveCard + 1) % totalCards
+				m.Grid.SetActiveCard(newIndex)
+			}
+		case key.Matches(msg, m.Keys.Up):
+			if !m.TabNavigationMode {
+				// Smart up navigation based on layout
+				m.navigateUp()
 			}
 		case key.Matches(msg, m.Keys.Down):
-			// Move down in grid
-			newIndex := m.Grid.ActiveCard + m.Grid.Cols
-			if newIndex < len(m.Grid.Cards) {
-				m.Grid.SetActiveCard(newIndex)
+			if !m.TabNavigationMode {
+				// Smart down navigation based on layout
+				m.navigateDown()
 			}
 		}
 	case tea.WindowSizeMsg:
@@ -140,21 +254,161 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// navigateUp handles smart up navigation considering the layout
+func (m *Model) navigateUp() {
+	position := m.Grid.GetActiveCardPosition()
+
+	switch position {
+	case "main":
+		// Navigate within main grid
+		row, col := m.Grid.GetMainGridPosition(m.Grid.ActiveCard)
+		if row > 0 {
+			newIndex := m.Grid.GetMainGridCardIndex(row-1, col)
+			if newIndex >= 0 {
+				m.Grid.SetActiveCard(newIndex)
+			}
+		}
+	case "sidebar":
+		// Go to top-right of main grid
+		newIndex := m.Grid.GetMainGridCardIndex(0, 1)
+		if newIndex >= 0 {
+			m.Grid.SetActiveCard(newIndex)
+		}
+	case "middle":
+		// Go to bottom-left of main grid
+		newIndex := m.Grid.GetMainGridCardIndex(1, 0)
+		if newIndex >= 0 {
+			m.Grid.SetActiveCard(newIndex)
+		}
+	case "bottom":
+		// Go to middle card if it exists, otherwise sidebar
+		middleIndex := m.Grid.GetMiddleCardIndex()
+		if middleIndex >= 0 {
+			m.Grid.SetActiveCard(middleIndex)
+		} else {
+			sidebarIndex := m.Grid.GetSidebarCardIndex()
+			if sidebarIndex >= 0 {
+				m.Grid.SetActiveCard(sidebarIndex)
+			}
+		}
+	}
+}
+
+// navigateDown handles smart down navigation considering the layout
+func (m *Model) navigateDown() {
+	position := m.Grid.GetActiveCardPosition()
+
+	switch position {
+	case "main":
+		row, col := m.Grid.GetMainGridPosition(m.Grid.ActiveCard)
+
+		// Try to move down within main grid first
+		if row < m.Grid.Rows-1 {
+			newIndex := m.Grid.GetMainGridCardIndex(row+1, col)
+			if newIndex >= 0 {
+				m.Grid.SetActiveCard(newIndex)
+				return
+			}
+		}
+
+		// If we're in bottom row, go to middle card
+		middleIndex := m.Grid.GetMiddleCardIndex()
+		if middleIndex >= 0 {
+			m.Grid.SetActiveCard(middleIndex)
+		}
+	case "sidebar":
+		// Go to first bottom card
+		bottomIndex := m.Grid.GetBottomCardIndex(0)
+		if bottomIndex >= 0 {
+			m.Grid.SetActiveCard(bottomIndex)
+		}
+	case "middle":
+		// Go to first bottom card
+		bottomIndex := m.Grid.GetBottomCardIndex(0)
+		if bottomIndex >= 0 {
+			m.Grid.SetActiveCard(bottomIndex)
+		}
+	case "bottom":
+		// Move between bottom cards
+		cardIndex := m.Grid.GetActiveCardIndexInArea()
+		if cardIndex == 0 {
+			// From first bottom card to second
+			secondBottomIndex := m.Grid.GetBottomCardIndex(1)
+			if secondBottomIndex >= 0 {
+				m.Grid.SetActiveCard(secondBottomIndex)
+			}
+		}
+		// If already on second bottom card, can't go down further
+	}
+}
+
 func (m *Model) updateCardData() {
+	m.currentLogs = filter.FilterLogs(m.parsedLogs, m.GetSelectedPeriod())
+
 	// Update success rate (fluctuate around 95%)
 	successful := 9500 + rand.Intn(500)
 	total := 10000 + rand.Intn(200)
 	m.successRateCard.Update(successful, total)
 
+	m.requestsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
+	m.usersCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
+
 	// Update requests (simulate traffic changes)
-	currentRequests := max(m.requestsCard.Count + rand.Intn(200) - 100, 0)
-	rate := 35.0 + rand.Float64()*20.0 // 35-55 req/s
-	m.requestsCard.Update(currentRequests, rate)
+	// currentRequests := max(m.requestsCard.Count+rand.Intn(200)-100, 0)
+	// rate := 35.0 + rand.Float64()*20.0 // 35-55 req/s
+	// m.requestsCard.Update(currentRequests, rate)
 
 	// Update users (gradual changes)
-	activeChange := rand.Intn(20) - 10
-	newActive := min(max(m.usersCard.ActiveUsers+activeChange, 0), m.usersCard.TotalUsers)
-	m.usersCard.Update(newActive, m.usersCard.TotalUsers)
+	// activeChange := rand.Intn(20) - 10
+	// newActive := min(max(m.usersCard.ActiveUsers+activeChange, 0), m.usersCard.TotalUsers)
+	// m.usersCard.Update(newActive, m.usersCard.TotalUsers)
+}
+
+// renderTabs renders the period tabs in the top-right area
+func (m Model) renderTabs() string {
+	if m.Width < 40 { // Don't show tabs if terminal is too narrow
+		return ""
+	}
+
+	var tabs []string
+
+	// Define tab styles
+	activeTabStyle := lipgloss.NewStyle().
+		Background(styles.Green). // Green background
+		Foreground(styles.Black). // Black text
+		Padding(0, 1).
+		MarginRight(1)
+
+	inactiveTabStyle := lipgloss.NewStyle().
+		Foreground(styles.BorderColor).
+		Padding(0, 1).
+		MarginRight(1)
+
+	// Build tab strings
+	for i, period := range m.Periods {
+		if i == m.SelectedPeriod {
+			tabs = append(tabs, activeTabStyle.Render(string(period)))
+		} else {
+			tabs = append(tabs, inactiveTabStyle.Render(string(period)))
+		}
+	}
+
+	// Join tabs and right-align them
+	tabsStr := strings.Join(tabs, "")
+
+	// Calculate total tab width
+	totalTabWidth := 0
+	for _, period := range m.Periods {
+		totalTabWidth += len(string(period)) + 3 // +3 for padding and margin
+	}
+
+	// Right-align the tabs
+	tabLine := lipgloss.NewStyle().
+		Width(m.Width).
+		Align(lipgloss.Right).
+		Render(tabsStr)
+
+	return tabLine
 }
 
 func (m Model) View() string {
@@ -162,26 +416,36 @@ func (m Model) View() string {
 		return "Initializing dashboard..."
 	}
 
-	// Render the grid in top-left corner
+	var view strings.Builder
+
+	// Add tabs at the top
+	tabsView := m.renderTabs()
+	if tabsView != "" {
+		view.WriteString(tabsView)
+		view.WriteString("\n")
+	}
+
+	// Render the grid (now positioned below tabs)
 	gridView := m.Grid.RenderGrid()
+	view.WriteString(gridView)
 
-	// Add some navigation help at the bottom
-	help := "\n\n← → ↑ ↓    [q] quit "
-
-	// Create a lipgloss style for faint white color
-
-	// faintWhiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("238")) // A common faint white/light gray
+	// Add navigation help at the bottom
+	helpText := "← → ↑ ↓    [tab] switch mode    [q] quit  "
+	if m.TabNavigationMode {
+		helpText = "← → navigate tabs    [tab] switch to cards    [q] quit  "
+	}
 
 	// Render the help text right-aligned at the bottom
-	// We need to calculate padding based on the current terminal width
-	// The gridView already takes up space, so we want the help to be below it.
-	// We'll calculate the horizontal padding for right alignment based on m.Width.
-	// Since the help is below the grid, we use m.Width for alignment.
 	helpLine := lipgloss.NewStyle().
 		Width(m.Width).
-		Align(lipgloss.Right).Foreground(styles.BorderColor).Render(help)
+		Align(lipgloss.Right).
+		Foreground(styles.BorderColor).
+		Render(helpText)
 
-	return gridView + helpLine
+	view.WriteString("\n\n")
+	view.WriteString(helpLine)
+
+	return view.String()
 }
 
 // Alternative view for just the top-left placement
@@ -190,8 +454,36 @@ func (m Model) ViewCompact() string {
 		return "Initializing..."
 	}
 
+	var view strings.Builder
+
+	// Add tabs at the top
+	tabsView := m.renderTabs()
+	if tabsView != "" {
+		view.WriteString(tabsView)
+		view.WriteString("\n")
+	}
+
 	// Just render the cards in a simple top-left layout
 	gridView := m.Grid.RenderGrid()
+	view.WriteString(gridView)
 
-	return gridView
+	return view.String()
+}
+
+// GetSelectedPeriod returns the currently selected period
+func (m Model) GetSelectedPeriod() period.Period {
+	return m.Periods[m.SelectedPeriod]
+}
+
+func getLogs(path string) ([]string, error) {
+	if path == "" {
+		return []string{}, nil
+	}
+
+	logResult, err := logs.GetLogs(path, []logs.Position{}, false, true)
+	if err != nil {
+		return []string{}, err
+	}
+
+	return logResult.Logs, nil
 }

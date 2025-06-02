@@ -8,4 +8,6 @@ var (
 	Gray        = lipgloss.Color("245")
 	LightGray   = lipgloss.Color("241")
 	Blue        = lipgloss.Color("39")
+	Green        = lipgloss.Color("2")
+	Black        = lipgloss.Color("0")
 )
