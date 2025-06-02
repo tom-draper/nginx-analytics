@@ -3,46 +3,63 @@ package cards
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
+	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 )
 
-// SuccessRateCard displays success rate percentage
 type SuccessRateCard struct {
+	logs        []l.NginxLog // Reference to log entries
+	period      p.Period
 	SuccessRate float64
-	Total       int
-	Successful  int
+	lastUpdate  time.Time // When metrics were last calculated
 }
 
-func NewSuccessRateCard(successful, total int) *SuccessRateCard {
-	rate := 0.0
-	if total > 0 {
-		rate = (float64(successful) / float64(total)) * 100
-	}
-	return &SuccessRateCard{
-		SuccessRate: rate,
-		Total:       total,
-		Successful:  successful,
-	}
+func NewSuccessRateCard(logs []l.NginxLog, period p.Period) *SuccessRateCard {
+	card := &SuccessRateCard{logs: logs, period: period}
+
+	// Initial calculation
+	card.updateMetrics()
+	return card
 }
 
-func (s *SuccessRateCard) RenderContent(width, height int) string {
-	// Choose color based on success rate
-	rateColor := lipgloss.Color("196") // Red for low
-	if s.SuccessRate >= 95 {
-		rateColor = lipgloss.Color("46") // Green for high
-	} else if s.SuccessRate >= 90 {
-		rateColor = lipgloss.Color("226") // Yellow for medium
+// UpdateLogs should be called when the log slice content changes
+func (r *SuccessRateCard) UpdateLogs(newLogs []l.NginxLog, period p.Period) {
+	r.logs = newLogs
+	r.updateMetrics()
+}
+
+func (r *SuccessRateCard) updateMetrics() {
+	success := successCount(r.logs)
+	total := len(r.logs)
+	r.SuccessRate = float64(success) / float64(total)
+}
+
+func successCount(logs []l.NginxLog) int {
+	count := 0
+	for _, log := range logs {
+		if *log.Status >= 200 && *log.Status < 300 {
+			count++
+		}
 	}
+
+	return count
+}
+
+func (r *SuccessRateCard) RenderContent(width, height int) string {
+	// Ensure metrics are up to date
+	r.updateMetrics()
 
 	rateStyle := lipgloss.NewStyle().
-		Foreground(rateColor).
+		Foreground(lipgloss.Color("#ffffff")).
 		Bold(true)
 
 	lines := []string{
 		"",
-		rateStyle.Render(fmt.Sprintf("%.1f%%", s.SuccessRate)),
-		fmt.Sprintf("%d/%d", s.Successful, s.Total),
+		rateStyle.Render(fmt.Sprintf("%.1f", r.SuccessRate * 100) + "%"),
+		"",
 		"",
 	}
 
@@ -65,17 +82,16 @@ func (s *SuccessRateCard) RenderContent(width, height int) string {
 	return strings.Join(lines[:height], "\n")
 }
 
-func (s *SuccessRateCard) GetTitle() string {
+func (r *SuccessRateCard) GetTitle() string {
 	return "Success Rate"
 }
 
-// Update method for real-time data
-func (s *SuccessRateCard) Update(successful, total int) {
-	s.Successful = successful
-	s.Total = total
-	if total > 0 {
-		s.SuccessRate = (float64(successful) / float64(total)) * 100
-	} else {
-		s.SuccessRate = 0
-	}
+// GetLastUpdate returns when metrics were last calculated
+func (r *SuccessRateCard) GetLastUpdate() time.Time {
+	return r.lastUpdate
+}
+
+// ForceUpdate forces recalculation of metrics even if hash hasn't changed
+func (r *SuccessRateCard) ForceUpdate() {
+	r.updateMetrics()
 }
