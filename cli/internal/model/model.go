@@ -42,6 +42,7 @@ type Model struct {
 	requestsCard    *cards.RequestsCard
 	usersCard       *cards.UsersCard
 	endpointsCard   *cards.EndpointsCard
+	locationsCard   *cards.LocationsCard
 
 	logs       []string
 	parsedLogs []n.NGINXLog // Parsed logs for card updates
@@ -72,6 +73,7 @@ func New(cfg config.Config) Model {
 	requestsCard := cards.NewRequestsCard(currentLogs, period)
 	usersCard := cards.NewUsersCard(currentLogs, period)
 	endpointsCard := cards.NewEndpointsCard(currentLogs, period)
+	locationsCard := cards.NewLocationsCard(currentLogs, period)
 
 	// Create base cards with renderers - these will all be treated uniformly
 	placeholderCard := cards.NewCard("", cards.NewLogoCard())
@@ -80,7 +82,7 @@ func New(cfg config.Config) Model {
 	userCard := cards.NewCard("Users", usersCard)
 	activityCard := cards.NewCard("Activity", cards.NewPlaceholderCard(""))
 	endpointCard := cards.NewCard("Endpoints", endpointsCard)
-	locationCard := cards.NewCard("Location", cards.NewPlaceholderCard(""))
+	locationCard := cards.NewCard("Location", locationsCard)
 	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
 	cpuCard := cards.NewCard("CPU", cards.NewPlaceholderCard(""))
 	memorycard := cards.NewCard("Memory", cards.NewPlaceholderCard(""))
@@ -110,7 +112,7 @@ func New(cfg config.Config) Model {
 		requestCard,     // 2 - bottom-left grid
 		userCard,        // 3 - bottom-right grid
 		activityCard,    // 4 - sidebar
-		endpointCard,   // 5 - middle
+		endpointCard,    // 5 - middle
 		locationCard,    // 6 - bottom area
 		deviceCard,      // 7 - bottom area
 		cpuCard,         // 8 - sub-grid
@@ -157,6 +159,7 @@ func New(cfg config.Config) Model {
 		requestsCard:      requestsCard,
 		usersCard:         usersCard,
 		endpointsCard:     endpointsCard,
+		locationsCard:     locationsCard,
 		logs:              logs,
 		parsedLogs:        parsedLogs,
 		currentLogs:       currentLogs,
@@ -164,11 +167,12 @@ func New(cfg config.Config) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(
-		tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
-			return UpdateDataMsg{}
-		}),
-	)
+	return nil
+	// return tea.Batch(
+		// tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+		// 	return UpdateDataMsg{}
+		// }),
+	// )
 }
 
 // UpdateDataMsg is sent to trigger data updates
@@ -352,6 +356,7 @@ func (m *Model) updateCardData() {
 	m.requestsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 	m.usersCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 	m.endpointsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
+	m.locationsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 
 	// Update requests (simulate traffic changes)
 	// currentRequests := max(m.requestsCard.Count+rand.Intn(200)-100, 0)

@@ -29,11 +29,12 @@ type EndpointsCard struct {
 	logs   []n.NGINXLog // Reference to log entries
 	period p.Period
 
-	// Calculated
 	calculated struct {
 		endpoints []endpoint
 	}
 }
+
+const maxEndpoints = 35 // Maximum number of endpoints to display
 
 func NewEndpointsCard(logs []n.NGINXLog, period p.Period) *EndpointsCard {
 	card := &EndpointsCard{logs: logs, period: period}
@@ -92,10 +93,19 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	// Find max count for scaling bars
 	maxCount := sortedEndpoints[0].count
 
+	var endpoints []endpoint
+	if len(sortedEndpoints) > maxEndpoints {
+		// Limit to maxEndpoints if more than allowed
+		logger.Log.Println("Limiting endpoints to max:", maxEndpoints)
+		endpoints = sortedEndpoints[:maxEndpoints]
+	} else {
+		endpoints = sortedEndpoints
+	}
+
 	var lines []string
 
 	// Render each endpoint as a horizontal bar with overlaid text
-	for i, ep := range sortedEndpoints {
+	for i, ep := range endpoints {
 		if i >= height {
 			break // Don't exceed available height
 		}
@@ -177,7 +187,6 @@ func getEndpoints(logs []n.NGINXLog) []endpoint {
 	endpointMap := make(map[endpointID]int)
 
 	for _, log := range logs {
-		logger.Log.Println("Processing log:", log.Path, log.Method, log.Status)
 		if log.Path == "" {
 			continue
 		}
@@ -199,11 +208,11 @@ func getEndpoints(logs []n.NGINXLog) []endpoint {
 	return endpoints
 }
 
-func (p *EndpointsCard) GetRequiredHeight(width int) int {
-	if len(p.calculated.endpoints) == 0 {
+func (r *EndpointsCard) GetRequiredHeight(width int) int {
+	if len(r.calculated.endpoints) == 0 {
 		return 3 // Minimum height for "No endpoints found" message
 	}
 
 	// Each endpoint needs one line, plus some padding
-	return len(p.calculated.endpoints) // +2 for padding/borders
+	return min(len(r.calculated.endpoints), maxEndpoints) // +2 for padding/borders
 }
