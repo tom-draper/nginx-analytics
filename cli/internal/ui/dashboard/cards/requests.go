@@ -46,7 +46,7 @@ func getTimestamps(logs []nginx.NGINXLog) []time.Time {
 
 func (r *RequestsCard) RenderContent(width, height int) string {
 	// Ensure metrics are up to date
-	r.updateMetrics()
+	r.updateCalculated()
 
 	countStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#ffffff")).

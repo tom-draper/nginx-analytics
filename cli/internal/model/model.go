@@ -191,16 +191,17 @@ func New(cfg config.Config) Model {
 	grid.AddSidebarCard(allCards[4])
 
 	// Middle card (position 5)
+	// Ensure the card implements DynamicHeightCard before adding
 	grid.AddMiddleCard(allCards[5])
 
 	// Bottom cards (positions 6-7)
-	grid.AddBottomCard(allCards[6])
-	grid.AddBottomCard(allCards[7])
+	grid.AddSidebarBottomCard(allCards[6])
+	grid.AddSidebarBottomCard(allCards[7])
 
-	grid.AddSubGridCard(allCards[8])
-	grid.AddSubGridCard(allCards[9])
-	grid.AddSubGridCard(allCards[10])
-	grid.AddSubGridCard(allCards[11])
+	grid.AddSidebarSubGridCard(allCards[8])
+	grid.AddSidebarSubGridCard(allCards[9])
+	grid.AddSidebarSubGridCard(allCards[10])
+	grid.AddSidebarSubGridCard(allCards[11])
 
 	// Set first card as active
 	grid.SetActiveCard(0)
