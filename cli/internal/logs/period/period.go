@@ -1,6 +1,10 @@
 package period
 
-import "time"
+import (
+	"time"
+
+	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+)
 
 // Period represents time period options
 type Period string
@@ -28,6 +32,33 @@ func PeriodHours(period Period) int {
 	default:
 		return 0 // Invalid period
 	}
+}
+
+func LogRange(logs []n.NGINXLog) time.Duration {
+	if len(logs) == 0 {
+		return 0
+	}
+	start := logs[0].Timestamp
+	end := logs[len(logs)-1].Timestamp
+
+	return end.Sub(*start)
+}
+
+func LogRangePeriodHours(logs []n.NGINXLog, period Period) int {
+	if period != PeriodAllTime && len(logs) > 0 {
+		return PeriodHours(period)
+	}
+
+	logRange := LogRange(logs)
+	if logRange == 0 {
+		return 1 // No logs to calculate range
+	}
+	hours := int(logRange.Hours())
+	if hours < 1 {
+		return 1 // At least 1 hour
+	}
+	return hours
+
 }
 
 func (p Period) TimeAgo() time.Duration {

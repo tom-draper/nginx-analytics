@@ -6,41 +6,50 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
+	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
 type SuccessRateCard struct {
-	logs        []l.NginxLog // Reference to log entries
+	logs        []n.NGINXLog // Reference to log entries
 	period      p.Period
-	SuccessRate float64
-	lastUpdate  time.Time // When metrics were last calculated
+
+	calculated struct {
+		successRate float64
+		lastUpdate  time.Time // When metrics were last calculated
+	}
 }
 
-func NewSuccessRateCard(logs []l.NginxLog, period p.Period) *SuccessRateCard {
+func NewSuccessRateCard(logs []n.NGINXLog, period p.Period) *SuccessRateCard {
 	card := &SuccessRateCard{logs: logs, period: period}
 
 	// Initial calculation
-	card.updateMetrics()
+	card.updateCalculated()
 	return card
 }
 
 // UpdateLogs should be called when the log slice content changes
-func (r *SuccessRateCard) UpdateLogs(newLogs []l.NginxLog, period p.Period) {
+func (r *SuccessRateCard) UpdateLogs(newLogs []n.NGINXLog, period p.Period) {
 	r.logs = newLogs
-	r.updateMetrics()
+	r.period = period
+	r.updateCalculated()
 }
 
-func (r *SuccessRateCard) updateMetrics() {
+func (r *SuccessRateCard) updateCalculated() {
 	success := successCount(r.logs)
 	total := len(r.logs)
-	r.SuccessRate = float64(success) / float64(total)
+	if total == 0 {
+		r.calculated.successRate = -1
+	} else {
+		r.calculated.successRate = float64(success) / float64(total)
+	}
 }
 
-func successCount(logs []l.NginxLog) int {
+func successCount(logs []n.NGINXLog) int {
 	count := 0
 	for _, log := range logs {
-		if *log.Status >= 200 && *log.Status < 300 {
+		if *log.Status >= 200 && *log.Status < 400 {
 			count++
 		}
 	}
@@ -48,17 +57,37 @@ func successCount(logs []l.NginxLog) int {
 	return count
 }
 
+func rateColor(rate float64) lipgloss.TerminalColor {
+	if rate >= 0.9 {
+		return styles.Green // Green for 90%+
+	} else if rate >= 0.75 {
+		return lipgloss.Color("#ffff00") // Yellow for 75%+
+	} else if rate >= 0.5 {
+		return lipgloss.Color("#ff8000") // Orange for 50%+
+	} else if rate == -1 {
+		return styles.LightGray // Grey for no data
+	}
+	return styles.Red // Red for below 50%
+}
+
 func (r *SuccessRateCard) RenderContent(width, height int) string {
 	// Ensure metrics are up to date
-	r.updateMetrics()
+	r.updateCalculated()
 
 	rateStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#ffffff")).
+		Foreground(rateColor(r.calculated.successRate)).
 		Bold(true)
+
+	var formattedSuccessRate string
+	if r.calculated.successRate == -1 {
+		formattedSuccessRate = "--"
+	} else {
+		formattedSuccessRate = fmt.Sprintf("%.1f%%", r.calculated.successRate*100) + "%"
+	}
 
 	lines := []string{
 		"",
-		rateStyle.Render(fmt.Sprintf("%.1f", r.SuccessRate * 100) + "%"),
+		rateStyle.Render(formattedSuccessRate),
 		"",
 		"",
 	}
@@ -88,10 +117,10 @@ func (r *SuccessRateCard) GetTitle() string {
 
 // GetLastUpdate returns when metrics were last calculated
 func (r *SuccessRateCard) GetLastUpdate() time.Time {
-	return r.lastUpdate
+	return r.calculated.lastUpdate
 }
 
 // ForceUpdate forces recalculation of metrics even if hash hasn't changed
 func (r *SuccessRateCard) ForceUpdate() {
-	r.updateMetrics()
+	r.updateCalculated()
 }
