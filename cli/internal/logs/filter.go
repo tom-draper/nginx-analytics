@@ -1,10 +1,13 @@
 package logs
 
-import "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+import (
+	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+)
 
-func FilterLogs(logs []NginxLog, period period.Period) []NginxLog {
+func FilterLogs(logs []n.NGINXLog, period period.Period) []n.NGINXLog {
 	periodStart := period.Start()
-	filteredLogs := make([]NginxLog, 0)
+	filteredLogs := make([]n.NGINXLog, 0)
 	for _, log := range logs {
 		if log.Timestamp.After(periodStart) {
 			filteredLogs = append(filteredLogs, log)

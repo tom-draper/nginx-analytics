@@ -11,32 +11,32 @@ type DashboardGrid struct {
 	ActiveCard    int
 	Rows          int
 	Cols          int
-	SidebarCard   *cards.Card // Card for the sidebar
+	SidebarCard   *cards.Card // Card for the sidebar (right side)
 	TerminalWidth int         // Current width of the terminal
-	
+
 	// New fields for custom layout
-	MiddleCard    *cards.Card // Large card below the main grid
-	BottomCards   []*cards.Card // Two cards at the bottom
-	SubGridCards  []*cards.Card // 2x2 grid below bottom cards
-	
+	MiddleCard           *cards.Card   // Large card below the main grid (left side)
+	SidebarBottomCards   []*cards.Card // Two cards at the bottom of sidebar
+	SidebarSubGridCards  []*cards.Card // 2x2 grid below bottom cards in sidebar area
+
 	// All cards in navigation order for unified navigation
-	AllCards      []*cards.Card
+	AllCards []*cards.Card
 }
 
 // NewDashboardGrid creates a new dashboard grid.
 // terminalWidth should be provided, e.g., from initial terminal size or a default.
 func NewDashboardGrid(rows, cols, terminalWidth int) *DashboardGrid {
 	return &DashboardGrid{
-		Cards:         make([]*cards.Card, 0),
-		ActiveCard:    0,
-		Rows:          rows,
-		Cols:          cols,
-		SidebarCard:   nil,
-		TerminalWidth: terminalWidth,
-		MiddleCard:    nil,
-		BottomCards:   make([]*cards.Card, 0),
-		SubGridCards:  make([]*cards.Card, 0),
-		AllCards:      make([]*cards.Card, 0),
+		Cards:               make([]*cards.Card, 0),
+		ActiveCard:          0,
+		Rows:                rows,
+		Cols:                cols,
+		SidebarCard:         nil,
+		TerminalWidth:       terminalWidth,
+		MiddleCard:          nil,
+		SidebarBottomCards:  make([]*cards.Card, 0),
+		SidebarSubGridCards: make([]*cards.Card, 0),
+		AllCards:            make([]*cards.Card, 0),
 	}
 }
 
@@ -58,18 +58,18 @@ func (d *DashboardGrid) AddMiddleCard(card *cards.Card) {
 	d.AllCards = append(d.AllCards, card)
 }
 
-// AddBottomCard adds a card to the bottom row (max 2 cards).
-func (d *DashboardGrid) AddBottomCard(card *cards.Card) {
-	if len(d.BottomCards) < 2 {
-		d.BottomCards = append(d.BottomCards, card)
+// AddSidebarBottomCard adds a card to the bottom row of sidebar (max 2 cards).
+func (d *DashboardGrid) AddSidebarBottomCard(card *cards.Card) {
+	if len(d.SidebarBottomCards) < 2 {
+		d.SidebarBottomCards = append(d.SidebarBottomCards, card)
 		d.AllCards = append(d.AllCards, card)
 	}
 }
 
-// AddSubGridCard adds a card to the 2x2 sub-grid below bottom cards (max 4 cards).
-func (d *DashboardGrid) AddSubGridCard(card *cards.Card) {
-	if len(d.SubGridCards) < 4 {
-		d.SubGridCards = append(d.SubGridCards, card)
+// AddSidebarSubGridCard adds a card to the 2x2 sub-grid in sidebar area (max 4 cards).
+func (d *DashboardGrid) AddSidebarSubGridCard(card *cards.Card) {
+	if len(d.SidebarSubGridCards) < 4 {
+		d.SidebarSubGridCards = append(d.SidebarSubGridCards, card)
 		d.AllCards = append(d.AllCards, card)
 	}
 }
@@ -81,7 +81,7 @@ func (d *DashboardGrid) SetActiveCard(index int) {
 		if d.ActiveCard >= 0 && d.ActiveCard < len(d.AllCards) {
 			d.AllCards[d.ActiveCard].SetActive(false)
 		}
-		
+
 		// Activate new card
 		d.ActiveCard = index
 		d.AllCards[d.ActiveCard].SetActive(true)
@@ -89,12 +89,12 @@ func (d *DashboardGrid) SetActiveCard(index int) {
 }
 
 // GetActiveCardPosition returns which area the active card is in
-// Returns: "main", "sidebar", "middle", "bottom", "subgrid"
+// Returns: "main", "sidebar", "middle", "sidebar-bottom", "sidebar-subgrid"
 func (d *DashboardGrid) GetActiveCardPosition() string {
 	if d.ActiveCard < len(d.Cards) {
 		return "main"
 	}
-	
+
 	offset := len(d.Cards)
 	if d.SidebarCard != nil {
 		if d.ActiveCard == offset {
@@ -102,30 +102,30 @@ func (d *DashboardGrid) GetActiveCardPosition() string {
 		}
 		offset++
 	}
-	
+
 	if d.MiddleCard != nil {
 		if d.ActiveCard == offset {
 			return "middle"
 		}
 		offset++
 	}
-	
-	if d.ActiveCard >= offset && d.ActiveCard < offset+len(d.BottomCards) {
-		return "bottom"
+
+	if d.ActiveCard >= offset && d.ActiveCard < offset+len(d.SidebarBottomCards) {
+		return "sidebar-bottom"
 	}
-	offset += len(d.BottomCards)
-	
-	if d.ActiveCard >= offset && d.ActiveCard < offset+len(d.SubGridCards) {
-		return "subgrid"
+	offset += len(d.SidebarBottomCards)
+
+	if d.ActiveCard >= offset && d.ActiveCard < offset+len(d.SidebarSubGridCards) {
+		return "sidebar-subgrid"
 	}
-	
+
 	return "main" // fallback
 }
 
 // GetActiveCardIndexInArea returns the index of the active card within its area
 func (d *DashboardGrid) GetActiveCardIndexInArea() int {
 	position := d.GetActiveCardPosition()
-	
+
 	switch position {
 	case "main":
 		return d.ActiveCard
@@ -133,7 +133,7 @@ func (d *DashboardGrid) GetActiveCardIndexInArea() int {
 		return 0 // Sidebar only has one card
 	case "middle":
 		return 0 // Middle only has one card
-	case "bottom":
+	case "sidebar-bottom":
 		offset := len(d.Cards)
 		if d.SidebarCard != nil {
 			offset++
@@ -142,7 +142,7 @@ func (d *DashboardGrid) GetActiveCardIndexInArea() int {
 			offset++
 		}
 		return d.ActiveCard - offset
-	case "subgrid":
+	case "sidebar-subgrid":
 		offset := len(d.Cards)
 		if d.SidebarCard != nil {
 			offset++
@@ -150,10 +150,10 @@ func (d *DashboardGrid) GetActiveCardIndexInArea() int {
 		if d.MiddleCard != nil {
 			offset++
 		}
-		offset += len(d.BottomCards)
+		offset += len(d.SidebarBottomCards)
 		return d.ActiveCard - offset
 	}
-	
+
 	return 0
 }
 
@@ -206,8 +206,8 @@ func (d *DashboardGrid) GetMiddleCardIndex() int {
 	return offset
 }
 
-func (d *DashboardGrid) GetBottomCardIndex(bottomIndex int) int {
-	if bottomIndex < 0 || bottomIndex >= len(d.BottomCards) {
+func (d *DashboardGrid) GetSidebarBottomCardIndex(bottomIndex int) int {
+	if bottomIndex < 0 || bottomIndex >= len(d.SidebarBottomCards) {
 		return -1
 	}
 	offset := len(d.Cards)
@@ -220,8 +220,8 @@ func (d *DashboardGrid) GetBottomCardIndex(bottomIndex int) int {
 	return offset + bottomIndex
 }
 
-func (d *DashboardGrid) GetSubGridCardIndex(subGridIndex int) int {
-	if subGridIndex < 0 || subGridIndex >= len(d.SubGridCards) {
+func (d *DashboardGrid) GetSidebarSubGridCardIndex(subGridIndex int) int {
+	if subGridIndex < 0 || subGridIndex >= len(d.SidebarSubGridCards) {
 		return -1
 	}
 	offset := len(d.Cards)
@@ -231,14 +231,25 @@ func (d *DashboardGrid) GetSubGridCardIndex(subGridIndex int) int {
 	if d.MiddleCard != nil {
 		offset++
 	}
-	offset += len(d.BottomCards)
+	offset += len(d.SidebarBottomCards)
 	return offset + subGridIndex
 }
 
-// GetSubGridPosition returns the row and column of a card in the 2x2 sub-grid
-func (d *DashboardGrid) GetSubGridPosition(cardIndex int) (int, int) {
-	subGridIndex := d.GetActiveCardIndexInArea()
-	if subGridIndex < 0 || subGridIndex >= len(d.SubGridCards) {
+// GetSidebarSubGridPosition returns the row and column of a card in the 2x2 sidebar sub-grid
+func (d *DashboardGrid) GetSidebarSubGridPosition(cardIndex int) (int, int) {
+	// First, we need to find which sidebar sub-grid card this is
+	offset := len(d.Cards)
+	if d.SidebarCard != nil {
+		offset++
+	}
+	if d.MiddleCard != nil {
+		offset++
+	}
+	offset += len(d.SidebarBottomCards)
+	
+	// Calculate the index within the sidebar sub-grid
+	subGridIndex := cardIndex - offset
+	if subGridIndex < 0 || subGridIndex >= len(d.SidebarSubGridCards) {
 		return -1, -1
 	}
 	row := subGridIndex / 2 // 2x2 grid has 2 columns
@@ -246,19 +257,338 @@ func (d *DashboardGrid) GetSubGridPosition(cardIndex int) (int, int) {
 	return row, col
 }
 
-// GetSubGridCardByPosition returns the card index in the sub-grid at the given row/col
-func (d *DashboardGrid) GetSubGridCardByPosition(row, col int) int {
+// GetSidebarSubGridCardByPosition returns the card index in the sidebar sub-grid at the given row/col
+func (d *DashboardGrid) GetSidebarSubGridCardByPosition(row, col int) int {
 	if row < 0 || row >= 2 || col < 0 || col >= 2 {
 		return -1
 	}
 	subGridIndex := row*2 + col
-	if subGridIndex >= len(d.SubGridCards) {
+	if subGridIndex >= len(d.SidebarSubGridCards) {
 		return -1
 	}
-	return d.GetSubGridCardIndex(subGridIndex)
+	return d.GetSidebarSubGridCardIndex(subGridIndex)
 }
 
-// RenderGrid renders the custom layout with main grid, middle card, sidebar, and bottom cards.
+// MoveUp handles the up arrow key navigation
+func (d *DashboardGrid) MoveUp() {
+	currentPosition := d.GetActiveCardPosition()
+
+	switch currentPosition {
+	case "main":
+		// In main grid, move up within the grid or wrap to bottom of right column
+		row, col := d.GetMainGridPosition(d.ActiveCard)
+		if row > 0 {
+			// Move up within main grid
+			newIndex := d.GetMainGridCardIndex(row-1, col)
+			if newIndex != -1 {
+				d.SetActiveCard(newIndex)
+			}
+		} else {
+			// At top of main grid, move to bottom of right column
+			d.moveToBottomOfRightColumn()
+		}
+
+	case "middle":
+		// From middle card, move to bottom row of main grid (left column)
+		if len(d.Cards) > 0 {
+			// Move to bottom-left card of main grid
+			bottomRow := (len(d.Cards) - 1) / d.Cols
+			if bottomRow >= 0 {
+				newIndex := d.GetMainGridCardIndex(bottomRow, 0)
+				if newIndex != -1 {
+					d.SetActiveCard(newIndex)
+				}
+			}
+		}
+
+	case "sidebar":
+		// From sidebar, wrap to bottom of right column
+		d.moveToBottomOfRightColumn()
+
+	case "sidebar-bottom":
+		// From sidebar bottom cards, move up to sidebar
+		if d.SidebarCard != nil {
+			sidebarIndex := d.GetSidebarCardIndex()
+			if sidebarIndex != -1 {
+				d.SetActiveCard(sidebarIndex)
+			}
+		}
+
+	case "sidebar-subgrid":
+		// From sidebar sub-grid, move up to sidebar bottom cards or sidebar
+		subRow, subCol := d.GetSidebarSubGridPosition(d.ActiveCard)
+		if subRow > 0 {
+			// Move up within sidebar sub-grid
+			newSubIndex := d.GetSidebarSubGridCardByPosition(subRow-1, subCol)
+			if newSubIndex != -1 {
+				d.SetActiveCard(newSubIndex)
+			}
+		} else {
+			// At top of sidebar sub-grid, move to sidebar bottom cards
+			if len(d.SidebarBottomCards) > 0 {
+				// Try to maintain column alignment
+				targetBottomIndex := min(subCol, len(d.SidebarBottomCards)-1)
+				bottomCardIndex := d.GetSidebarBottomCardIndex(targetBottomIndex)
+				if bottomCardIndex != -1 {
+					d.SetActiveCard(bottomCardIndex)
+				}
+			} else if d.SidebarCard != nil {
+				// No sidebar bottom cards, go to sidebar
+				sidebarIndex := d.GetSidebarCardIndex()
+				if sidebarIndex != -1 {
+					d.SetActiveCard(sidebarIndex)
+				}
+			}
+		}
+	}
+}
+
+// MoveDown handles the down arrow key navigation
+func (d *DashboardGrid) MoveDown() {
+	currentPosition := d.GetActiveCardPosition()
+	currentIndexInArea := d.GetActiveCardIndexInArea()
+
+	switch currentPosition {
+	case "main":
+		// In main grid, move down within the grid or to middle/right column
+		row, col := d.GetMainGridPosition(d.ActiveCard)
+		newRow := row + 1
+		newIndex := d.GetMainGridCardIndex(newRow, col)
+
+		if newIndex != -1 {
+			// Move down within main grid
+			d.SetActiveCard(newIndex)
+		} else {
+			// At bottom of main grid
+			if col == 0 && d.MiddleCard != nil {
+				// Left column, move to middle card
+				middleIndex := d.GetMiddleCardIndex()
+				if middleIndex != -1 {
+					d.SetActiveCard(middleIndex)
+				}
+			} else {
+				// Right column or no middle card, move to top of right column
+				d.moveToTopOfRightColumn()
+			}
+		}
+
+	case "middle":
+		// From middle card, wrap to top of main grid (left column)
+		if len(d.Cards) > 0 {
+			d.SetActiveCard(0) // Top-left card of main grid
+		}
+
+	case "sidebar":
+		// From sidebar, move down to sidebar bottom cards or sidebar sub-grid
+		if len(d.SidebarBottomCards) > 0 {
+			bottomIndex := d.GetSidebarBottomCardIndex(0)
+			if bottomIndex != -1 {
+				d.SetActiveCard(bottomIndex)
+			}
+		} else if len(d.SidebarSubGridCards) > 0 {
+			subGridIndex := d.GetSidebarSubGridCardIndex(0)
+			if subGridIndex != -1 {
+				d.SetActiveCard(subGridIndex)
+			}
+		} else {
+			// Wrap to top of main grid
+			if len(d.Cards) > 0 {
+				d.SetActiveCard(0)
+			}
+		}
+
+	case "sidebar-bottom":
+		// From sidebar bottom cards, move down to sidebar sub-grid
+		if len(d.SidebarSubGridCards) > 0 {
+			// Try to maintain column alignment
+			targetSubCol := min(currentIndexInArea, 1) // Sidebar sub-grid has max 2 columns
+			subGridIndex := d.GetSidebarSubGridCardByPosition(0, targetSubCol)
+			if subGridIndex != -1 {
+				d.SetActiveCard(subGridIndex)
+			}
+		} else {
+			// No sidebar sub-grid, wrap to top of main grid
+			if len(d.Cards) > 0 {
+				d.SetActiveCard(0)
+			}
+		}
+
+	case "sidebar-subgrid":
+		// From sidebar sub-grid, move down within sub-grid or wrap
+		subRow, subCol := d.GetSidebarSubGridPosition(d.ActiveCard)
+		if subRow < 1 { // Can move down within sidebar sub-grid
+			newSubIndex := d.GetSidebarSubGridCardByPosition(subRow+1, subCol)
+			if newSubIndex != -1 {
+				d.SetActiveCard(newSubIndex)
+			} else {
+				// No card below in sidebar sub-grid, wrap to top
+				d.wrapToTop()
+			}
+		} else {
+			// At bottom of sidebar sub-grid, wrap to top
+			d.wrapToTop()
+		}
+	}
+}
+
+// MoveLeft handles left arrow key navigation
+func (d *DashboardGrid) MoveLeft() {
+	currentPosition := d.GetActiveCardPosition()
+
+	switch currentPosition {
+	case "main":
+		row, col := d.GetMainGridPosition(d.ActiveCard)
+		if col > 0 {
+			newIndex := d.GetMainGridCardIndex(row, col-1)
+			if newIndex != -1 {
+				d.SetActiveCard(newIndex)
+			}
+		}
+
+	case "sidebar-bottom":
+		if d.GetActiveCardIndexInArea() > 0 {
+			bottomIndex := d.GetSidebarBottomCardIndex(0)
+			if bottomIndex != -1 {
+				d.SetActiveCard(bottomIndex)
+			}
+		}
+
+	case "sidebar-subgrid":
+		subRow, subCol := d.GetSidebarSubGridPosition(d.ActiveCard)
+		if subCol > 0 {
+			newSubIndex := d.GetSidebarSubGridCardByPosition(subRow, subCol-1)
+			if newSubIndex != -1 {
+				d.SetActiveCard(newSubIndex)
+			}
+		}
+	}
+}
+
+// MoveRight handles right arrow key navigation
+func (d *DashboardGrid) MoveRight() {
+	currentPosition := d.GetActiveCardPosition()
+
+	switch currentPosition {
+	case "main":
+		row, col := d.GetMainGridPosition(d.ActiveCard)
+		if col < d.Cols-1 {
+			newIndex := d.GetMainGridCardIndex(row, col+1)
+			if newIndex != -1 {
+				d.SetActiveCard(newIndex)
+			}
+		}
+
+	case "sidebar-bottom":
+		if d.GetActiveCardIndexInArea() == 0 && len(d.SidebarBottomCards) > 1 {
+			bottomIndex := d.GetSidebarBottomCardIndex(1)
+			if bottomIndex != -1 {
+				d.SetActiveCard(bottomIndex)
+			}
+		}
+
+	case "sidebar-subgrid":
+		subRow, subCol := d.GetSidebarSubGridPosition(d.ActiveCard)
+		if subCol < 1 { // Sidebar sub-grid has max 2 columns (0, 1)
+			newSubIndex := d.GetSidebarSubGridCardByPosition(subRow, subCol+1)
+			if newSubIndex != -1 {
+				d.SetActiveCard(newSubIndex)
+			}
+		}
+	}
+}
+
+// Helper methods for navigation
+
+func (d *DashboardGrid) moveToTopOfRightColumn() {
+	// Priority: sidebar -> sidebar bottom cards -> sidebar sub-grid -> wrap to main
+	if d.SidebarCard != nil {
+		sidebarIndex := d.GetSidebarCardIndex()
+		if sidebarIndex != -1 {
+			d.SetActiveCard(sidebarIndex)
+			return
+		}
+	}
+
+	if len(d.SidebarBottomCards) > 0 {
+		bottomIndex := d.GetSidebarBottomCardIndex(0)
+		if bottomIndex != -1 {
+			d.SetActiveCard(bottomIndex)
+			return
+		}
+	}
+
+	if len(d.SidebarSubGridCards) > 0 {
+		subGridIndex := d.GetSidebarSubGridCardIndex(0)
+		if subGridIndex != -1 {
+			d.SetActiveCard(subGridIndex)
+			return
+		}
+	}
+
+	// Wrap to main grid
+	if len(d.Cards) > 0 {
+		d.SetActiveCard(0)
+	}
+}
+
+func (d *DashboardGrid) moveToBottomOfRightColumn() {
+	// Priority: sidebar sub-grid -> sidebar bottom cards -> sidebar -> wrap to middle
+	if len(d.SidebarSubGridCards) > 0 {
+		lastSubIndex := len(d.SidebarSubGridCards) - 1
+		subGridIndex := d.GetSidebarSubGridCardIndex(lastSubIndex)
+		if subGridIndex != -1 {
+			d.SetActiveCard(subGridIndex)
+			return
+		}
+	}
+
+	if len(d.SidebarBottomCards) > 0 {
+		lastBottomIndex := len(d.SidebarBottomCards) - 1
+		bottomIndex := d.GetSidebarBottomCardIndex(lastBottomIndex)
+		if bottomIndex != -1 {
+			d.SetActiveCard(bottomIndex)
+			return
+		}
+	}
+
+	if d.SidebarCard != nil {
+		sidebarIndex := d.GetSidebarCardIndex()
+		if sidebarIndex != -1 {
+			d.SetActiveCard(sidebarIndex)
+			return
+		}
+	}
+
+	// Wrap to middle or main grid
+	if d.MiddleCard != nil {
+		middleIndex := d.GetMiddleCardIndex()
+		if middleIndex != -1 {
+			d.SetActiveCard(middleIndex)
+			return
+		}
+	}
+
+	if len(d.Cards) > 0 {
+		d.SetActiveCard(len(d.Cards) - 1) // Last card in main grid
+	}
+}
+
+func (d *DashboardGrid) wrapToTop() {
+	// Wrap to the very top - main grid
+	if len(d.Cards) > 0 {
+		d.SetActiveCard(0)
+	}
+}
+
+// Helper function for min
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// RenderGrid renders the custom layout with main grid, middle card, sidebar, and sidebar cards.
 func (d *DashboardGrid) RenderGrid() string {
 	if len(d.AllCards) == 0 {
 		return ""
@@ -267,10 +597,10 @@ func (d *DashboardGrid) RenderGrid() string {
 	// Render main grid (top-left 2x2 grid)
 	mainGridView := d.renderMainGrid()
 	mainGridWidth := lipgloss.Width(mainGridView)
-	
+
 	// Render middle card (below main grid, same width)
 	middleCardView := d.renderMiddleCard(mainGridWidth)
-	
+
 	// Combine left column (main grid + middle card)
 	leftColumnParts := []string{}
 	if mainGridView != "" {
@@ -279,45 +609,45 @@ func (d *DashboardGrid) RenderGrid() string {
 	if middleCardView != "" {
 		leftColumnParts = append(leftColumnParts, middleCardView)
 	}
-	
+
 	leftColumnView := ""
 	if len(leftColumnParts) > 0 {
 		leftColumnView = lipgloss.JoinVertical(lipgloss.Left, leftColumnParts...)
 	}
 
-	// Handle sidebar, bottom cards, and sub-grid on the right side
+	// Handle sidebar, sidebar bottom cards, and sidebar sub-grid on the right side
 	if d.SidebarCard != nil {
 		leftColumnWidth := lipgloss.Width(leftColumnView)
 		sidebarTargetWidth := max(d.TerminalWidth-leftColumnWidth-2, 0)
-		
+
 		// Render sidebar
 		sidebarTargetHeight := 20 // Fixed height for sidebar, adjust as needed
 		d.SidebarCard.SetSize(sidebarTargetWidth, sidebarTargetHeight)
 		renderedSidebarCard := d.SidebarCard.Render()
-		
-		// Render bottom cards (below sidebar, same width as sidebar)
-		bottomCardsView := d.renderBottomCards(sidebarTargetWidth)
-		
-		// Render sub-grid (2x2 grid below bottom cards, same width as sidebar)
-		subGridView := d.renderSubGrid(sidebarTargetWidth)
-		
-		// Combine right column (sidebar + bottom cards + sub-grid)
+
+		// Render sidebar bottom cards (below sidebar, same width as sidebar)
+		sidebarBottomCardsView := d.renderSidebarBottomCards(sidebarTargetWidth)
+
+		// Render sidebar sub-grid (2x2 grid below sidebar bottom cards, same width as sidebar)
+		sidebarSubGridView := d.renderSidebarSubGrid(sidebarTargetWidth)
+
+		// Combine right column (sidebar + sidebar bottom cards + sidebar sub-grid)
 		rightColumnParts := []string{}
 		if renderedSidebarCard != "" {
 			rightColumnParts = append(rightColumnParts, renderedSidebarCard)
 		}
-		if bottomCardsView != "" {
-			rightColumnParts = append(rightColumnParts, bottomCardsView)
+		if sidebarBottomCardsView != "" {
+			rightColumnParts = append(rightColumnParts, sidebarBottomCardsView)
 		}
-		if subGridView != "" {
-			rightColumnParts = append(rightColumnParts, subGridView)
+		if sidebarSubGridView != "" {
+			rightColumnParts = append(rightColumnParts, sidebarSubGridView)
 		}
-		
+
 		rightColumnView := ""
 		if len(rightColumnParts) > 0 {
 			rightColumnView = lipgloss.JoinVertical(lipgloss.Left, rightColumnParts...)
 		}
-		
+
 		return lipgloss.JoinHorizontal(lipgloss.Top, leftColumnView, rightColumnView)
 	}
 
@@ -345,73 +675,75 @@ func (d *DashboardGrid) renderMainGrid() string {
 			mainGridRows = append(mainGridRows, lipgloss.JoinHorizontal(lipgloss.Top, currentRowCardsRendered...))
 		}
 	}
-	
+
 	if len(mainGridRows) > 0 {
 		return lipgloss.JoinVertical(lipgloss.Left, mainGridRows...)
 	}
 	return ""
 }
 
-// renderMiddleCard renders the middle card below the main grid.
 func (d *DashboardGrid) renderMiddleCard(targetWidth int) string {
 	if d.MiddleCard == nil {
 		return ""
 	}
+
+	targetHeight := 30 // Default height
 	
-	// Make the middle card taller than the main grid cards
-	// You can adjust this height based on your needs
-	targetHeight := 30 // or calculate based on available space
-	
-	d.MiddleCard.SetSize(targetWidth - 2, targetHeight)
+	// Check if the middle card supports dynamic height
+	if dynamicHeightRenderer, ok := d.MiddleCard.Renderer.(cards.DynamicHeightCard); ok {
+        // If it does, ask the renderer for its required height based on the targetWidth
+        targetHeight = dynamicHeightRenderer.GetRequiredHeight(targetWidth - 2) // Subtract 2 for card's own borders
+    }
+
+	d.MiddleCard.SetSize(targetWidth-2, targetHeight)
 	return d.MiddleCard.Render()
 }
 
-// renderBottomCards renders the two bottom cards horizontally below the sidebar.
-func (d *DashboardGrid) renderBottomCards(sidebarWidth int) string {
-	if len(d.BottomCards) == 0 {
+func (d *DashboardGrid) renderSidebarBottomCards(sidebarWidth int) string {
+	if len(d.SidebarBottomCards) == 0 {
 		return ""
 	}
-	
-	var renderedBottomCards []string
+
+	var renderedSidebarBottomCards []string
 	cardHeight := 8 // Adjust as needed
-	
-	if len(d.BottomCards) == 1 {
+
+	if len(d.SidebarBottomCards) == 1 {
 		cardWidth := sidebarWidth
-		d.BottomCards[0].SetSize(cardWidth, cardHeight)
-		renderedBottomCards = append(renderedBottomCards, d.BottomCards[0].Render())
-	} else if len(d.BottomCards) == 2 {
+		d.SidebarBottomCards[0].SetSize(cardWidth, cardHeight)
+		renderedSidebarBottomCards = append(renderedSidebarBottomCards, d.SidebarBottomCards[0].Render())
+	} else if len(d.SidebarBottomCards) == 2 {
 		// Handle odd widths by making left card slightly bigger
-		availableWidth := sidebarWidth - 2 // Account for spacing
-		leftCardWidth := (availableWidth + 1) / 2   // Rounds up for odd numbers
-		rightCardWidth := availableWidth / 2        // Rounds down for odd numbers
-		
-		d.BottomCards[0].SetSize(leftCardWidth, cardHeight)
-		d.BottomCards[1].SetSize(rightCardWidth, cardHeight)
-		
-		renderedBottomCards = append(renderedBottomCards, d.BottomCards[0].Render())
-		renderedBottomCards = append(renderedBottomCards, d.BottomCards[1].Render())
+		availableWidth := sidebarWidth - 2        // Account for spacing
+		leftCardWidth := (availableWidth + 1) / 2 // Rounds up for odd numbers
+		rightCardWidth := availableWidth / 2      // Rounds down for odd numbers
+
+		d.SidebarBottomCards[0].SetSize(leftCardWidth, cardHeight)
+		d.SidebarBottomCards[1].SetSize(rightCardWidth, cardHeight)
+
+		renderedSidebarBottomCards = append(renderedSidebarBottomCards, d.SidebarBottomCards[0].Render())
+		renderedSidebarBottomCards = append(renderedSidebarBottomCards, d.SidebarBottomCards[1].Render())
 	}
-	
-	return lipgloss.JoinHorizontal(lipgloss.Top, renderedBottomCards...)
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, renderedSidebarBottomCards...)
 }
 
-// renderSubGrid renders the 2x2 sub-grid below the bottom cards.
-func (d *DashboardGrid) renderSubGrid(sidebarWidth int) string {
-	if len(d.SubGridCards) == 0 {
+// renderSidebarSubGrid renders the 2x2 sidebar sub-grid below the sidebar bottom cards.
+func (d *DashboardGrid) renderSidebarSubGrid(sidebarWidth int) string {
+	if len(d.SidebarSubGridCards) == 0 {
 		return ""
 	}
-	
+
 	// Handle odd widths by making left cards slightly bigger
-	availableWidth := sidebarWidth - 2 // Account for spacing between cards
-	leftCardWidth := (availableWidth + 1) / 2   // Rounds up for odd numbers
-	rightCardWidth := availableWidth / 2        // Rounds down for odd numbers
-	
-	var subGridRows []string
+	availableWidth := sidebarWidth - 2        // Account for spacing between cards
+	leftCardWidth := (availableWidth + 1) / 2 // Rounds up for odd numbers
+	rightCardWidth := availableWidth / 2      // Rounds down for odd numbers
+
+	var sidebarSubGridRows []string
 	for row := range 2 {
 		var currentRowCards []string
 		for col := range 2 {
 			cardIndex := row*2 + col
-			if cardIndex < len(d.SubGridCards) {
+			if cardIndex < len(d.SidebarSubGridCards) {
 				// Left column gets the wider width for odd numbers
 				cardWidth := leftCardWidth
 				if col == 1 {
@@ -421,18 +753,18 @@ func (d *DashboardGrid) renderSubGrid(sidebarWidth int) string {
 				if row == 1 {
 					cardHeight = 4
 				}
-				
-				d.SubGridCards[cardIndex].SetSize(cardWidth, cardHeight)
-				currentRowCards = append(currentRowCards, d.SubGridCards[cardIndex].Render())
+
+				d.SidebarSubGridCards[cardIndex].SetSize(cardWidth, cardHeight)
+				currentRowCards = append(currentRowCards, d.SidebarSubGridCards[cardIndex].Render())
 			}
 		}
 		if len(currentRowCards) > 0 {
-			subGridRows = append(subGridRows, lipgloss.JoinHorizontal(lipgloss.Top, currentRowCards...))
+			sidebarSubGridRows = append(sidebarSubGridRows, lipgloss.JoinHorizontal(lipgloss.Top, currentRowCards...))
 		}
 	}
-	
-	if len(subGridRows) > 0 {
-		return lipgloss.JoinVertical(lipgloss.Left, subGridRows...)
+
+	if len(sidebarSubGridRows) > 0 {
+		return lipgloss.JoinVertical(lipgloss.Left, sidebarSubGridRows...)
 	}
 	return ""
 }

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
+	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	u "github.com/tom-draper/nginx-analytics/cli/internal/logs/user"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
@@ -14,33 +14,37 @@ import (
 
 // RequestsCard displays request count and rate
 type UsersCard struct {
-	logs        []l.NginxLog // Reference to log entries
-	period      p.Period
-	Count       int       // Total request count (cached)
-	Rate        float64   // Requests per hour (cached)
-	lastUpdate  time.Time // When metrics were last calculated
+	logs   []n.NGINXLog // Reference to log entries
+	period p.Period
+
+	calculated struct {
+		count      int       // Total request count (cached)
+		rate       float64   // Requests per hour (cached)
+		lastUpdate time.Time // When metrics were last calculated
+	}
 }
 
-func NewUsersCard(logs []l.NginxLog, period p.Period) *UsersCard {
+func NewUsersCard(logs []n.NGINXLog, period p.Period) *UsersCard {
 	card := &UsersCard{logs: logs, period: period}
 
 	// Initial calculation
-	card.updateMetrics()
+	card.updateCalculated()
 	return card
 }
 
 // UpdateLogs should be called when the log slice content changes
-func (r *UsersCard) UpdateLogs(newLogs []l.NginxLog, period p.Period) {
+func (r *UsersCard) UpdateLogs(newLogs []n.NGINXLog, period p.Period) {
 	r.logs = newLogs
-	r.updateMetrics()
+	r.period = period
+	r.updateCalculated()
 }
 
-func (r *UsersCard) updateMetrics() {
-	r.Count = userCount(r.logs)
-	r.Rate = float64(r.Count) / float64(p.PeriodHours(r.period))
+func (r *UsersCard) updateCalculated() {
+	r.calculated.count = userCount(r.logs)
+	r.calculated.rate = float64(r.calculated.count) / float64(p.LogRangePeriodHours(r.logs, r.period))
 }
 
-func userCount(logs []l.NginxLog) int {
+func userCount(logs []n.NGINXLog) int {
 	userSet := make(map[string]struct{})
 	for _, log := range logs {
 		userID := u.UserID(log)
@@ -51,7 +55,7 @@ func userCount(logs []l.NginxLog) int {
 
 func (r *UsersCard) RenderContent(width, height int) string {
 	// Ensure metrics are up to date
-	r.updateMetrics()
+	r.updateCalculated()
 
 	countStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#ffffff")).
@@ -63,7 +67,7 @@ func (r *UsersCard) RenderContent(width, height int) string {
 	lines := []string{
 		"",
 		countStyle.Render(r.formatCount()),
-		rateStyle.Render(fmt.Sprintf("%.1f/h", r.Rate)),
+		rateStyle.Render(fmt.Sprintf("%.1f/h", r.calculated.rate)),
 		"",
 	}
 
@@ -87,12 +91,12 @@ func (r *UsersCard) RenderContent(width, height int) string {
 }
 
 func (r *UsersCard) formatCount() string {
-	if r.Count >= 1000000 {
-		return fmt.Sprintf("%.1fM", float64(r.Count)/1000000)
-	} else if r.Count >= 1000 {
-		return fmt.Sprintf("%.1fK", float64(r.Count)/1000)
+	if r.calculated.count >= 1000000 {
+		return fmt.Sprintf("%.1fM", float64(r.calculated.count)/1000000)
+	} else if r.calculated.count >= 1000 {
+		return fmt.Sprintf("%.1fK", float64(r.calculated.count)/1000)
 	}
-	return fmt.Sprintf("%d", r.Count)
+	return fmt.Sprintf("%d", r.calculated.count)
 }
 
 func (r *UsersCard) GetTitle() string {
@@ -101,10 +105,10 @@ func (r *UsersCard) GetTitle() string {
 
 // GetLastUpdate returns when metrics were last calculated
 func (r *UsersCard) GetLastUpdate() time.Time {
-	return r.lastUpdate
+	return r.calculated.lastUpdate
 }
 
 // ForceUpdate forces recalculation of metrics even if hash hasn't changed
 func (r *UsersCard) ForceUpdate() {
-	r.updateMetrics()
+	r.updateCalculated()
 }
