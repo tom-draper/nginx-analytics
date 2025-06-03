@@ -6,44 +6,47 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
+	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
 // RequestsCard displays request count and rate
 type RequestsCard struct {
-	logs        []l.NginxLog // Reference to log entries
+	logs        []n.NGINXLog // Reference to log entries
 	period      p.Period
-	lastLogHash uint64    // Hash of logs for change detection
-	Count       int       // Total request count (cached)
-	Rate        float64   // Requests per hour (cached)
-	lastUpdate  time.Time // When metrics were last calculated
+
+	calculated struct {
+		count       int       // Total request count (cached)
+		rate        float64   // Requests per hour (cached)
+		lastUpdate  time.Time // When metrics were last calculated
+	}
 }
 
-func NewRequestsCard(logs []l.NginxLog, period p.Period) *RequestsCard {
+func NewRequestsCard(logs []n.NGINXLog, period p.Period) *RequestsCard {
 	card := &RequestsCard{logs: logs, period: period}
 
 	// Initial calculation
-	card.updateMetrics()
+	card.updateCalculated()
 	return card
 }
 
 // UpdateLogs should be called when the log slice content changes
-func (r *RequestsCard) UpdateLogs(newLogs []l.NginxLog, period p.Period) {
+func (r *RequestsCard) UpdateLogs(newLogs []n.NGINXLog, period p.Period) {
 	r.logs = newLogs
-	r.updateMetrics()
+	r.period = period
+	r.updateCalculated()
 }
 
-// updateMetrics recalculates Count and Rate only if logs have changed
-func (r *RequestsCard) updateMetrics() {
-	r.Count = len(r.logs)
-	r.Rate = float64(r.Count) / float64(p.PeriodHours(r.period))
+// updateCalculated recalculates Count and Rate only if logs have changed
+func (r *RequestsCard) updateCalculated() {
+	r.calculated.count = len(r.logs)
+	r.calculated.rate = float64(r.calculated.count) / float64(p.LogRangePeriodHours(r.logs, r.period))
 }
 
 func (r *RequestsCard) RenderContent(width, height int) string {
 	// Ensure metrics are up to date
-	r.updateMetrics()
+	r.updateCalculated()
 
 	countStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#ffffff")).
@@ -55,7 +58,7 @@ func (r *RequestsCard) RenderContent(width, height int) string {
 	lines := []string{
 		"",
 		countStyle.Render(r.formatCount()),
-		rateStyle.Render(fmt.Sprintf("%.1f/h", r.Rate)),
+		rateStyle.Render(fmt.Sprintf("%.1f/h", r.calculated.rate)),
 		"",
 	}
 
@@ -79,12 +82,12 @@ func (r *RequestsCard) RenderContent(width, height int) string {
 }
 
 func (r *RequestsCard) formatCount() string {
-	if r.Count >= 1000000 {
-		return fmt.Sprintf("%.1fM", float64(r.Count)/1000000)
-	} else if r.Count >= 1000 {
-		return fmt.Sprintf("%.1fK", float64(r.Count)/1000)
+	if r.calculated.count >= 1000000 {
+		return fmt.Sprintf("%.1fM", float64(r.calculated.count)/1000000)
+	} else if r.calculated.count >= 1000 {
+		return fmt.Sprintf("%.1fK", float64(r.calculated.count)/1000)
 	}
-	return fmt.Sprintf("%d", r.Count)
+	return fmt.Sprintf("%d", r.calculated.count)
 }
 
 func (r *RequestsCard) GetTitle() string {
@@ -93,11 +96,10 @@ func (r *RequestsCard) GetTitle() string {
 
 // GetLastUpdate returns when metrics were last calculated
 func (r *RequestsCard) GetLastUpdate() time.Time {
-	return r.lastUpdate
+	return r.calculated.lastUpdate
 }
 
 // ForceUpdate forces recalculation of metrics even if hash hasn't changed
 func (r *RequestsCard) ForceUpdate() {
-	r.lastLogHash = 0 // Reset hash to force update
-	r.updateMetrics()
+	r.updateCalculated()
 }

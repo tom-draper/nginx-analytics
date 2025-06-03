@@ -14,6 +14,7 @@ import (
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
 	parse "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
+	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
@@ -40,11 +41,12 @@ type Model struct {
 	successRateCard *cards.SuccessRateCard
 	requestsCard    *cards.RequestsCard
 	usersCard       *cards.UsersCard
+	endpointsCard   *cards.EndpointsCard
 
 	logs       []string
-	parsedLogs []l.NginxLog // Parsed logs for card updates
+	parsedLogs []n.NGINXLog // Parsed logs for card updates
 
-	currentLogs []l.NginxLog
+	currentLogs []n.NGINXLog
 }
 
 // New creates a new model with initial state
@@ -69,6 +71,7 @@ func New(cfg config.Config) Model {
 	successRateCard := cards.NewSuccessRateCard(currentLogs, period)
 	requestsCard := cards.NewRequestsCard(currentLogs, period)
 	usersCard := cards.NewUsersCard(currentLogs, period)
+	endpointsCard := cards.NewEndpointsCard(currentLogs, period)
 
 	// Create base cards with renderers - these will all be treated uniformly
 	placeholderCard := cards.NewCard("", cards.NewLogoCard())
@@ -76,7 +79,7 @@ func New(cfg config.Config) Model {
 	requestCard := cards.NewCard("Requests", requestsCard)
 	userCard := cards.NewCard("Users", usersCard)
 	activityCard := cards.NewCard("Activity", cards.NewPlaceholderCard(""))
-	endpointsCard := cards.NewCard("Endpoints", cards.NewPlaceholderCard(""))
+	endpointCard := cards.NewCard("Endpoints", endpointsCard)
 	locationCard := cards.NewCard("Location", cards.NewPlaceholderCard(""))
 	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
 	cpuCard := cards.NewCard("CPU", cards.NewPlaceholderCard(""))
@@ -91,7 +94,7 @@ func New(cfg config.Config) Model {
 	requestCard.SetSize(cardWidth, cardHeight)
 	userCard.SetSize(cardWidth, cardHeight)
 	activityCard.SetSize(cardWidth, cardHeight)
-	endpointsCard.SetSize(cardWidth, cardHeight)
+	endpointCard.SetSize(cardWidth, cardHeight)
 	locationCard.SetSize(cardWidth, cardHeight)
 	deviceCard.SetSize(cardWidth, cardHeight)
 
@@ -107,7 +110,7 @@ func New(cfg config.Config) Model {
 		requestCard,     // 2 - bottom-left grid
 		userCard,        // 3 - bottom-right grid
 		activityCard,    // 4 - sidebar
-		endpointsCard,   // 5 - middle
+		endpointCard,   // 5 - middle
 		locationCard,    // 6 - bottom area
 		deviceCard,      // 7 - bottom area
 		cpuCard,         // 8 - sub-grid
@@ -126,16 +129,17 @@ func New(cfg config.Config) Model {
 	grid.AddSidebarCard(allCards[4])
 
 	// Middle card (position 5)
+	// Ensure the card implements DynamicHeightCard before adding
 	grid.AddMiddleCard(allCards[5])
 
 	// Bottom cards (positions 6-7)
-	grid.AddBottomCard(allCards[6])
-	grid.AddBottomCard(allCards[7])
+	grid.AddSidebarBottomCard(allCards[6])
+	grid.AddSidebarBottomCard(allCards[7])
 
-	grid.AddSubGridCard(allCards[8])
-	grid.AddSubGridCard(allCards[9])
-	grid.AddSubGridCard(allCards[10])
-	grid.AddSubGridCard(allCards[11])
+	grid.AddSidebarSubGridCard(allCards[8])
+	grid.AddSidebarSubGridCard(allCards[9])
+	grid.AddSidebarSubGridCard(allCards[10])
+	grid.AddSidebarSubGridCard(allCards[11])
 
 	// Set first card as active
 	grid.SetActiveCard(0)
@@ -152,6 +156,7 @@ func New(cfg config.Config) Model {
 		successRateCard:   successRateCard,
 		requestsCard:      requestsCard,
 		usersCard:         usersCard,
+		endpointsCard:     endpointsCard,
 		logs:              logs,
 		parsedLogs:        parsedLogs,
 		currentLogs:       currentLogs,
@@ -316,13 +321,13 @@ func (m *Model) navigateDown() {
 		}
 	case "sidebar":
 		// Go to first bottom card
-		bottomIndex := m.Grid.GetBottomCardIndex(0)
+		bottomIndex := m.Grid.GetSidebarBottomCardIndex(0)
 		if bottomIndex >= 0 {
 			m.Grid.SetActiveCard(bottomIndex)
 		}
 	case "middle":
 		// Go to first bottom card
-		bottomIndex := m.Grid.GetBottomCardIndex(0)
+		bottomIndex := m.Grid.GetSidebarBottomCardIndex(0)
 		if bottomIndex >= 0 {
 			m.Grid.SetActiveCard(bottomIndex)
 		}
@@ -331,7 +336,7 @@ func (m *Model) navigateDown() {
 		cardIndex := m.Grid.GetActiveCardIndexInArea()
 		if cardIndex == 0 {
 			// From first bottom card to second
-			secondBottomIndex := m.Grid.GetBottomCardIndex(1)
+			secondBottomIndex := m.Grid.GetSidebarBottomCardIndex(1)
 			if secondBottomIndex >= 0 {
 				m.Grid.SetActiveCard(secondBottomIndex)
 			}
@@ -346,6 +351,7 @@ func (m *Model) updateCardData() {
 	m.successRateCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 	m.requestsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 	m.usersCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
+	m.endpointsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 
 	// Update requests (simulate traffic changes)
 	// currentRequests := max(m.requestsCard.Count+rand.Intn(200)-100, 0)

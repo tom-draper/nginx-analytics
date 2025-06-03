@@ -20,7 +20,7 @@ type Card struct {
 	Width    int
 	Height   int
 	IsActive bool
-	renderer CardRenderer
+	Renderer CardRenderer
 }
 
 // NewBaseCard creates a new base card with a renderer
@@ -30,14 +30,14 @@ func NewCard(title string, renderer CardRenderer) *Card {
 		Width:    20, // Default small size
 		Height:   6,  // Default small size
 		IsActive: false,
-		renderer: renderer,
+		Renderer: renderer,
 	}
 }
 
 // Render renders the complete card with border and title
 func (c *Card) Render() string {
 	// Choose border style based on active state
-	borderColor := lipgloss.Color("238") // Gray
+	borderColor := styles.BorderColor
 	if c.IsActive {
 		borderColor = styles.Green
 	}
@@ -54,7 +54,7 @@ func (c *Card) Render() string {
 	}
 
 	// Get content from renderer
-	content := c.renderer.RenderContent(contentWidth, contentHeight)
+	content := c.Renderer.RenderContent(contentWidth, contentHeight)
 
 	// Create card style
 	cardStyle := lipgloss.NewStyle().
@@ -67,7 +67,7 @@ func (c *Card) Render() string {
 	card := cardStyle.Render(content)
 
 	// Add title overlay
-	return c.addTitleOverlay(card, borderColor)
+	return c.addTitleOverlay(card)
 }
 
 // SetActive sets the active state of the card
@@ -81,16 +81,23 @@ func (c *Card) SetSize(width, height int) {
 	c.Height = height
 }
 
-func (c *Card) addTitleOverlay(card string, borderColor lipgloss.Color) string {
+func (c *Card) addTitleOverlay(card string) string {
 	lines := strings.Split(card, "\n")
 
 	if len(lines) == 0 || c.Title == "" {
 		return card
 	}
 
+	borderStyle := lipgloss.NewStyle().
+		Foreground(styles.BorderColor)
+
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(borderColor)
+		Foreground(styles.TitleColor)
+
+	activeStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(styles.Green)
 
 	titleStart := 2 // Visual column where the title should start
 
@@ -101,7 +108,7 @@ func (c *Card) addTitleOverlay(card string, borderColor lipgloss.Color) string {
 
 		styledTitleContent := " " + c.Title + " "
 		renderedTitle := styledTitleContent
-		renderedTitleVisualWidth := lipgloss.Width(titleStyle.Render(renderedTitle))
+		renderedTitleVisualWidth := lipgloss.Width(borderStyle.Render(renderedTitle))
 
 		prefixVisualLength := min(titleStart, len(rawTopLineRunes))
 		titleEndInRaw := titleStart + renderedTitleVisualWidth
@@ -112,11 +119,21 @@ func (c *Card) addTitleOverlay(card string, borderColor lipgloss.Color) string {
 		}
 
 		// Assemble the full raw line and apply style once
-		fullLineRaw := string(rawTopLineRunes[:prefixVisualLength]) + renderedTitle + string(suffixRawRunes)
-		newTopLine := titleStyle.Render(fullLineRaw)
+		var newTopLine string
+		if c.IsActive {
+			newTopLine = activeStyle.Render(string(rawTopLineRunes[:prefixVisualLength]) + renderedTitle + string(suffixRawRunes))
+		} else {
+			newTopLine = borderStyle.Render(string(rawTopLineRunes[:prefixVisualLength])) + titleStyle.Render(renderedTitle) + borderStyle.Render(string(suffixRawRunes))
+		}
 
 		lines[0] = newTopLine
 	}
 
 	return strings.Join(lines, "\n")
 }
+
+// Add this interface to your cards package
+type DynamicHeightCard interface {
+	GetRequiredHeight(width int) int
+}
+

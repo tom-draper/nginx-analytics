@@ -15,7 +15,7 @@ var (
 		Padding(1).
 		Width(45)
 	
-	TitleStyle = lipgloss.NewStyle().
+	TitleStyle_ = lipgloss.NewStyle().
 		Foreground(HighlightColor).
 		Bold(true)
 	
