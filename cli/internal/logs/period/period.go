@@ -53,12 +53,13 @@ func LogRangePeriodHours(logs []n.NGINXLog, period Period) int {
 	if logRange == 0 {
 		return 1 // No logs to calculate range
 	}
+
 	hours := int(logRange.Hours())
 	if hours < 1 {
 		return 1 // At least 1 hour
 	}
-	return hours
 
+	return hours
 }
 
 func (p Period) TimeAgo() time.Duration {
@@ -82,5 +83,6 @@ func (p Period) Start() time.Time {
 	if p == PeriodAllTime {
 		return time.Time{} // Zero time for all time
 	}
+
 	return time.Now().Add(-p.TimeAgo())
 }
