@@ -332,6 +332,9 @@ func (p *ActivityCard) generateBrailleBarChart(requests []point[int], users []po
 		canvas[i] = make([]bool, brailleWidth)
 		userCanvas[i] = make([]bool, brailleWidth)
 	}
+	if len(lines) > height {
+		lines = lines[:height]
+	}
 
 	logger.Log.Println("ActivityCard", "Braille Chart Dimensions:", brailleWidth, "x", brailleHeight)
 	logger.Log.Println("ActivityCard", "Data Points:", dataPoints, "Max Requests:", maxRequests)
