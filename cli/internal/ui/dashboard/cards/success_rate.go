@@ -3,7 +3,6 @@ package cards
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
@@ -12,37 +11,22 @@ import (
 )
 
 type SuccessRateCard struct {
-	logs        []n.NGINXLog // Reference to log entries
-	period      p.Period
-
-	calculated struct {
-		successRate float64
-		lastUpdate  time.Time // When metrics were last calculated
-	}
+	successRate float64
 }
 
 func NewSuccessRateCard(logs []n.NGINXLog, period p.Period) *SuccessRateCard {
-	card := &SuccessRateCard{logs: logs, period: period}
-
-	// Initial calculation
-	card.updateCalculated()
+	card := &SuccessRateCard{}
+	card.UpdateCalculated(logs, period)
 	return card
 }
 
-// UpdateLogs should be called when the log slice content changes
-func (r *SuccessRateCard) UpdateLogs(newLogs []n.NGINXLog, period p.Period) {
-	r.logs = newLogs
-	r.period = period
-	r.updateCalculated()
-}
-
-func (r *SuccessRateCard) updateCalculated() {
-	success := successCount(r.logs)
-	total := len(r.logs)
+func (r *SuccessRateCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
+	success := successCount(logs)
+	total := len(logs)
 	if total == 0 {
-		r.calculated.successRate = -1
+		r.successRate = -1
 	} else {
-		r.calculated.successRate = float64(success) / float64(total)
+		r.successRate = float64(success) / float64(total)
 	}
 }
 
@@ -71,18 +55,15 @@ func rateColor(rate float64) lipgloss.TerminalColor {
 }
 
 func (r *SuccessRateCard) RenderContent(width, height int) string {
-	// Ensure metrics are up to date
-	r.updateCalculated()
-
 	rateStyle := lipgloss.NewStyle().
-		Foreground(rateColor(r.calculated.successRate)).
+		Foreground(rateColor(r.successRate)).
 		Bold(true)
 
 	var formattedSuccessRate string
-	if r.calculated.successRate == -1 {
+	if r.successRate == -1 {
 		formattedSuccessRate = "--"
 	} else {
-		formattedSuccessRate = fmt.Sprintf("%.1f%%", r.calculated.successRate*100) + "%"
+		formattedSuccessRate = fmt.Sprintf("%.1f%%", r.successRate*100) + "%"
 	}
 
 	lines := []string{
@@ -113,14 +94,4 @@ func (r *SuccessRateCard) RenderContent(width, height int) string {
 
 func (r *SuccessRateCard) GetTitle() string {
 	return "Success Rate"
-}
-
-// GetLastUpdate returns when metrics were last calculated
-func (r *SuccessRateCard) GetLastUpdate() time.Time {
-	return r.calculated.lastUpdate
-}
-
-// ForceUpdate forces recalculation of metrics even if hash hasn't changed
-func (r *SuccessRateCard) ForceUpdate() {
-	r.updateCalculated()
 }
