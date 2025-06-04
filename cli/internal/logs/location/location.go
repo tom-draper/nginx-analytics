@@ -7,13 +7,13 @@ import (
 	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 )
 
-type location struct {
+type Location struct {
 	Location string
 	Count    int
 }
 
 type Locations struct {
-	Locations []location
+	Locations []Location
 	cache     map[string]loc.Location
 }
 
@@ -38,9 +38,9 @@ func (l *Locations) updateLocations(logs []n.NGINXLog) {
 		locationCounter[location.Country]++
 	}
 
-	locations := make([]location, 0, len(locationCounter))
+	locations := make([]Location, 0, len(locationCounter))
 	for loc, count := range locationCounter {
-		locations = append(locations, location{Location: loc, Count: count})
+		locations = append(locations, Location{Location: loc, Count: count})
 	}
 
 	sort.Slice(locations, func(i, j int) bool {
