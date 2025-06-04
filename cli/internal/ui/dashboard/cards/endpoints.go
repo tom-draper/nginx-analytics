@@ -167,8 +167,7 @@ func (p *EndpointsCard) GetTitle() string {
 
 
 func (r *EndpointsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
-	endpoints := getEndpoints(logs)
-	r.endpoints = endpoints
+	r.endpoints = getEndpoints(logs)
 }
 
 func getEndpoints(logs []n.NGINXLog) []endpoint {
