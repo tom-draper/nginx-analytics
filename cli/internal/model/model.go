@@ -37,12 +37,7 @@ type Model struct {
 	SelectedPeriod    int
 	TabNavigationMode bool // true when navigating tabs, false when navigating cards
 
-	// Data for cards
-	successRateCard *cards.SuccessRateCard
-	requestsCard    *cards.RequestsCard
-	usersCard       *cards.UsersCard
-	endpointsCard   *cards.EndpointsCard
-	locationsCard   *cards.LocationsCard
+	calculatable []cards.CalculatedCard
 
 	logs       []string
 	parsedLogs []n.NGINXLog // Parsed logs for card updates
@@ -74,13 +69,14 @@ func New(cfg config.Config) Model {
 	usersCard := cards.NewUsersCard(currentLogs, period)
 	endpointsCard := cards.NewEndpointsCard(currentLogs, period)
 	locationsCard := cards.NewLocationsCard(currentLogs, period)
+	activitiesCard := cards.NewActivityCard(currentLogs, period) 
 
 	// Create base cards with renderers - these will all be treated uniformly
 	placeholderCard := cards.NewCard("", cards.NewLogoCard())
 	successCard := cards.NewCard("Success Rate", successRateCard)
 	requestCard := cards.NewCard("Requests", requestsCard)
 	userCard := cards.NewCard("Users", usersCard)
-	activityCard := cards.NewCard("Activity", cards.NewPlaceholderCard(""))
+	activityCard := cards.NewCard("Activity", activitiesCard)
 	endpointCard := cards.NewCard("Endpoints", endpointsCard)
 	locationCard := cards.NewCard("Location", locationsCard)
 	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
@@ -121,6 +117,15 @@ func New(cfg config.Config) Model {
 		logCard,         // 11 - sub-grid
 	}
 
+	calculatable := []cards.CalculatedCard{
+		successRateCard, 
+		requestsCard, 
+		usersCard, 
+		endpointsCard, 
+		locationsCard, 
+		activitiesCard,
+	}
+
 	// Add cards to grid with their layout positions
 	// Main grid cards (positions 0-3)
 	for i := range 4 {
@@ -155,11 +160,7 @@ func New(cfg config.Config) Model {
 		Periods:           periods,
 		SelectedPeriod:    2, // Default to "30 days"
 		TabNavigationMode: false,
-		successRateCard:   successRateCard,
-		requestsCard:      requestsCard,
-		usersCard:         usersCard,
-		endpointsCard:     endpointsCard,
-		locationsCard:     locationsCard,
+		calculatable:      calculatable,
 		logs:              logs,
 		parsedLogs:        parsedLogs,
 		currentLogs:       currentLogs,
@@ -169,9 +170,9 @@ func New(cfg config.Config) Model {
 func (m Model) Init() tea.Cmd {
 	return nil
 	// return tea.Batch(
-		// tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
-		// 	return UpdateDataMsg{}
-		// }),
+	// tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+	// 	return UpdateDataMsg{}
+	// }),
 	// )
 }
 
@@ -350,13 +351,13 @@ func (m *Model) navigateDown() {
 }
 
 func (m *Model) updateCardData() {
-	m.currentLogs = l.FilterLogs(m.parsedLogs, m.GetSelectedPeriod())
+	period := m.GetSelectedPeriod()
+	m.currentLogs = l.FilterLogs(m.parsedLogs, period)
 
-	m.successRateCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
-	m.requestsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
-	m.usersCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
-	m.endpointsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
-	m.locationsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
+	// Update all calculatable cards with updated logs
+	for _, card := range m.calculatable {
+		card.UpdateCalculated(m.currentLogs, period)
+	}
 }
 
 // renderTabs renders the period tabs in the top-right area
