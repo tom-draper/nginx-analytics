@@ -357,16 +357,6 @@ func (m *Model) updateCardData() {
 	m.usersCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 	m.endpointsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
 	m.locationsCard.UpdateLogs(m.currentLogs, m.GetSelectedPeriod())
-
-	// Update requests (simulate traffic changes)
-	// currentRequests := max(m.requestsCard.Count+rand.Intn(200)-100, 0)
-	// rate := 35.0 + rand.Float64()*20.0 // 35-55 req/s
-	// m.requestsCard.Update(currentRequests, rate)
-
-	// Update users (gradual changes)
-	// activeChange := rand.Intn(20) - 10
-	// newActive := min(max(m.usersCard.ActiveUsers+activeChange, 0), m.usersCard.TotalUsers)
-	// m.usersCard.Update(newActive, m.usersCard.TotalUsers)
 }
 
 // renderTabs renders the period tabs in the top-right area

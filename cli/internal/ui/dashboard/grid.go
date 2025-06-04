@@ -705,7 +705,7 @@ func (d *DashboardGrid) renderSidebarBottomCards(sidebarWidth int) string {
 	}
 
 	var renderedSidebarBottomCards []string
-	cardHeight := 8 // Adjust as needed
+	cardHeight := 9 // Adjust as needed
 
 	if len(d.SidebarBottomCards) == 1 {
 		cardWidth := sidebarWidth

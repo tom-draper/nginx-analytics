@@ -1,6 +1,7 @@
 package location
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -13,12 +14,31 @@ func GetCountryCode(location string) string {
 }
 
 // Convert ISO country code to flag emoji
-func CountryFlagEmoji(code string) string {
-	if len(code) != 2 {
-		return "🏳️"
+// func CountryFlagEmoji(code string) string {
+// 	if len(code) != 2 {
+// 		return "🏳️"
+// 	}
+// 	// Unicode regional indicator symbols are A=🇦 (0x1F1E6)
+// 	r1 := 0x1F1E6 + int(code[0]-'A')
+// 	r2 := 0x1F1E6 + int(code[1]-'A')
+// 	return string([]rune{rune(r1), rune(r2)})
+// }
+
+func CountryCodeToEmoji(countryCode string) (string, error) {
+	if len(countryCode) != 2 {
+		return "", fmt.Errorf("invalid country code length: must be 2 characters")
 	}
-	// Unicode regional indicator symbols are A=🇦 (0x1F1E6)
-	r1 := 0x1F1E6 + int(code[0]-'A')
-	r2 := 0x1F1E6 + int(code[1]-'A')
-	return string([]rune{rune(r1), rune(r2)})
+
+	countryCode = strings.ToUpper(countryCode)
+	runes := []rune(countryCode)
+
+	// Unicode regional indicator symbols start at 0x1F1E6 (A)
+	emoji := ""
+	for _, r := range runes {
+		if r < 'A' || r > 'Z' {
+			return "", fmt.Errorf("invalid character in country code")
+		}
+		emoji += string(rune(0x1F1E6 + (r - 'A')))
+	}
+	return emoji, nil
 }
