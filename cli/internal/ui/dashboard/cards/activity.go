@@ -11,11 +11,14 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+	u "github.com/tom-draper/nginx-analytics/cli/internal/logs/user"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
 type ActivityCard struct {
-	requests []request
+	requests    []point[int]
+	users       []point[int]
+	successRate []point[float64]
 }
 
 func NewActivityCard(logs []n.NGINXLog, period p.Period) *ActivityCard {
@@ -61,7 +64,7 @@ func (p *ActivityCard) RenderContent(width, height int) string {
 	}
 
 	// Sort requests by timestamp
-	sortedRequests := make([]request, len(p.requests))
+	sortedRequests := make([]point[int], len(p.requests))
 	copy(sortedRequests, p.requests)
 	sort.Slice(sortedRequests, func(i, j int) bool {
 		return sortedRequests[i].timestamp.Before(sortedRequests[j].timestamp)
@@ -70,7 +73,7 @@ func (p *ActivityCard) RenderContent(width, height int) string {
 	// Extract data for chart
 	data := make([]float64, len(sortedRequests))
 	for i, req := range sortedRequests {
-		data[i] = float64(req.count)
+		data[i] = float64(req.value)
 	}
 
 	// Calculate chart dimensions (be very conservative with width)
@@ -84,7 +87,7 @@ func (p *ActivityCard) RenderContent(width, height int) string {
 	chart := asciigraph.Plot(data,
 		asciigraph.Height(chartHeight),
 		asciigraph.Width(chartWidth))
-	
+
 	logger.Log.Println(chart)
 
 	// Split chart into lines and aggressively truncate
@@ -148,24 +151,75 @@ func (r *ActivityCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
 	r.requests = getRequests(logs, period)
 }
 
-type request struct {
+type point[T ~int | ~float32 | ~float64] struct {
 	timestamp time.Time
-	count     int
+	value     T
 }
 
-func getRequests(logs []n.NGINXLog, period p.Period) []request {
+func getRequests(logs []n.NGINXLog, period p.Period) []point[int] {
 	requestBuckets := make(map[time.Time]int, 0)
 	for _, log := range logs {
 		timeBucket := nearestHour(*log.Timestamp)
 		requestBuckets[timeBucket]++
 	}
 
-	requests := make([]request, 0)
+	requests := make([]point[int], 0)
 	for timestamp, count := range requestBuckets {
-		requests = append(requests, request{count: count, timestamp: timestamp})
+		requests = append(requests, point[int]{value: count, timestamp: timestamp})
 	}
 
 	return requests
+}
+
+func getUsers(logs []n.NGINXLog, period p.Period) []point[int] {
+	userBuckets := make(map[time.Time]map[string]struct{}, 0)
+	for _, log := range logs {
+		timeBucket := nearestHour(*log.Timestamp)
+		userID := u.UserID(log)
+		userBuckets[timeBucket][userID] = struct{}{}
+	}
+
+	users := make([]point[int], 0)
+	for timestamp, unique := range userBuckets {
+		count := len(unique)
+		users = append(users, point[int]{value: count, timestamp: timestamp})
+	}
+
+	return users
+}
+
+func getSuccessRates(logs []n.NGINXLog, period p.Period) []point[float64] {
+	successRateBuckets := make(map[time.Time]struct {
+		success int
+		total   int
+	})
+
+	for _, log := range logs {
+		t := nearestHour(*log.Timestamp)
+		bucket := successRateBuckets[t]
+
+		success := *log.Status >= 200 && *log.Status < 400
+		if success {
+			bucket.success++
+		}
+		bucket.total++
+
+		successRateBuckets[t] = bucket
+	}
+
+	successRates := make([]point[float64], 0, len(successRateBuckets))
+	for timestamp, counts := range successRateBuckets {
+		rate := 0.0
+		if counts.total > 0 {
+			rate = float64(counts.success) / float64(counts.total)
+		}
+		successRates = append(successRates, point[float64]{
+			timestamp: timestamp,
+			value:     rate,
+		})
+	}
+
+	return successRates
 }
 
 func nearestHour(timestamp time.Time) time.Time {
