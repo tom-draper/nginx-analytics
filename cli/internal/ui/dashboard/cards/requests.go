@@ -3,7 +3,6 @@ package cards
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
@@ -45,9 +44,6 @@ func getTimestamps(logs []nginx.NGINXLog) []time.Time {
 }
 
 func (r *RequestsCard) RenderContent(width, height int) string {
-	// Ensure metrics are up to date
-	r.updateCalculated()
-
 	countStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#ffffff")).
 		Bold(true)
