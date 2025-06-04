@@ -13,12 +13,7 @@ import (
 )
 
 type LocationsCard struct {
-	logs   []n.NGINXLog
-	period p.Period
-
-	calculated struct {
-		locations loc.Locations
-	}
+	locations loc.Locations
 }
 
 // Bar characters from bottom to top (8ths)
@@ -35,27 +30,21 @@ var barChars = []string{
 }
 
 func NewLocationsCard(logs []n.NGINXLog, period p.Period) *LocationsCard {
-	card := &LocationsCard{logs: logs, period: period}
-	card.updateCalculated()
+	card := &LocationsCard{}
+	card.UpdateCalculated(logs, period)
 	return card
 }
 
-func (r *LocationsCard) UpdateLogs(newLogs []n.NGINXLog, period p.Period) {
-	r.logs = newLogs
-	r.period = period
-	r.updateCalculated()
-}
-
-func (r *LocationsCard) updateCalculated() {
-	r.calculated.locations.UpdateLocations(r.logs)
+func (r *LocationsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
+	r.locations.UpdateLocations(logs)
 }
 
 func (r *LocationsCard) RenderContent(width, height int) string {
-	if len(r.calculated.locations.Locations) == 0 || height < 2 {
+	if len(r.locations.Locations) == 0 || height < 2 {
 		return r.renderEmptyState(width)
 	}
 
-	locations := r.calculated.locations.Locations
+	locations := r.locations.Locations
 	totalLocations := len(locations)
 
 	// Calculate how many bars we can fit (2 chars per bar: bar + space)

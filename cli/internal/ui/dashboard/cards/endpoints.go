@@ -26,26 +26,20 @@ type endpointID struct {
 }
 
 type EndpointsCard struct {
-	logs   []n.NGINXLog // Reference to log entries
-	period p.Period
-
-	calculated struct {
-		endpoints []endpoint
-	}
+	endpoints []endpoint
 }
 
 const maxEndpoints = 35 // Maximum number of endpoints to display
 
 func NewEndpointsCard(logs []n.NGINXLog, period p.Period) *EndpointsCard {
-	card := &EndpointsCard{logs: logs, period: period}
-
-	card.updateCalculated()
+	card := &EndpointsCard{}
+	card.UpdateCalculated(logs, period)
 	return card
 }
 
 func (p *EndpointsCard) RenderContent(width, height int) string {
-	logger.Log.Println(p.calculated.endpoints)
-	if len(p.calculated.endpoints) == 0 {
+	logger.Log.Println(p.endpoints)
+	if len(p.endpoints) == 0 {
 		faintStyle := lipgloss.NewStyle().
 			Foreground(styles.LightGray).
 			Bold(true)
@@ -72,8 +66,8 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	}
 
 	// Sort endpoints by count (descending)
-	sortedEndpoints := make([]endpoint, len(p.calculated.endpoints))
-	copy(sortedEndpoints, p.calculated.endpoints)
+	sortedEndpoints := make([]endpoint, len(p.endpoints))
+	copy(sortedEndpoints, p.endpoints)
 
 	sort.Slice(sortedEndpoints, func(i, j int) bool {
 		if sortedEndpoints[i].count != sortedEndpoints[j].count {
@@ -171,16 +165,10 @@ func (p *EndpointsCard) GetTitle() string {
 	return "Endpoints"
 }
 
-// UpdateLogs should be called when the log slice content changes
-func (r *EndpointsCard) UpdateLogs(newLogs []n.NGINXLog, period p.Period) {
-	r.logs = newLogs
-	r.period = period
-	r.updateCalculated()
-}
 
-func (r *EndpointsCard) updateCalculated() {
-	endpoints := getEndpoints(r.logs)
-	r.calculated.endpoints = endpoints
+func (r *EndpointsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
+	endpoints := getEndpoints(logs)
+	r.endpoints = endpoints
 }
 
 func getEndpoints(logs []n.NGINXLog) []endpoint {
@@ -209,10 +197,10 @@ func getEndpoints(logs []n.NGINXLog) []endpoint {
 }
 
 func (r *EndpointsCard) GetRequiredHeight(width int) int {
-	if len(r.calculated.endpoints) == 0 {
+	if len(r.endpoints) == 0 {
 		return 3 // Minimum height for "No endpoints found" message
 	}
 
 	// Each endpoint needs one line, plus some padding
-	return min(len(r.calculated.endpoints), maxEndpoints) // +2 for padding/borders
+	return min(len(r.endpoints), maxEndpoints) // +2 for padding/borders
 }
