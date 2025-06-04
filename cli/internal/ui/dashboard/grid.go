@@ -751,7 +751,7 @@ func (d *DashboardGrid) renderSidebarSubGrid(sidebarWidth int) string {
 				}
 				cardHeight := 8
 				if row == 1 {
-					cardHeight = 4
+					cardHeight = 2
 				}
 
 				d.SidebarSubGridCards[cardIndex].SetSize(cardWidth, cardHeight)
