@@ -14,33 +14,23 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
-// // Bar characters from bottom to top (8ths)
-// var barChars = []string{
-// 	" ", // 0/8 - empty
-// 	"▁", // 1/8
-// 	"▂", // 2/8
-// 	"▃", // 3/8
-// 	"▄", // 4/8 - half
-// 	"▅", // 5/8
-// 	"▆", // 6/8
-// 	"▇", // 7/8
-// 	"█", // 8/8 - full
-// }
-
 type ActivityCard struct {
 	requests    []point[int]
 	users       []point[int]
 	successRate []point[float64]
+	period      p.Period // Store the period for time range logic
 }
 
 func NewActivityCard(logs []n.NGINXLog, period p.Period) *ActivityCard {
-	card := &ActivityCard{}
+	card := &ActivityCard{
+		period: period,
+	}
 	card.UpdateCalculated(logs, period)
 	return card
 }
 
-func (p *ActivityCard) RenderContent(width, height int) string {
-	if len(p.requests) == 0 {
+func (a *ActivityCard) RenderContent(width, height int) string {
+	if len(a.requests) == 0 {
 		faintStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
 		lines := []string{
 			"",
@@ -74,15 +64,15 @@ func (p *ActivityCard) RenderContent(width, height int) string {
 	}
 
 	// Sort requests by timestamp
-	sortedRequests := make([]point[int], len(p.requests))
-	copy(sortedRequests, p.requests)
+	sortedRequests := make([]point[int], len(a.requests))
+	copy(sortedRequests, a.requests)
 	sort.Slice(sortedRequests, func(i, j int) bool {
 		return sortedRequests[i].timestamp.Before(sortedRequests[j].timestamp)
 	})
 
 	// Sort users by timestamp
-	sortedUsers := make([]point[int], len(p.users))
-	copy(sortedUsers, p.users)
+	sortedUsers := make([]point[int], len(a.users))
+	copy(sortedUsers, a.users)
 	sort.Slice(sortedUsers, func(i, j int) bool {
 		return sortedUsers[i].timestamp.Before(sortedUsers[j].timestamp)
 	})
@@ -94,7 +84,7 @@ func (p *ActivityCard) RenderContent(width, height int) string {
 	chartWidth := max(usableWidth-2, 15)
 
 	// Generate custom bar chart
-	chart := p.generateCustomBarChart(sortedRequests, sortedUsers, chartWidth, chartHeight)
+	chart := a.generateCustomBarChart(sortedRequests, sortedUsers, chartWidth, chartHeight)
 
 	// Split chart into lines
 	chartLines := strings.Split(chart, "\n")
@@ -117,7 +107,16 @@ func (p *ActivityCard) RenderContent(width, height int) string {
 		
 		// Format timestamps in local datetime format
 		firstTime := sortedRequests[0].timestamp.Local().Format("2006-01-02 15:04:05")
-		lastTime := sortedRequests[len(sortedRequests)-1].timestamp.Local().Format("2006-01-02 15:04:05")
+		
+		// Dynamic end time based on period
+		var lastTime string
+		if a.period == p.PeriodAllTime {
+			// For PeriodAllTime, use the last timestamp from data
+			lastTime = sortedRequests[len(sortedRequests)-1].timestamp.Local().Format("2006-01-02 15:04:05")
+		} else {
+			// For other periods, use current datetime
+			lastTime = time.Now().Local().Format("2006-01-02 15:04:05")
+		}
 		
 		// Apply faint style to the times
 		styledFirstTime := faintStyle.Render(firstTime)
@@ -141,7 +140,13 @@ func (p *ActivityCard) RenderContent(width, height int) string {
 			// Not enough space - truncate or abbreviate
 			// Try shorter format first
 			firstTimeShort := sortedRequests[0].timestamp.Local().Format("01/02 15:04")
-			lastTimeShort := sortedRequests[len(sortedRequests)-1].timestamp.Local().Format("01/02 15:04")
+			
+			var lastTimeShort string
+			if a.period == p.PeriodAllTime {
+				lastTimeShort = sortedRequests[len(sortedRequests)-1].timestamp.Local().Format("01/02 15:04")
+			} else {
+				lastTimeShort = time.Now().Local().Format("01/02 15:04")
+			}
 			
 			styledFirstTimeShort := faintStyle.Render(firstTimeShort)
 			styledLastTimeShort := faintStyle.Render(lastTimeShort)
@@ -172,7 +177,7 @@ func (p *ActivityCard) RenderContent(width, height int) string {
 	lines = append(lines, faintStyle.Render("    Success Rate:"))
 
 	// Generate success rate graph (2 rows at bottom)
-	successRateGraph := p.generateSuccessRateGraph(usableWidth)
+	successRateGraph := a.generateSuccessRateGraph(usableWidth)
 	lines = append(lines, successRateGraph...)
 
 	// Fill to height or trim if necessary
@@ -185,104 +190,6 @@ func (p *ActivityCard) RenderContent(width, height int) string {
 
 	return strings.Join(lines, "\n")
 }
-// func (p *ActivityCard) RenderContent(width, height int) string {
-// 	if len(p.requests) == 0 {
-// 		faintStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
-// 		lines := []string{
-// 			"",
-// 			"",
-// 			"",
-// 			"",
-// 			"",
-// 			"",
-// 			"",
-// 			"",
-// 			"",
-// 			faintStyle.Render("No activity data available"),
-// 		}
-
-// 		for i, line := range lines {
-// 			if len(line) > 0 {
-// 				displayWidth := lipgloss.Width(line)
-// 				padding := (width - displayWidth) / 2
-// 				if padding > 0 {
-// 					lines[i] = strings.Repeat(" ", padding) + line
-// 				}
-// 			}
-// 		}
-
-// 		// Fill to height
-// 		for len(lines) < height {
-// 			lines = append(lines, "")
-// 		}
-
-// 		return strings.Join(lines[:height], "\n")
-// 	}
-
-// 	// Sort requests by timestamp
-// 	sortedRequests := make([]point[int], len(p.requests))
-// 	copy(sortedRequests, p.requests)
-// 	sort.Slice(sortedRequests, func(i, j int) bool {
-// 		return sortedRequests[i].timestamp.Before(sortedRequests[j].timestamp)
-// 	})
-
-// 	// Sort users by timestamp
-// 	sortedUsers := make([]point[int], len(p.users))
-// 	copy(sortedUsers, p.users)
-// 	sort.Slice(sortedUsers, func(i, j int) bool {
-// 		return sortedUsers[i].timestamp.Before(sortedUsers[j].timestamp)
-// 	})
-
-// 	// Calculate chart dimensions
-// 	usableWidth := width
-// 	// Reserve 2 rows at bottom for success rate graph
-// 	chartHeight := max(height-4, 3) // -4 for success rate graph (2 rows) + time range line + padding
-// 	chartWidth := max(usableWidth-2, 15)
-
-// 	// Generate custom bar chart
-// 	chart := p.generateCustomBarChart(sortedRequests, sortedUsers, chartWidth, chartHeight)
-
-// 	// Split chart into lines
-// 	chartLines := strings.Split(chart, "\n")
-
-// 	// Aggressively truncate lines that are too long
-// 	maxLineWidth := usableWidth - 2
-// 	for i, line := range chartLines {
-// 		if lipgloss.Width(line) > maxLineWidth {
-// 			chartLines[i] = line[:maxLineWidth]
-// 		}
-// 	}
-
-// 	// Add chart lines
-// 	lines := []string{}
-// 	lines = append(lines, chartLines...)
-
-// 	// Add time range info if we have data
-// 	if len(sortedRequests) > 0 {
-// 		timeRange := fmt.Sprintf("%s→%s",
-// 			sortedRequests[0].timestamp.Format("15:04"),
-// 			sortedRequests[len(sortedRequests)-1].timestamp.Format("15:04"))
-// 		// Ensure time range fits within our width constraints
-// 		if len(timeRange) > maxLineWidth {
-// 			timeRange = timeRange[:maxLineWidth]
-// 		}
-// 		lines = append(lines, timeRange)
-// 	}
-
-// 	// Generate success rate graph (2 rows at bottom)
-// 	successRateGraph := p.generateSuccessRateGraph(usableWidth)
-// 	lines = append(lines, successRateGraph...)
-
-// 	// Fill to height or trim if necessary
-// 	for len(lines) < height {
-// 		lines = append(lines, "")
-// 	}
-// 	if len(lines) > height {
-// 		lines = lines[:height]
-// 	}
-
-// 	return strings.Join(lines, "\n")
-// }
 
 func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []point[int], width, height int) string {
 	if len(requests) == 0 {
@@ -312,10 +219,7 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 	yAxisWidth := len(maxLabel) + 1 // +1 for space after number
 	
 	// Adjust chart width to account for Y-axis
-	chartWidth := width - yAxisWidth
-	if chartWidth < 10 {
-		chartWidth = 10 // Minimum chart width
-	}
+	chartWidth := max(width - yAxisWidth, 10)
 
 	// Create the chart grid (full width including Y-axis)
 	chart := make([][]string, height)
@@ -335,7 +239,7 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 	grayStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
 
 	// Add Y-axis labels
-	for row := 0; row < height; row++ {
+	for row := range height {
 		// Calculate the value this row represents
 		rowFromTop := row
 		rowValue := int(float64(maxRequests) * float64(height-1-rowFromTop) / float64(height-1))
@@ -424,10 +328,7 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 					useBlue = true
 				}
 				
-				charIndex := int(math.Round(totalFill * 8))
-				if charIndex > 8 {
-					charIndex = 8
-				}
+				charIndex := min(int(math.Round(totalFill * 8)), 8)
 				
 				if chartCol < len(chart[row]) {
 					if useBlue {
@@ -540,6 +441,7 @@ func (p *ActivityCard) GetTitle() string {
 }
 
 func (r *ActivityCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
+	r.period = period // Store the period
 	r.requests = getRequests(logs, period)
 	r.users = getUsers(logs, period)
 	r.successRate = getSuccessRates(logs, period)

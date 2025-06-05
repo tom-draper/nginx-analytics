@@ -147,7 +147,7 @@ func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
 	labelLine := ""
 	for _, l := range locations {
 		// if i > 0 {
-			// labelLine += " " // Space between labels to align with bars
+		// labelLine += " " // Space between labels to align with bars
 		// }
 
 		// Use first character of location, handling UTF-8 properly
