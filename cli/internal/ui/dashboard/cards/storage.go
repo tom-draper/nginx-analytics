@@ -81,10 +81,6 @@ func getPrimaryDisk(disks []sys.DiskInfo) (sys.DiskInfo, error) {
 	return sys.DiskInfo{}, errors.New("failed to find primary disk")
 }
 
-func (p *StorageCard) GetTitle() string {
-	return "Storage"
-}
-
 // Helper function to center text
 func centerText(text string, width int) string {
 	if len(text) >= width {

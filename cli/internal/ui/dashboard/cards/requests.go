@@ -3,17 +3,21 @@ package cards
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/plot"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
 // RequestsCard displays request count and rate
 type RequestsCard struct {
-	count int     // Total request count (cached)
-	rate  float64 // Requests per hour (cached)
+	count     int                 // Total request count (cached)
+	rate      float64             // Requests per hour (cached)
+	histogram plot.MicroHistogram // Request counts per time bucket (cached)
 }
 
 func NewRequestsCard(logs []n.NGINXLog, period p.Period) *RequestsCard {
@@ -22,10 +26,22 @@ func NewRequestsCard(logs []n.NGINXLog, period p.Period) *RequestsCard {
 	return card
 }
 
-// updateCalculated recalculates Count and Rate only if logs have changed
+// updateCalculated recalculates Count, Rate, and Histogram only if logs have changed
 func (r *RequestsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
 	r.count = len(logs)
 	r.rate = float64(r.count) / float64(p.LogRangePeriodHours(logs, period))
+	timestamps := getTimestamps(logs)
+	r.histogram = plot.NewMicroHistogram(timestamps, 50) // Use default width, will be scaled in render
+	logger.Log.Println(r.histogram)
+}
+
+func getTimestamps(logs []n.NGINXLog) []time.Time {
+	timestamps := make([]time.Time, 0)
+	for _, log := range logs {
+		timestamps = append(timestamps, *log.Timestamp)
+	}
+
+	return timestamps
 }
 
 func (r *RequestsCard) RenderContent(width, height int) string {
@@ -40,10 +56,9 @@ func (r *RequestsCard) RenderContent(width, height int) string {
 		"",
 		countStyle.Render(r.formatCount()),
 		rateStyle.Render(fmt.Sprintf("%.1f/h", r.rate)),
-		"",
 	}
 
-	// Center content
+	// Center content (except histogram)
 	for i, line := range lines {
 		if len(line) > 0 {
 			displayWidth := lipgloss.Width(line)
@@ -54,9 +69,19 @@ func (r *RequestsCard) RenderContent(width, height int) string {
 		}
 	}
 
-	// Fill to height
-	for len(lines) < height {
-		lines = append(lines, "")
+	// Add histogram at the bottom
+	if height > len(lines) {
+		// Fill remaining space except last row for histogram
+		for len(lines) < height-1 {
+			lines = append(lines, "")
+		}
+		// Add histogram as last row
+		lines = append(lines, r.histogram.Render(width))
+	} else {
+		// Fill to height
+		for len(lines) < height {
+			lines = append(lines, "")
+		}
 	}
 
 	return strings.Join(lines[:height], "\n")
@@ -71,6 +96,10 @@ func (r *RequestsCard) formatCount() string {
 	return fmt.Sprintf("%d", r.count)
 }
 
-func (r *RequestsCard) GetTitle() string {
-	return "Requests"
+// min helper function (for Go versions < 1.21)
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
