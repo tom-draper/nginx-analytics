@@ -149,7 +149,3 @@ func (p *LogSizeCard) UpdateSystem(logSizes logs.LogSizes) {
 	}
 	p.sizes = sizes
 }
-
-func (p *LogSizeCard) GetTitle() string {
-	return "Logs"
-}

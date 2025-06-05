@@ -43,8 +43,3 @@ func (u *LogoCard) RenderContent(width, height int) string {
 
 	return strings.Join(lines[:height], "\n")
 }
-
-func (p *LogoCard) GetTitle() string {
-	return ""
-}
-

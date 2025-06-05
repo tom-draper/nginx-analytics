@@ -35,7 +35,3 @@ func (p *PlaceholderCard) RenderContent(width, height int) string {
 
 	return strings.Join(lines[:height], "\n")
 }
-
-func (p *PlaceholderCard) GetTitle() string {
-	return "Dashboard"
-}

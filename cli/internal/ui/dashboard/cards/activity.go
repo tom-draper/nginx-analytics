@@ -11,6 +11,7 @@ import (
 	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	u "github.com/tom-draper/nginx-analytics/cli/internal/logs/user"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/plot"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
@@ -104,10 +105,10 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 	faintStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
 	// Add time range info if we have data
 	if len(sortedRequests) > 0 {
-		
+
 		// Format timestamps in local datetime format
 		firstTime := sortedRequests[0].timestamp.Local().Format("2006-01-02 15:04:05")
-		
+
 		// Dynamic end time based on period
 		var lastTime string
 		if a.period == p.PeriodAllTime {
@@ -117,20 +118,20 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 			// For other periods, use current datetime
 			lastTime = time.Now().Local().Format("2006-01-02 15:04:05")
 		}
-		
+
 		// Apply faint style to the times
 		styledFirstTime := faintStyle.Render(firstTime)
 		styledLastTime := faintStyle.Render(lastTime)
-		
+
 		// Calculate padding
 		leftPadding := strings.Repeat(" ", 4)
 		rightPadding := strings.Repeat(" ", 2)
-		
+
 		// Calculate available space for the middle section
 		firstTimeWidth := lipgloss.Width(styledFirstTime)
 		lastTimeWidth := lipgloss.Width(styledLastTime)
 		availableMiddleSpace := usableWidth - 4 - firstTimeWidth - lastTimeWidth - 2 // padding + time widths
-		
+
 		var timeRangeLine string
 		if availableMiddleSpace >= 0 {
 			// Enough space - align first time to left with padding, last time to right with padding
@@ -140,21 +141,21 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 			// Not enough space - truncate or abbreviate
 			// Try shorter format first
 			firstTimeShort := sortedRequests[0].timestamp.Local().Format("01/02 15:04")
-			
+
 			var lastTimeShort string
 			if a.period == p.PeriodAllTime {
 				lastTimeShort = sortedRequests[len(sortedRequests)-1].timestamp.Local().Format("01/02 15:04")
 			} else {
 				lastTimeShort = time.Now().Local().Format("01/02 15:04")
 			}
-			
+
 			styledFirstTimeShort := faintStyle.Render(firstTimeShort)
 			styledLastTimeShort := faintStyle.Render(lastTimeShort)
-			
+
 			firstTimeShortWidth := lipgloss.Width(styledFirstTimeShort)
 			lastTimeShortWidth := lipgloss.Width(styledLastTimeShort)
 			availableMiddleSpaceShort := usableWidth - 4 - firstTimeShortWidth - lastTimeShortWidth - 2
-			
+
 			if availableMiddleSpaceShort >= 0 {
 				middleSpacing := strings.Repeat(" ", availableMiddleSpaceShort)
 				timeRangeLine = leftPadding + styledFirstTimeShort + middleSpacing + styledLastTimeShort + rightPadding
@@ -170,7 +171,7 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 				}
 			}
 		}
-		
+
 		lines = append(lines, timeRangeLine)
 	}
 
@@ -217,9 +218,9 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 	// Calculate Y-axis label width (need space for the largest number plus some padding)
 	maxLabel := fmt.Sprintf("%d", maxRequests)
 	yAxisWidth := len(maxLabel) + 1 // +1 for space after number
-	
+
 	// Adjust chart width to account for Y-axis
-	chartWidth := max(width - yAxisWidth, 10)
+	chartWidth := max(width-yAxisWidth, 10)
 
 	// Create the chart grid (full width including Y-axis)
 	chart := make([][]string, height)
@@ -232,7 +233,7 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 
 	// Calculate how many data points we can fit in the chart width (excluding Y-axis)
 	dataPoints := len(requests)
-	
+
 	// Green and blue styles
 	greenStyle := lipgloss.NewStyle().Foreground(styles.Green)
 	blueStyle := lipgloss.NewStyle().Foreground(styles.Blue)
@@ -243,7 +244,7 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 		// Calculate the value this row represents
 		rowFromTop := row
 		rowValue := int(float64(maxRequests) * float64(height-1-rowFromTop) / float64(height-1))
-		
+
 		// Only show labels for certain rows to avoid clutter
 		showLabel := false
 		if height <= 8 {
@@ -256,12 +257,12 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 			// For large charts, show every 4th row
 			showLabel = row%4 == 0
 		}
-		
+
 		// Always show the top and bottom labels
 		if row == 0 || row == height-1 {
 			showLabel = true
 		}
-		
+
 		if showLabel && rowValue >= 0 {
 			label := fmt.Sprintf("%d", rowValue)
 			// Right-align the label within the Y-axis space
@@ -289,7 +290,7 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 		// Calculate bar height (scale to chart height)
 		// Use height-1 to leave room for potential fractional bars
 		barHeight := float64(requestCount) * float64(height-1) / float64(maxRequests)
-		
+
 		// Calculate user proportion height
 		userProportion := 0.0
 		if requestCount > 0 {
@@ -304,7 +305,7 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 		for row := height - 1; row >= 0; row-- {
 			// Calculate how much of this row should be filled
 			rowFromBottom := height - 1 - row
-			
+
 			// Calculate total bar fill for this row (always use the full request height)
 			totalFill := 0.0
 			if barHeight > float64(rowFromBottom+1) {
@@ -318,23 +319,24 @@ func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []poi
 				// Blue if we're within the user height, green otherwise
 				rowBottomPosition := float64(rowFromBottom)
 				rowTopPosition := float64(rowFromBottom + 1)
-				
+
 				useBlue := userHeight > rowBottomPosition
-				
-				// If we're at the exact border where user height ends, 
+
+				// If we're at the exact border where user height ends,
 				// we might need to handle partial coloring
 				if userHeight > rowBottomPosition && userHeight < rowTopPosition {
 					// We're in the transition row - use blue for the user portion
 					useBlue = true
 				}
-				
-				charIndex := min(int(math.Round(totalFill * 8)), 8)
-				
+
+				charIndex := min(int(math.Round(totalFill*8)), 8)
+
 				if chartCol < len(chart[row]) {
+					barChar := plot.BarChars[charIndex]
 					if useBlue {
-						chart[row][chartCol] = blueStyle.Render(barChars[charIndex])
+						chart[row][chartCol] = blueStyle.Render(barChar)
 					} else {
-						chart[row][chartCol] = greenStyle.Render(barChars[charIndex])
+						chart[row][chartCol] = greenStyle.Render(barChar)
 					}
 				}
 			}
@@ -367,7 +369,7 @@ func (p *ActivityCard) generateSuccessRateGraph(width int) []string {
 	leftPadding := 4
 	rightPadding := 2
 	graphWidth := width - leftPadding - rightPadding
-	
+
 	// Ensure we have a positive graph width
 	if graphWidth <= 0 {
 		// If width is too small, return empty lines
@@ -434,10 +436,6 @@ func (p *ActivityCard) getSuccessRateColor(rate float64) lipgloss.Style {
 	}
 	// Light green for good success rates (0.6 - 0.95)
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("#80FF00"))
-}
-
-func (p *ActivityCard) GetTitle() string {
-	return "Activity"
 }
 
 func (r *ActivityCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {

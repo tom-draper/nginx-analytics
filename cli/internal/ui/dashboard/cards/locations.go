@@ -9,24 +9,12 @@ import (
 	loc "github.com/tom-draper/nginx-analytics/cli/internal/logs/location"
 	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/plot"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
 type LocationsCard struct {
 	locations loc.Locations
-}
-
-// Bar characters from bottom to top (8ths)
-var barChars = []string{
-	" ", // 0/8 - empty
-	"▁", // 1/8
-	"▂", // 2/8
-	"▃", // 3/8
-	"▄", // 4/8 - half
-	"▅", // 5/8
-	"▆", // 6/8
-	"▇", // 7/8
-	"█", // 8/8 - full
 }
 
 func NewLocationsCard(logs []n.NGINXLog, period p.Period) *LocationsCard {
@@ -129,7 +117,7 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 			} else if targetHeight > currentPosFromBottom {
 				// Partial bar
 				partial := min(targetHeight-currentPosFromBottom, 8)
-				char = barChars[partial]
+				char = plot.BarChars[partial]
 			} else {
 				// Empty space
 				char = " "
@@ -213,8 +201,4 @@ func (r *LocationsCard) padToHeight(lines []string, targetHeight int) string {
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-func (r *LocationsCard) GetTitle() string {
-	return "Locations"
 }
