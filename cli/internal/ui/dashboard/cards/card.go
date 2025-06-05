@@ -13,7 +13,6 @@ import (
 // CardRenderer defines the interface for rendering card content
 type CardRenderer interface {
 	RenderContent(width, height int) string
-	GetTitle() string
 }
 
 // Card provides the generic card structure and rendering

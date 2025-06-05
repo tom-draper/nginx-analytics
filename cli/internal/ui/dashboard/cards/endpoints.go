@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
@@ -38,7 +37,6 @@ func NewEndpointsCard(logs []n.NGINXLog, period p.Period) *EndpointsCard {
 }
 
 func (p *EndpointsCard) RenderContent(width, height int) string {
-	logger.Log.Println(p.endpoints)
 	if len(p.endpoints) == 0 {
 		faintStyle := lipgloss.NewStyle().
 			Foreground(styles.LightGray).
@@ -84,14 +82,13 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		// Tie-breaker 3: status
 		return sortedEndpoints[i].status < sortedEndpoints[j].status
 	})
-	
+
 	// Find max count for scaling bars
 	maxCount := sortedEndpoints[0].count
 
 	var endpoints []endpoint
 	if len(sortedEndpoints) > maxEndpoints {
 		// Limit to maxEndpoints if more than allowed
-		logger.Log.Println("Limiting endpoints to max:", maxEndpoints)
 		endpoints = sortedEndpoints[:maxEndpoints]
 	} else {
 		endpoints = sortedEndpoints
@@ -171,10 +168,6 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	return strings.Join(lines[:height], "\n")
 }
 
-func (p *EndpointsCard) GetTitle() string {
-	return "Endpoints"
-}
-
 func (r *EndpointsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
 	r.endpoints = getEndpoints(logs)
 }
@@ -193,8 +186,6 @@ func getEndpoints(logs []n.NGINXLog) []endpoint {
 		}
 		endpointMap[id]++
 	}
-
-	logger.Log.Println("Found endpoints:", len(endpointMap))
 
 	var endpoints []endpoint
 	for id, count := range endpointMap {

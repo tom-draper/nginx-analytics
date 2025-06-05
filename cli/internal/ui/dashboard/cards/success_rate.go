@@ -91,7 +91,3 @@ func (r *SuccessRateCard) RenderContent(width, height int) string {
 
 	return strings.Join(lines[:height], "\n")
 }
-
-func (r *SuccessRateCard) GetTitle() string {
-	return "Success Rate"
-}
