@@ -13,6 +13,7 @@ import (
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
 	parse "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
 	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
 	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
@@ -50,6 +51,10 @@ func New(cfg config.Config) Model {
 	logs, _ := getLogs(cfg.AccessPath)
 	parsedLogs := l.ParseNginxLogs(logs)
 
+	sysInfo, _ := system.MeasureSystem()
+
+	logSizes, _ := parse.GetLogSizes(cfg.AccessPath)
+
 	// Initialize periods
 	periods := []p.Period{
 		p.Period24Hours,
@@ -69,7 +74,7 @@ func New(cfg config.Config) Model {
 	usersCard := cards.NewUsersCard(currentLogs, period)
 	endpointsCard := cards.NewEndpointsCard(currentLogs, period)
 	locationsCard := cards.NewLocationsCard(currentLogs, period)
-	activitiesCard := cards.NewActivityCard(currentLogs, period) 
+	activitiesCard := cards.NewActivityCard(currentLogs, period)
 
 	// Create base cards with renderers - these will all be treated uniformly
 	placeholderCard := cards.NewCard("", cards.NewLogoCard())
@@ -82,8 +87,8 @@ func New(cfg config.Config) Model {
 	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
 	cpuCard := cards.NewCard("CPU", cards.NewPlaceholderCard(""))
 	memorycard := cards.NewCard("Memory", cards.NewPlaceholderCard(""))
-	storageCard := cards.NewCard("Storage", cards.NewPlaceholderCard(""))
-	logCard := cards.NewCard("Logs", cards.NewPlaceholderCard(""))
+	storageCard := cards.NewCard("Storage", cards.NewStorageCard(sysInfo))
+	logCard := cards.NewCard("Logs", cards.NewLogSizeCard(logSizes))
 
 	// Set small sizes for compact display
 	cardWidth, cardHeight := 18, 4
@@ -118,11 +123,11 @@ func New(cfg config.Config) Model {
 	}
 
 	calculatable := []cards.CalculatedCard{
-		successRateCard, 
-		requestsCard, 
-		usersCard, 
-		endpointsCard, 
-		locationsCard, 
+		successRateCard,
+		requestsCard,
+		usersCard,
+		endpointsCard,
+		locationsCard,
 		activitiesCard,
 	}
 
