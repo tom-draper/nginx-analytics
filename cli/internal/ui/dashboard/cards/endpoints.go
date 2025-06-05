@@ -84,6 +84,7 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		// Tie-breaker 3: status
 		return sortedEndpoints[i].status < sortedEndpoints[j].status
 	})
+	
 	// Find max count for scaling bars
 	maxCount := sortedEndpoints[0].count
 
@@ -95,6 +96,14 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	} else {
 		endpoints = sortedEndpoints
 	}
+
+	// Define lipgloss styles for the bars
+	barStyle := lipgloss.NewStyle().
+		Background(styles.Green). // Green background
+		Foreground(styles.Black)  // Black text
+
+	normalTextStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")) // White/default text
 
 	var lines []string
 
@@ -125,32 +134,33 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 			}
 		}
 
-		// Build the line with green background bars and black text overlay
-		var line strings.Builder
+		// Build the line using lipgloss styles
+		var lineParts []string
 
 		for j := range width {
 			if j < len(overlayText) {
 				// Text character position
+				char := string(overlayText[j])
 				if j < barLength {
-					// Text over green bar - black text on green background
-					line.WriteString(fmt.Sprintf("\033[30;42m%c\033[0m", overlayText[j]))
+					// Text over green bar - use bar style
+					lineParts = append(lineParts, barStyle.Render(char))
 				} else {
-					// Text over empty space - normal text
-					line.WriteString(fmt.Sprintf("%c", overlayText[j]))
+					// Text over empty space - use normal text style
+					lineParts = append(lineParts, normalTextStyle.Render(char))
 				}
 			} else {
 				// No text character at this position
 				if j < barLength {
 					// Green bar space
-					line.WriteString("\033[42m \033[0m")
+					lineParts = append(lineParts, barStyle.Render(" "))
 				} else {
 					// Empty space
-					line.WriteString(" ")
+					lineParts = append(lineParts, " ")
 				}
 			}
 		}
 
-		lines = append(lines, line.String())
+		lines = append(lines, strings.Join(lineParts, ""))
 	}
 
 	// Fill remaining height with empty lines
@@ -164,7 +174,6 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 func (p *EndpointsCard) GetTitle() string {
 	return "Endpoints"
 }
-
 
 func (r *EndpointsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
 	r.endpoints = getEndpoints(logs)
