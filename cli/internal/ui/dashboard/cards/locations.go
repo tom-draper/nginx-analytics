@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	loc "github.com/tom-draper/nginx-analytics/cli/internal/logs/location"
 	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
@@ -53,6 +54,8 @@ func (r *LocationsCard) RenderContent(width, height int) string {
 	// Add labels
 	labelLine := r.buildLabelLine(topLocations)
 	chart = append(chart, labelLine)
+
+	logger.Log.Println("LocationsCard", width, len(chart[0]))
 
 	// Add count overlay on first line
 	if len(chart) > 0 {
@@ -169,7 +172,7 @@ func (r *LocationsCard) overlayRight(line, text string, maxWidth int) string {
 	}
 
 	// Calculate where to place the text
-	targetStart := maxWidth - textDisplayWidth + 5
+	targetStart := maxWidth - 1
 
 	// If the line is shorter than where we want to place the text, pad it
 	if lineDisplayWidth < targetStart {
