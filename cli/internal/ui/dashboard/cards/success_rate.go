@@ -45,9 +45,9 @@ func rateColor(rate float64) lipgloss.TerminalColor {
 	if rate >= 0.9 {
 		return styles.Green // Green for 90%+
 	} else if rate >= 0.75 {
-		return lipgloss.Color("#ffff00") // Yellow for 75%+
+		return lipgloss.Color("228") // Yellow for 75%+
 	} else if rate >= 0.5 {
-		return lipgloss.Color("#ff8000") // Orange for 50%+
+		return lipgloss.Color("202") // Orange for 50%+
 	} else if rate == -1 {
 		return styles.LightGray // Grey for no data
 	}
