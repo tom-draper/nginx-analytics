@@ -164,23 +164,6 @@ func New(cfg config.Config) Model {
 	grid.AddSidebarSubGridCard(allCards[10])
 	grid.AddSidebarSubGridCard(allCards[11])
 
-	// Add all cards to the grid - the grid will handle layout positioning
-	// The order here determines the navigation order
-	allCards := []*cards.Card{
-		placeholderCard, // 0 - top-left grid
-		successCard,     // 1 - top-right grid
-		requestCard,     // 2 - bottom-left grid
-		userCard,        // 3 - bottom-right grid
-		activityCard,    // 4 - sidebar
-		endpointsCard,   // 5 - middle
-		locationCard,    // 6 - bottom area
-		deviceCard,      // 7 - bottom area
-		cpuCard,         // 8 - sub-grid
-		memorycard,      // 9 - sub-grid
-		storageCard,     // 10 - sub-grid
-		logCard,         // 11 - sub-grid
-	}
-
 	// Add cards to grid with their layout positions
 	// Main grid cards (positions 0-3)
 	for i := range 4 {
