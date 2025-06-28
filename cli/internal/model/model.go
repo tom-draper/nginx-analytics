@@ -21,6 +21,7 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 )
 
 // Model represents the application state
@@ -48,12 +49,22 @@ type Model struct {
 
 // New creates a new model with initial state
 func New(cfg config.Config) Model {
-	logs, _ := getLogs(cfg.AccessPath)
+	logs, err := getLogs(cfg.AccessPath)
+	if err != nil {
+		logger.Log.Panicf("Error getting logs: %v", err)
+	}
 	parsedLogs := l.ParseNginxLogs(logs)
 
-	sysInfo, _ := system.MeasureSystem()
+	sysInfo, err := system.MeasureSystem()
+	if err != nil {
+		logger.Log.Panicf("Error measuring system: %v", err)
+	}
+	logger.Log.Println("System info:", sysInfo)
 
-	logSizes, _ := parse.GetLogSizes(cfg.AccessPath)
+	logSizes, err := parse.GetLogSizes(cfg.AccessPath)
+	if err != nil {
+		logger.Log.Panicf("Error getting log sizes: %v", err)
+	}
 
 	// Initialize periods
 	periods := []period.Period{
