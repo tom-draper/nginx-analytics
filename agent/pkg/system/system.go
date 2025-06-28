@@ -73,18 +73,17 @@ func MeasureSystem() (SystemInfo, error) {
 }
 
 func getUptime() (int64, error) {
-	if runtime.GOOS == "windows" {
-		// For Windows, parse the output of systeminfo command
+	switch runtime.GOOS {
+	case "windows":
+		// Windows implementation...
 		cmd := exec.Command("systeminfo")
 		output, err := cmd.Output()
 		if err != nil {
 			return 0, err
 		}
-
-		lines := strings.SplitSeq(string(output), "\n")
-		for line := range lines {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
 			if strings.Contains(line, "System Boot Time") {
-				// Extract boot time and calculate uptime
 				bootTimeStr := strings.TrimSpace(strings.Split(line, ":")[1])
 				bootTime, err := time.Parse("1/2/2006, 3:04:05 PM", bootTimeStr)
 				if err != nil {
@@ -94,46 +93,46 @@ func getUptime() (int64, error) {
 			}
 		}
 		return 0, fmt.Errorf("could not determine system uptime")
-	}
 
-	// For Linux and macOS
-	cmd := exec.Command("cat", "/proc/uptime")
-	output, err := cmd.Output()
-	if err != nil {
-		// Fallback for macOS
-		if runtime.GOOS == "darwin" {
-			cmd := exec.Command("sysctl", "-n", "kern.boottime")
-			output, err := cmd.Output()
-			if err != nil {
-				return 0, err
-			}
-
-			// Parse the output to get boot time
-			// Format is typically: { sec = 1234567890, usec = 123456 } Thu Jan 1 00:00:00 2000
-			parts := strings.Split(string(output), "sec = ")
-			if len(parts) < 2 {
-				return 0, fmt.Errorf("unexpected sysctl output format")
-			}
-			bootTimeParts := strings.Split(parts[1], ",")
-			bootTimeStr := strings.TrimSpace(bootTimeParts[0])
-			bootTime, err := strconv.ParseInt(bootTimeStr, 10, 64)
-			if err != nil {
-				return 0, err
-			}
-
-			currentTime := time.Now().Unix()
-			return currentTime - bootTime, nil
+	case "darwin":
+		// macOS-specific code
+		cmd := exec.Command("sysctl", "-n", "kern.boottime")
+		output, err := cmd.Output()
+		if err != nil {
+			return 0, err
 		}
-		return 0, err
-	}
 
-	uptimeStr := strings.Split(string(output), " ")[0]
-	uptimeFloat, err := strconv.ParseFloat(uptimeStr, 64)
-	if err != nil {
-		return 0, err
-	}
+		parts := strings.Split(string(output), "sec = ")
+		if len(parts) < 2 {
+			return 0, fmt.Errorf("unexpected sysctl output format: %s", string(output))
+		}
 
-	return int64(uptimeFloat), nil
+		bootTimeParts := strings.Split(parts[1], ",")
+		bootTimeStr := strings.TrimSpace(bootTimeParts[0])
+		bootTime, err := strconv.ParseInt(bootTimeStr, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+
+		currentTime := time.Now().Unix()
+		return currentTime - bootTime, nil
+
+	default:
+		// Assume Linux
+		cmd := exec.Command("cat", "/proc/uptime")
+		output, err := cmd.Output()
+		if err != nil {
+			return 0, err
+		}
+
+		uptimeStr := strings.Split(string(output), " ")[0]
+		uptimeFloat, err := strconv.ParseFloat(uptimeStr, 64)
+		if err != nil {
+			return 0, err
+		}
+
+		return int64(uptimeFloat), nil
+	}
 }
 
 func getCPUInfo() (CPUInfo, error) {
