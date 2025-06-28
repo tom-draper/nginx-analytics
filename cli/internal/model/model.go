@@ -35,7 +35,7 @@ type Model struct {
 	Initialized bool
 
 	// Period tabs
-	Periods           []p.Period
+	Periods           []period.Period
 	SelectedPeriod    int
 	TabNavigationMode bool // true when navigating tabs, false when navigating cards
 
@@ -67,12 +67,12 @@ func New(cfg config.Config) Model {
 	}
 
 	// Initialize periods
-	periods := []p.Period{
-		p.Period24Hours,
-		p.Period1Week,
-		p.Period30Days,
-		p.Period6Months,
-		p.PeriodAllTime,
+	periods := []period.Period{
+		period.Period24Hours,
+		period.Period1Week,
+		period.Period30Days,
+		period.Period6Months,
+		period.PeriodAllTime,
 	}
 	selectedPeriod := 2
 	period := periods[selectedPeriod]
@@ -522,7 +522,7 @@ func (m Model) ViewCompact() string {
 }
 
 // GetSelectedPeriod returns the currently selected period
-func (m Model) GetSelectedPeriod() p.Period {
+func (m Model) GetSelectedPeriod() period.Period {
 	return m.Periods[m.SelectedPeriod]
 }
 
