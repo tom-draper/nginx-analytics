@@ -3,7 +3,7 @@ package period
 import (
 	"time"
 
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 )
 
 // Period represents time period options
@@ -34,7 +34,7 @@ func PeriodHours(period Period) int {
 	}
 }
 
-func LogRange(logs []n.NGINXLog) time.Duration {
+func LogRange(logs []nginx.NGINXLog) time.Duration {
 	if len(logs) == 0 {
 		return 0
 	}
@@ -44,7 +44,7 @@ func LogRange(logs []n.NGINXLog) time.Duration {
 	return end.Sub(*start)
 }
 
-func LogRangePeriodHours(logs []n.NGINXLog, period Period) int {
+func LogRangePeriodHours(logs []nginx.NGINXLog, period Period) int {
 	if period != PeriodAllTime && len(logs) > 0 {
 		return PeriodHours(period)
 	}

@@ -5,7 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
@@ -139,5 +139,5 @@ type DynamicHeightCard interface {
 }
 
 type CalculatedCard interface {
-	UpdateCalculated(logs []n.NGINXLog, period p.Period)
+	UpdateCalculated(logs []nginx.NGINXLog, period p.Period)
 }
