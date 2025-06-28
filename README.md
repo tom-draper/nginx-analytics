@@ -58,7 +58,7 @@ Follow the <a href="./agent/README.md">agent deployment guide</a>. -->
 
 #### Locations
 
-IP-location inference can be set up easily, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-City.mmdb` or `GeoLite2-Country.mmdb` file in the root folder of the agent or dashboard deployment on your server.
+Geolocation by IP address can be set up easily, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-City.mmdb` or `GeoLite2-Country.mmdb` file in the root folder of the agent or dashboard deployment on your server.
 
 #### System Monitoring
 
@@ -66,7 +66,7 @@ Monitoring of system resources (CPU, memory, and storage) is supported but disab
 
 #### Authentication
 
-When using the agent, it's recommended to use an authentication token. Set the private environment variable `NGINX_ANALYTICS_AUTH_TOKEN` to the same value for both the agent (server) and the dashboard (client) deployment.
+When using the agent, it's recommended to set an authentication token. Set the private environment variable `NGINX_ANALYTICS_AUTH_TOKEN` to the same value for both the agent (server) and the dashboard (client) deployment.
 
 The agent will verify that the auth token sent by the client matches the locally stored value before allowing access to the logs.
 

@@ -81,8 +81,8 @@ func getUptime() (int64, error) {
 			return 0, err
 		}
 
-		lines := strings.SplitSeq(string(output), "\n")
-		for line := range lines {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
 			if strings.Contains(line, "System Boot Time") {
 				// Extract boot time and calculate uptime
 				bootTimeStr := strings.TrimSpace(strings.Split(line, ":")[1])
