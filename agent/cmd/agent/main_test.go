@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tom-draper/nginx-analytics/agent/internal/auth"
 )
 
 func TestIsAuthenticated(t *testing.T) {
@@ -30,7 +32,7 @@ func TestIsAuthenticated(t *testing.T) {
 			r.Header.Set("Authorization", tc.header)
 		}
 
-		result := isAuthenticated(r, authToken)
+		result := auth.IsAuthenticated(r, authToken)
 		if result != tc.expected {
 			t.Errorf("%s: expected %v, got %v", tc.name, tc.expected, result)
 		}
@@ -46,7 +48,7 @@ func TestAccessLogEndpoint(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isAuthenticated(r, authToken) {
+		if !auth.IsAuthenticated(r, authToken) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -73,7 +75,7 @@ func TestAccessLogForbidden(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isAuthenticated(r, authToken) {
+		if !auth.IsAuthenticated(r, authToken) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
