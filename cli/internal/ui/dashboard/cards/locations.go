@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	loc "github.com/tom-draper/nginx-analytics/cli/internal/logs/location"
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
-	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/plot"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
@@ -18,13 +18,13 @@ type LocationsCard struct {
 	locations loc.Locations
 }
 
-func NewLocationsCard(logs []n.NGINXLog, period p.Period) *LocationsCard {
+func NewLocationsCard(logs []nginx.NGINXLog, period period.Period) *LocationsCard {
 	card := &LocationsCard{}
 	card.UpdateCalculated(logs, period)
 	return card
 }
 
-func (r *LocationsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
+func (r *LocationsCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	r.locations.UpdateLocations(logs)
 }
 
@@ -172,7 +172,7 @@ func (r *LocationsCard) overlayRight(line, text string, maxWidth int) string {
 	}
 
 	// Calculate where to place the text
-	targetStart := maxWidth - 1
+	targetStart := maxWidth -len(text)
 
 	// If the line is shorter than where we want to place the text, pad it
 	if lineDisplayWidth < targetStart {

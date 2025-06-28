@@ -2,7 +2,7 @@ package dashboard
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	cards "github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
+	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
 )
 
 // DashboardGrid manages a collection of cards in a custom layout with sidebar.

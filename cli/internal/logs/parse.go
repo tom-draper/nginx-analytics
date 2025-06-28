@@ -5,21 +5,22 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 )
 
 // ParseNginxLogs parses nginx access log entries
-func ParseNginxLogs(logs []string) []n.NGINXLog {
+func ParseNginxLogs(logs []string) []nginx.NGINXLog {
 	// Regex pattern for common nginx access log format
 	regex := regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]+)" "([^"]+)"`)
 
-	var data []n.NGINXLog
+	var data []nginx.NGINXLog
 
 	for _, row := range logs {
 		matches := regex.FindStringSubmatch(row)
 
 		if len(matches) >= 10 {
-			logData := n.NGINXLog{
+			logData := nginx.NGINXLog{
 				IPAddress:    matches[1],
 				Timestamp:    parseDate(matches[2]),
 				Method:       matches[3],
@@ -80,8 +81,8 @@ func parseIntPtr(s string) *int {
 }
 
 // ParseNginxErrors parses nginx error log entries
-func ParseNginxErrors(logLines []string) []n.NGINXError {
-	var errors []n.NGINXError
+func ParseNginxErrors(logLines []string) []nginx.NGINXError {
+	var errors []nginx.NGINXError
 
 	// Compile regex patterns once
 	timestampPattern := regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})`)
@@ -100,7 +101,7 @@ func ParseNginxErrors(logLines []string) []n.NGINXError {
 			continue
 		}
 
-		errorEntry := n.NGINXError{}
+		errorEntry := nginx.NGINXError{}
 
 		// Extract timestamp
 		if timestampMatch := timestampPattern.FindStringSubmatch(line); len(timestampMatch) > 1 {

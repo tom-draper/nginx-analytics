@@ -1,9 +1,9 @@
 package user
 
-import n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+import "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 
 const deliminer = "::"
 
-func UserID(log n.NGINXLog) string {
+func UserID(log nginx.NGINXLog) string {
 	return log.IPAddress + deliminer + log.UserAgent
 }

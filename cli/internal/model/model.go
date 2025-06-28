@@ -15,8 +15,8 @@ import (
 	parse "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
 	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
-	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+	period "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
@@ -34,16 +34,16 @@ type Model struct {
 	Initialized bool
 
 	// Period tabs
-	Periods           []p.Period
+	Periods           []period.Period
 	SelectedPeriod    int
 	TabNavigationMode bool // true when navigating tabs, false when navigating cards
 
 	calculatable []cards.CalculatedCard
 
 	logs       []string
-	parsedLogs []n.NGINXLog // Parsed logs for card updates
+	parsedLogs []nginx.NGINXLog // Parsed logs for card updates
 
-	currentLogs []n.NGINXLog
+	currentLogs []nginx.NGINXLog
 }
 
 // New creates a new model with initial state
@@ -56,12 +56,12 @@ func New(cfg config.Config) Model {
 	logSizes, _ := parse.GetLogSizes(cfg.AccessPath)
 
 	// Initialize periods
-	periods := []p.Period{
-		p.Period24Hours,
-		p.Period1Week,
-		p.Period30Days,
-		p.Period6Months,
-		p.PeriodAllTime,
+	periods := []period.Period{
+		period.Period24Hours,
+		period.Period1Week,
+		period.Period30Days,
+		period.Period6Months,
+		period.PeriodAllTime,
 	}
 	selectedPeriod := 2
 	period := periods[selectedPeriod]
@@ -229,7 +229,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Cycle through all cards (backwards)
 				totalCards := m.Grid.GetTotalCardCount()
 				newIndex := (m.Grid.ActiveCard - 1 + totalCards) % totalCards
-				m.Grid.SetActiveCard(newIndex)
+				m.Grid.SetActiveCard(newIndex);
 			}
 		case key.Matches(msg, m.Keys.Right):
 			if m.TabNavigationMode {

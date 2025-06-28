@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
-	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
@@ -30,7 +30,7 @@ type EndpointsCard struct {
 
 const maxEndpoints = 35 // Maximum number of endpoints to display
 
-func NewEndpointsCard(logs []n.NGINXLog, period p.Period) *EndpointsCard {
+func NewEndpointsCard(logs []nginx.NGINXLog, period period.Period) *EndpointsCard {
 	card := &EndpointsCard{}
 	card.UpdateCalculated(logs, period)
 	return card
@@ -168,11 +168,11 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	return strings.Join(lines[:height], "\n")
 }
 
-func (r *EndpointsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
+func (r *EndpointsCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	r.endpoints = getEndpoints(logs)
 }
 
-func getEndpoints(logs []n.NGINXLog) []endpoint {
+func getEndpoints(logs []nginx.NGINXLog) []endpoint {
 	endpointMap := make(map[endpointID]int)
 
 	for _, log := range logs {
