@@ -7,13 +7,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
+	"github.com/tom-draper/nginx-analytics/agent/internal/auth"
+	"github.com/tom-draper/nginx-analytics/agent/internal/utils"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
-	"github.com/tom-draper/nginx-analytics/agent/pkg/routes"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/logs"
+	"github.com/tom-draper/nginx-analytics/agent/internal/routes"
 )
 
 var startTime = time.Now()
@@ -21,9 +22,6 @@ var startTime = time.Now()
 func main() {
 	cfg := config.LoadConfig()
 	logConfig(cfg)
-
-	isAccessDir := isDir(cfg.AccessPath)
-	isErrorDir := isDir(cfg.ErrorPath)
 
 	// Define HTTP routes
 	setupRoute := func(path string, method string, logMessage string, handler func(http.ResponseWriter, *http.Request)) {
@@ -39,7 +37,7 @@ func main() {
 			}
 
 			// Check authentication
-			if !isAuthenticated(r, cfg.AuthToken) {
+			if !auth.IsAuthenticated(r, cfg.AuthToken) {
 				log.Println("Forbidden: Invalid auth token")
 				http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
 				return
@@ -63,13 +61,13 @@ func main() {
 			}
 		}
 
-		if cfg.AccessPath != "" {
-			routes.ServeLogs(w, r, cfg.AccessPath, positions, false, includeCompressed)
-		} else if cfg.ErrorPath != "" && isErrorDir {
-			routes.ServeLogs(w, r, cfg.ErrorPath, positions, false, includeCompressed)
-		} else {
-			routes.ServeLogs(w, r, config.DefaultConfig.AccessPath, positions, false, includeCompressed)
+		logPath := cfg.AccessPath
+		if logPath == "" && utils.IsDir(cfg.ErrorPath) {
+			logPath = cfg.ErrorPath
+		} else if logPath == "" {
+			logPath = config.DefaultConfig.AccessPath
 		}
+		routes.ServeLogs(w, r, logPath, positions, false, includeCompressed)
 	})
 
 	setupRoute("/api/logs/error", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
@@ -85,13 +83,13 @@ func main() {
 		}
 
 		log.Println("Polling error logs")
-		if cfg.ErrorPath != "" {
-			routes.ServeLogs(w, r, cfg.ErrorPath, positions, true, includeCompressed)
-		} else if cfg.AccessPath != "" && isAccessDir {
-			routes.ServeLogs(w, r, cfg.AccessPath, positions, true, includeCompressed)
-		} else {
-			routes.ServeLogs(w, r, config.DefaultConfig.AccessPath, positions, true, includeCompressed)
+		logPath := cfg.ErrorPath
+		if logPath == "" && utils.IsDir(cfg.AccessPath) {
+			logPath = cfg.AccessPath
+		} else if logPath == "" {
+			logPath = config.DefaultConfig.AccessPath
 		}
+		routes.ServeLogs(w, r, logPath, positions, true, includeCompressed)
 	})
 
 	setupRoute("/api/system/logs", http.MethodGet, "Checking log size", func(w http.ResponseWriter, r *http.Request) {
@@ -101,13 +99,14 @@ func main() {
 			return
 		}
 
-		if cfg.AccessPath != "" {
-			routes.ServeLogSize(w, r, cfg.AccessPath)
-		} else if cfg.ErrorPath != "" {
-			routes.ServeLogSizes(w, r, cfg.ErrorPath)
-		} else {
-			routes.ServeLogSizes(w, r, config.DefaultConfig.AccessPath)
+		logPath := cfg.AccessPath
+		if logPath == "" {
+			logPath = cfg.ErrorPath
 		}
+		if logPath == "" {
+			logPath = config.DefaultConfig.AccessPath
+		}
+		routes.ServeLogSizes(w, r, logPath)
 	})
 
 	setupRoute("/api/location", http.MethodPost, "", func(w http.ResponseWriter, r *http.Request) {
@@ -162,35 +161,4 @@ func logConfig(cfg config.Config) {
 	} else {
 		log.Println("System monitoring disabled")
 	}
-}
-
-func isDir(path string) bool {
-	if path == "" {
-		return false
-	}
-
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-
-	return fileInfo.IsDir()
-}
-
-func isAuthenticated(r *http.Request, authToken string) bool {
-	if authToken == "" {
-		return true
-	}
-
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return false
-	}
-
-	if !strings.HasPrefix(authHeader, "Bearer ") {
-		return false
-	}
-
-	providedAuthToken := strings.TrimPrefix(authHeader, "Bearer ")
-	return providedAuthToken == authToken
 }
