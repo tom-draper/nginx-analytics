@@ -466,15 +466,36 @@ func (m Model) ViewCompact() string {
 		return "Initializing..."
 	}
 
-	card := m.Cards[m.ActiveCard]
-	
-	// Render compact card for top-left corner
-	cardView := card.RenderCompact(true)
-	
-	// Add some navigation help at the bottom
-	help := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Render("\n\n← → Navigate cards | ↑ ↓ Adjust values | q Quit")
-	
-	return cardView + help
+	var view strings.Builder
+
+	// Add tabs at the top
+	tabsView := m.renderTabs()
+	if tabsView != "" {
+		view.WriteString(tabsView)
+		view.WriteString("\n")
+	}
+
+	// Just render the cards in a simple top-left layout
+	gridView := m.Grid.RenderGrid()
+	view.WriteString(gridView)
+
+	return view.String()
+}
+
+// GetSelectedPeriod returns the currently selected period
+func (m Model) GetSelectedPeriod() period.Period {
+	return m.Periods[m.SelectedPeriod]
+}
+
+func getLogs(path string) ([]string, error) {
+	if path == "" {
+		return []string{}, nil
+	}
+
+	logResult, err := parse.GetLogs(path, []parse.Position{}, false, true)
+	if err != nil {
+		return []string{}, err
+	}
+
+	return logResult.Logs, nil
 }
