@@ -170,7 +170,7 @@ func readErrorLogDirectly(filePath string, position int64) (LogResult, error) {
 
 	// Split into lines and filter out empty lines
 	lines := []string{}
-	for _, line := range strings.Split(newContent, "\n") {
+	for line := range strings.SplitSeq(newContent, "\n") {
 		if strings.TrimSpace(line) != "" {
 			lines = append(lines, line)
 		}
