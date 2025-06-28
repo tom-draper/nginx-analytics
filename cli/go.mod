@@ -9,7 +9,6 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.5
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/term v0.2.1
-	github.com/guptarohit/asciigraph v0.7.3
 	github.com/tom-draper/nginx-analytics/agent v0.0.0-20250530084826-15dffd64c281
 )
 

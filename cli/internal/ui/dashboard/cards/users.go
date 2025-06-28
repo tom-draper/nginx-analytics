@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/user"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/plot"
@@ -20,13 +20,13 @@ type UsersCard struct {
 	histogram plot.MicroHistogram
 }
 
-func NewUsersCard(logs []n.NGINXLog, period p.Period) *UsersCard {
+func NewUsersCard(logs []nginx.NGINXLog, period p.Period) *UsersCard {
 	card := &UsersCard{}
 	card.UpdateCalculated(logs, period)
 	return card
 }
 
-func (r *UsersCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
+func (r *UsersCard) UpdateCalculated(logs []nginx.NGINXLog, period p.Period) {
 	r.count = userCount(logs)
 	r.rate = float64(r.count) / float64(p.LogRangePeriodHours(logs, period))
 	timestamps := getUserEvents(logs)
@@ -34,7 +34,7 @@ func (r *UsersCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
 	logger.Log.Println(r.histogram)
 }
 
-func getUserEvents(logs []n.NGINXLog) []plot.UserEvent {
+func getUserEvents(logs []nginx.NGINXLog) []plot.UserEvent {
 	events := make([]plot.UserEvent, 0)
 	for _, log := range logs {
 		if log.Timestamp.IsZero() {
@@ -47,7 +47,7 @@ func getUserEvents(logs []n.NGINXLog) []plot.UserEvent {
 	return events
 }
 
-func userCount(logs []n.NGINXLog) int {
+func userCount(logs []nginx.NGINXLog) int {
 	userSet := make(map[string]struct{})
 	for _, log := range logs {
 		userID := user.UserID(log)

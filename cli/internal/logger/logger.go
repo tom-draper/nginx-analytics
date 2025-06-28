@@ -1,8 +1,8 @@
 package logger
 
 import (
-    "log"
-    "os"
+	"log"
+	"os"
 )
 
 var Log *log.Logger

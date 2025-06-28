@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/plot"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
@@ -20,14 +20,14 @@ type RequestsCard struct {
 	histogram plot.MicroHistogram // Request counts per time bucket (cached)
 }
 
-func NewRequestsCard(logs []n.NGINXLog, period p.Period) *RequestsCard {
+func NewRequestsCard(logs []nginx.NGINXLog, period p.Period) *RequestsCard {
 	card := &RequestsCard{}
 	card.UpdateCalculated(logs, period)
 	return card
 }
 
 // updateCalculated recalculates Count, Rate, and Histogram only if logs have changed
-func (r *RequestsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
+func (r *RequestsCard) UpdateCalculated(logs []nginx.NGINXLog, period p.Period) {
 	r.count = len(logs)
 	r.rate = float64(r.count) / float64(p.LogRangePeriodHours(logs, period))
 	timestamps := getTimestamps(logs)
@@ -35,7 +35,7 @@ func (r *RequestsCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
 	logger.Log.Println(r.histogram)
 }
 
-func getTimestamps(logs []n.NGINXLog) []time.Time {
+func getTimestamps(logs []nginx.NGINXLog) []time.Time {
 	timestamps := make([]time.Time, 0)
 	for _, log := range logs {
 		timestamps = append(timestamps, *log.Timestamp)

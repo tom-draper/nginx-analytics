@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
-	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
@@ -14,13 +14,13 @@ type SuccessRateCard struct {
 	successRate float64
 }
 
-func NewSuccessRateCard(logs []n.NGINXLog, period p.Period) *SuccessRateCard {
+func NewSuccessRateCard(logs []nginx.NGINXLog, period period.Period) *SuccessRateCard {
 	card := &SuccessRateCard{}
 	card.UpdateCalculated(logs, period)
 	return card
 }
 
-func (r *SuccessRateCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
+func (r *SuccessRateCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	success := successCount(logs)
 	total := len(logs)
 	if total == 0 {
@@ -30,7 +30,7 @@ func (r *SuccessRateCard) UpdateCalculated(logs []n.NGINXLog, period p.Period) {
 	}
 }
 
-func successCount(logs []n.NGINXLog) int {
+func successCount(logs []nginx.NGINXLog) int {
 	count := 0
 	for _, log := range logs {
 		if *log.Status >= 200 && *log.Status < 400 {

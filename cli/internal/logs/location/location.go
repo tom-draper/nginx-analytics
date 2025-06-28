@@ -4,7 +4,7 @@ import (
 	"sort"
 
 	loc "github.com/tom-draper/nginx-analytics/agent/pkg/location"
-	n "github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 )
 
 type Location struct {
@@ -17,7 +17,7 @@ type Locations struct {
 	cache     map[string]loc.Location
 }
 
-func (l *Locations) UpdateLocations(logs []n.NGINXLog) {
+func (l *Locations) UpdateLocations(logs []nginx.NGINXLog) {
 	if !loc.LocationsEnabled() {
 		return
 	}
@@ -26,7 +26,7 @@ func (l *Locations) UpdateLocations(logs []n.NGINXLog) {
 	l.updateLocations(logs)
 }
 
-func (l *Locations) updateLocations(logs []n.NGINXLog) {
+func (l *Locations) updateLocations(logs []nginx.NGINXLog) {
 	locationCounter := make(map[string]int)
 
 	for _, log := range logs {
@@ -50,7 +50,7 @@ func (l *Locations) updateLocations(logs []n.NGINXLog) {
 	l.Locations = locations
 }
 
-func (l *Locations) maintainCache(logs []n.NGINXLog) {
+func (l *Locations) maintainCache(logs []nginx.NGINXLog) {
 	ipAddresses := getIPAddresses(logs)
 	if len(ipAddresses) == 0 {
 		return
@@ -84,7 +84,7 @@ func (l *Locations) updateCache(locations []*loc.Location, ipAddresses []string)
 	}
 }
 
-func getIPAddresses(logs []n.NGINXLog) []string {
+func getIPAddresses(logs []nginx.NGINXLog) []string {
 	ipAddresses := make([]string, 0)
 	for _, log := range logs {
 		if log.IPAddress != "" {
