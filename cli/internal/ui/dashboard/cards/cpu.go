@@ -24,7 +24,7 @@ func (c *CPUCard) RenderContent(width, height int) string {
 		return c.renderEmptyState(width)
 	}
 
-	var content strings.Builder
+	var rows []string
 	squareSize := 5 // Adjust as needed for square dimensions
 
 	// Calculate how many squares fit per row
@@ -33,27 +33,30 @@ func (c *CPUCard) RenderContent(width, height int) string {
 		squaresPerRow = 1
 	}
 
+	var currentRow []string
 	for i, p := range c.cpuPercentages {
 		color := c.getColorForCPUUsage(p)
 		text := fmt.Sprintf("%.0f%%", p)
 
 		square := lipgloss.NewStyle().
 			Width(squareSize).
-			Height(squareSize).
+			Height(3).
 			Background(color).
 			Foreground(lipgloss.Color("0")).
 			Align(lipgloss.Center).
+			AlignVertical(lipgloss.Center).
 			Render(text)
 
-		content.WriteString(square)
+		currentRow = append(currentRow, square)
 
 		// New line after every squaresPerRow, or if it's the last square
 		if (i+1)%squaresPerRow == 0 || i == len(c.cpuPercentages)-1 {
-			content.WriteString("\n")
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, currentRow...))
+			currentRow = []string{} // Reset for the next row
 		}
 	}
 
-	return content.String()
+	return lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }
 
 func (c *CPUCard) renderEmptyState(width int) string {
