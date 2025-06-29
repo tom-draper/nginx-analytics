@@ -6,7 +6,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
