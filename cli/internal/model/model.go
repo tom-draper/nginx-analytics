@@ -89,6 +89,7 @@ func New(cfg config.Config) Model {
 	activitiesCard := cards.NewActivityCard(currentLogs, period)
 
 	cpusCard := cards.NewCPUCard()
+	memorysCard := cards.NewMemoryCard()
 	usageTimesCard := cards.NewUsageTimeCard(currentLogs, period)
 	referrersCard := cards.NewReferrersCard(currentLogs, period)
 
@@ -102,7 +103,7 @@ func New(cfg config.Config) Model {
 	locationCard := cards.NewCard("Location", locationsCard)
 	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
 	cpuCard := cards.NewCard("CPU", cpusCard)
-	memorycard := cards.NewCard("Memory", cards.NewPlaceholderCard(""))
+	memorycard := cards.NewCard("Memory", memorysCard)
 	storageCard := cards.NewCard("Storage", cards.NewStorageCard(sysInfo))
 	logCard := cards.NewCard("Logs", cards.NewLogSizeCard(logSizes))
 	usageTimeCard := cards.NewCard("Usage Time", usageTimesCard)
@@ -155,6 +156,7 @@ func New(cfg config.Config) Model {
 
 	systemCalculatable := []cards.CalclatedSystemCard{
 		cpusCard,
+		memorysCard,
 	}
 
 	// Add cards to grid with their layout positions

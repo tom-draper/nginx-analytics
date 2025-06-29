@@ -11,354 +11,28 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	u "github.com/tom-draper/nginx-analytics/cli/internal/logs/user"
-	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/plot"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
-
-type ActivityCard struct {
-	requests    []point[int]
-	users       []point[int]
-	successRate []point[float64]
-	period      period.Period // Store the period for time range logic
-}
-
-func NewActivityCard(logs []nginx.NGINXLog, period period.Period) *ActivityCard {
-	card := &ActivityCard{
-		period: period,
-	}
-	card.UpdateCalculated(logs, period)
-	return card
-}
-
-func (a *ActivityCard) RenderContent(width, height int) string {
-	if len(a.requests) == 0 {
-		faintStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
-		lines := []string{
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			faintStyle.Render("No activity data available"),
-		}
-
-		for i, line := range lines {
-			if len(line) > 0 {
-				displayWidth := lipgloss.Width(line)
-				padding := (width - displayWidth) / 2
-				if padding > 0 {
-					lines[i] = strings.Repeat(" ", padding) + line
-				}
-			}
-		}
-
-		// Fill to height
-		for len(lines) < height {
-			lines = append(lines, "")
-		}
-
-		return strings.Join(lines[:height], "\n")
-	}
-
-	// Sort requests by timestamp
-	sortedRequests := make([]point[int], len(a.requests))
-	copy(sortedRequests, a.requests)
-	sort.Slice(sortedRequests, func(i, j int) bool {
-		return sortedRequests[i].timestamp.Before(sortedRequests[j].timestamp)
-	})
-
-	// Sort users by timestamp
-	sortedUsers := make([]point[int], len(a.users))
-	copy(sortedUsers, a.users)
-	sort.Slice(sortedUsers, func(i, j int) bool {
-		return sortedUsers[i].timestamp.Before(sortedUsers[j].timestamp)
-	})
-
-	// Calculate chart dimensions
-	usableWidth := width
-	// Reserve 2 rows at bottom for success rate graph
-	chartHeight := max(height-4, 3) // -4 for success rate graph (2 rows) + time range line + padding
-	chartWidth := max(usableWidth-2, 15)
-
-	// Generate custom bar chart with Braille characters
-	chart := a.generateBrailleBarChart(sortedRequests, sortedUsers, chartWidth, chartHeight)
-
-	// Split chart into lines
-	chartLines := strings.Split(chart, "\n")
-
-	// Aggressively truncate lines that are too long
-	maxLineWidth := usableWidth - 2
-	for i, line := range chartLines {
-		if lipgloss.Width(line) > maxLineWidth {
-			chartLines[i] = line[:maxLineWidth]
-		}
-	}
-
-	// Add chart lines
-	lines := []string{}
-	lines = append(lines, chartLines...)
-
-	faintStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
-	// Add time range info if we have data
-	if len(sortedRequests) > 0 {
-
-		// Format timestamps in local datetime format
-		firstTime := sortedRequests[0].timestamp.Local().Format("2006-01-02 15:04:05")
-
-		// Dynamic end time based on period
-		var lastTime string
-		if a.period == period.PeriodAllTime {
-			// For PeriodAllTime, use the last timestamp from data
-			lastTime = sortedRequests[len(sortedRequests)-1].timestamp.Local().Format("2006-01-02 15:04:05")
-		} else {
-			// For other periods, use current datetime
-			lastTime = time.Now().Local().Format("2006-01-02 15:04:05")
-		}
-
-		// Apply faint style to the times
-		styledFirstTime := faintStyle.Render(firstTime)
-		styledLastTime := faintStyle.Render(lastTime)
-
-		// Calculate padding
-		leftPadding := strings.Repeat(" ", 4)
-		rightPadding := strings.Repeat(" ", 2)
-
-		// Calculate available space for the middle section
-		firstTimeWidth := lipgloss.Width(styledFirstTime)
-		lastTimeWidth := lipgloss.Width(styledLastTime)
-		availableMiddleSpace := usableWidth - 4 - firstTimeWidth - lastTimeWidth - 2 // padding + time widths
-
-		var timeRangeLine string
-		if availableMiddleSpace >= 0 {
-			// Enough space - align first time to left with padding, last time to right with padding
-			middleSpacing := strings.Repeat(" ", availableMiddleSpace)
-			timeRangeLine = leftPadding + styledFirstTime + middleSpacing + styledLastTime + rightPadding
-		} else {
-			// Not enough space - truncate or abbreviate
-			// Try shorter format first
-			firstTimeShort := sortedRequests[0].timestamp.Local().Format("01/02 15:04")
-
-			var lastTimeShort string
-			if a.period == period.PeriodAllTime {
-				lastTimeShort = sortedRequests[len(sortedRequests)-1].timestamp.Local().Format("01/02 15:04")
-			} else {
-				lastTimeShort = time.Now().Local().Format("01/02 15:04")
-			}
-
-			styledFirstTimeShort := faintStyle.Render(firstTimeShort)
-			styledLastTimeShort := faintStyle.Render(lastTimeShort)
-
-			firstTimeShortWidth := lipgloss.Width(styledFirstTimeShort)
-			lastTimeShortWidth := lipgloss.Width(styledLastTimeShort)
-			availableMiddleSpaceShort := usableWidth - 4 - firstTimeShortWidth - lastTimeShortWidth - 2
-
-			if availableMiddleSpaceShort >= 0 {
-				middleSpacing := strings.Repeat(" ", availableMiddleSpaceShort)
-				timeRangeLine = leftPadding + styledFirstTimeShort + middleSpacing + styledLastTimeShort + rightPadding
-			} else {
-				// Still not enough space - just show what fits
-				maxAvailable := usableWidth - 6 // padding
-				if firstTimeShortWidth <= maxAvailable {
-					timeRangeLine = leftPadding + styledFirstTimeShort + strings.Repeat(" ", 2)
-				} else {
-					// Truncate to fit
-					truncated := firstTimeShort[:min(len(firstTimeShort), maxAvailable-3)] + "..."
-					timeRangeLine = leftPadding + faintStyle.Render(truncated) + rightPadding
-				}
-			}
-		}
-
-		lines = append(lines, timeRangeLine)
-	}
-
-	lines = append(lines, faintStyle.Render("    Success Rate:"))
-
-	// Generate success rate graph (2 rows at bottom)
-	successRateGraph := a.generateSuccessRateGraph(usableWidth)
-	lines = append(lines, successRateGraph...)
-
-	// Fill to height or trim if necessary
-	for len(lines) < height {
-		lines = append(lines, "")
-	}
-	if len(lines) > height {
-		lines = lines[:height]
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-func (p *ActivityCard) generateCustomBarChart(requests []point[int], users []point[int], width, height int) string {
-	if len(requests) == 0 {
-		return strings.Repeat("\n", height-1)
-	}
-
-	// Create a map for quick user lookup by timestamp
-	userMap := make(map[time.Time]int)
-	for _, user := range users {
-		userMap[user.timestamp] = user.value
-	}
-
-	// Find the maximum request count for scaling
-	maxRequests := 0
-	for _, req := range requests {
-		if req.value > maxRequests {
-			maxRequests = req.value
-		}
-	}
-
-	if maxRequests == 0 {
-		return strings.Repeat("\n", height-1)
-	}
-
-	// Calculate Y-axis label width (need space for the largest number plus some padding)
-	maxLabel := fmt.Sprintf("%d", maxRequests)
-	yAxisWidth := len(maxLabel) + 1 // +1 for space after number
-
-	// Adjust chart width to account for Y-axis
-	chartWidth := max(width-yAxisWidth, 10)
-
-	// Create the chart grid (full width including Y-axis)
-	chart := make([][]string, height)
-	for i := range chart {
-		chart[i] = make([]string, width)
-		for j := range chart[i] {
-			chart[i][j] = " "
-		}
-	}
-
-	// Calculate how many data points we can fit in the chart width (excluding Y-axis)
-	dataPoints := len(requests)
-
-	// Green and blue styles
-	greenStyle := lipgloss.NewStyle().Foreground(styles.Green)
-	blueStyle := lipgloss.NewStyle().Foreground(styles.Blue)
-	grayStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
-
-	// Add Y-axis labels
-	for row := range height {
-		// Calculate the value this row represents
-		rowFromTop := row
-		rowValue := int(float64(maxRequests) * float64(height-1-rowFromTop) / float64(height-1))
-
-		// Only show labels for certain rows to avoid clutter
-		showLabel := false
-		if height <= 8 {
-			// For small charts, show every other row
-			showLabel = row%2 == 0
-		} else if height <= 15 {
-			// For medium charts, show every 3rd row
-			showLabel = row%3 == 0
-		} else {
-			// For large charts, show every 4th row
-			showLabel = row%4 == 0
-		}
-
-		// Always show the top and bottom labels
-		if row == 0 || row == height-1 {
-			showLabel = true
-		}
-
-		if showLabel && rowValue >= 0 {
-			label := fmt.Sprintf("%d", rowValue)
-			// Right-align the label within the Y-axis space
-			labelStart := yAxisWidth - len(label) - 1
-			if labelStart >= 0 {
-				for i, char := range label {
-					if labelStart+i < len(chart[row]) {
-						chart[row][labelStart+i] = grayStyle.Render(string(char))
-					}
-				}
-			}
-		}
-	}
-
-	for col := 0; col < chartWidth && col < dataPoints; col++ {
-		// Map column to data point
-		dataIndex := (col * dataPoints) / chartWidth
-		if dataIndex >= dataPoints {
-			dataIndex = dataPoints - 1
-		}
-
-		requestCount := requests[dataIndex].value
-		userCount := userMap[requests[dataIndex].timestamp]
-
-		// Calculate bar height (scale to chart height)
-		// Use height-1 to leave room for potential fractional bars
-		barHeight := float64(requestCount) * float64(height-1) / float64(maxRequests)
-
-		// Calculate user proportion height
-		userProportion := 0.0
-		if requestCount > 0 {
-			userProportion = float64(userCount) / float64(requestCount)
-		}
-		userHeight := barHeight * userProportion
-
-		// Adjust column position to account for Y-axis
-		chartCol := col + yAxisWidth
-
-		// Draw the bars from bottom to top
-		for row := height - 1; row >= 0; row-- {
-			// Calculate how much of this row should be filled
-			rowFromBottom := height - 1 - row
-
-			// Calculate total bar fill for this row (always use the full request height)
-			totalFill := 0.0
-			if barHeight > float64(rowFromBottom+1) {
-				totalFill = 1.0 // Full block
-			} else if barHeight > float64(rowFromBottom) {
-				totalFill = barHeight - float64(rowFromBottom) // Partial block
-			}
-
-			if totalFill > 0 {
-				// Determine if this row should be blue or green
-				// Blue if we're within the user height, green otherwise
-				rowBottomPosition := float64(rowFromBottom)
-				rowTopPosition := float64(rowFromBottom + 1)
-
-				useBlue := userHeight > rowBottomPosition
-
-				// If we're at the exact border where user height ends,
-				// we might need to handle partial coloring
-				if userHeight > rowBottomPosition && userHeight < rowTopPosition {
-					// We're in the transition row - use blue for the user portion
-					useBlue = true
-				}
-
-				charIndex := min(int(math.Round(totalFill*8)), 8)
-
-				if chartCol < len(chart[row]) {
-					barChar := plot.BarChars[charIndex]
-					if useBlue {
-						chart[row][chartCol] = blueStyle.Render(barChar)
-					} else {
-						chart[row][chartCol] = greenStyle.Render(barChar)
-					}
-				}
-			}
-		}
-	}
-
-	// Convert chart to string
-	lines := make([]string, height)
-	for i, row := range chart {
-		lines[i] = strings.Join(row, "")
-	}
-
-	return strings.Join(lines, "\n")
-}
 
 // Braille dot patterns (each character represents a 2x4 grid of dots)
 // Dots are numbered:
 // 1 4
-// 2 5  
+// 2 5
 // 3 6
 // 7 8
+const (
+	brailleDot1 = 1 << 0 // 0x01
+	brailleDot2 = 1 << 1 // 0x02
+	brailleDot3 = 1 << 2 // 0x04
+	brailleDot4 = 1 << 3 // 0x08
+	brailleDot5 = 1 << 4 // 0x10
+	brailleDot6 = 1 << 5 // 0x20
+	brailleDot7 = 1 << 6 // 0x40 (often for 8-dot Braille, below dot 3)
+	brailleDot8 = 1 << 7 // 0x80 (often for 8-dot Braille, below dot 6)
+)
+
 var braillePatterns = [256]rune{
+	// ... (your existing braille patterns array)
 	0x2800, 0x2801, 0x2802, 0x2803, 0x2804, 0x2805, 0x2806, 0x2807,
 	0x2808, 0x2809, 0x280A, 0x280B, 0x280C, 0x280D, 0x280E, 0x280F,
 	0x2810, 0x2811, 0x2812, 0x2813, 0x2814, 0x2815, 0x2816, 0x2817,
@@ -393,6 +67,162 @@ var braillePatterns = [256]rune{
 	0x28F8, 0x28F9, 0x28FA, 0x28FB, 0x28FC, 0x28FD, 0x28FE, 0x28FF,
 }
 
+// activityCardStyles holds all the lipgloss styles for the activity card.
+type activityCardStyles struct {
+	faint      lipgloss.Style
+	green      lipgloss.Style
+	blue       lipgloss.Style
+	gray       lipgloss.Style
+	successRed lipgloss.Style
+	// ... add other success rate colors as styles
+}
+
+func defaultActivityCardStyles() activityCardStyles {
+	return activityCardStyles{
+		faint:      lipgloss.NewStyle().Foreground(styles.LightGray),
+		green:      lipgloss.NewStyle().Foreground(styles.Green),
+		blue:       lipgloss.NewStyle().Foreground(styles.Blue),
+		gray:       lipgloss.NewStyle().Foreground(styles.LightGray),
+		successRed: lipgloss.NewStyle().Foreground(styles.Red),
+	}
+}
+
+type ActivityCard struct {
+	requests    []point[int]
+	users       []point[int]
+	successRate []point[float64]
+	period      period.Period // Store the period for time range logic
+	styles      activityCardStyles
+}
+
+func NewActivityCard(logs []nginx.NGINXLog, period period.Period) *ActivityCard {
+	card := &ActivityCard{
+		period: period,
+		styles: defaultActivityCardStyles(),
+	}
+	card.UpdateCalculated(logs, period)
+	return card
+}
+
+func (a *ActivityCard) RenderContent(width, height int) string {
+	if len(a.requests) == 0 {
+		return a.renderNoData(width, height)
+	}
+
+	// Sort data for consistent chart rendering
+	sortedRequests := sortPoints(a.requests)
+	sortedUsers := sortPoints(a.users)
+
+	// Calculate chart dimensions
+	usableWidth := width
+	// Reserve space for success rate graph and time range
+	chartHeight := max(height-4, 3) // -4 for success rate (2 rows) + time range line + padding
+	chartWidth := max(usableWidth-2, 15)
+
+	var lines []string
+
+	// Generate and append the main chart
+	chart := a.generateBrailleBarChart(sortedRequests, sortedUsers, chartWidth, chartHeight)
+	lines = append(lines, strings.Split(chart, "\n")...)
+
+	// Add time range info
+	lines = append(lines, a.renderTimeRange(sortedRequests, usableWidth))
+
+	// Add success rate label
+	lines = append(lines, a.styles.faint.Render("    Success Rate:"))
+
+	// Generate and append success rate graph
+	successRateGraph := a.generateSuccessRateGraph(usableWidth)
+	lines = append(lines, successRateGraph...)
+
+	// Fill or trim lines to match the required height
+	for len(lines) < height {
+		lines = append(lines, "")
+	}
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func (a *ActivityCard) renderNoData(width, height int) string {
+	lines := make([]string, height)
+	for i := range lines {
+		lines[i] = ""
+	}
+
+	noDataMessage := a.styles.faint.Render("No activity data available")
+	displayLine := (height - 1) / 2 // Center vertically
+	if displayLine >= 0 && displayLine < height {
+		displayWidth := lipgloss.Width(noDataMessage)
+		padding := (width - displayWidth) / 2
+		if padding > 0 {
+			lines[displayLine] = strings.Repeat(" ", padding) + noDataMessage
+		} else {
+			lines[displayLine] = noDataMessage
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (a *ActivityCard) renderTimeRange(sortedRequests []point[int], usableWidth int) string {
+	if len(sortedRequests) == 0 {
+		return ""
+	}
+
+	firstTime := sortedRequests[0].timestamp.Local()
+	var lastTime time.Time
+	if a.period == period.PeriodAllTime {
+		lastTime = sortedRequests[len(sortedRequests)-1].timestamp.Local()
+	} else {
+		lastTime = time.Now().Local()
+	}
+
+	// Try full format
+	fullFirstTimeStr := firstTime.Format("2006-01-02 15:04:05")
+	fullLastTimeStr := lastTime.Format("2006-01-02 15:04:05")
+
+	leftPadding := strings.Repeat(" ", 4)
+	rightPadding := strings.Repeat(" ", 2)
+
+	// Calculate space needed for full format
+	requiredWidth := len(leftPadding) + lipgloss.Width(a.styles.faint.Render(fullFirstTimeStr)) + lipgloss.Width(a.styles.faint.Render(fullLastTimeStr)) + len(rightPadding) + 2 // 2 for middle space
+
+	var timeRangeLine string
+	if requiredWidth <= usableWidth {
+		// Enough space, use full format
+		availableMiddleSpace := usableWidth - lipgloss.Width(leftPadding) - lipgloss.Width(rightPadding) - lipgloss.Width(a.styles.faint.Render(fullFirstTimeStr)) - lipgloss.Width(a.styles.faint.Render(fullLastTimeStr))
+		middleSpacing := strings.Repeat(" ", max(0, availableMiddleSpace))
+		timeRangeLine = leftPadding + a.styles.faint.Render(fullFirstTimeStr) + middleSpacing + a.styles.faint.Render(fullLastTimeStr) + rightPadding
+	} else {
+		// Try shorter format
+		shortFirstTimeStr := firstTime.Format("01/02 15:04")
+		shortLastTimeStr := lastTime.Format("01/02 15:04")
+
+		requiredWidthShort := len(leftPadding) + lipgloss.Width(a.styles.faint.Render(shortFirstTimeStr)) + lipgloss.Width(a.styles.faint.Render(shortLastTimeStr)) + len(rightPadding) + 2
+
+		if requiredWidthShort <= usableWidth {
+			availableMiddleSpace := usableWidth - lipgloss.Width(leftPadding) - lipgloss.Width(rightPadding) - lipgloss.Width(a.styles.faint.Render(shortFirstTimeStr)) - lipgloss.Width(a.styles.faint.Render(shortLastTimeStr))
+			middleSpacing := strings.Repeat(" ", max(0, availableMiddleSpace))
+			timeRangeLine = leftPadding + a.styles.faint.Render(shortFirstTimeStr) + middleSpacing + a.styles.faint.Render(shortLastTimeStr) + rightPadding
+		} else {
+			// Fallback: truncate first time if nothing else fits
+			maxAvailableForFirst := usableWidth - len(leftPadding) - len(rightPadding) - 3 // 3 for "..."
+			if maxAvailableForFirst > 0 {
+				truncatedFirst := shortFirstTimeStr
+				if lipgloss.Width(shortFirstTimeStr) > maxAvailableForFirst {
+					truncatedFirst = truncatedFirst[:maxAvailableForFirst] + "..."
+				}
+				timeRangeLine = leftPadding + a.styles.faint.Render(truncatedFirst) + rightPadding
+			} else {
+				timeRangeLine = "" // No space at all
+			}
+		}
+	}
+	return timeRangeLine
+}
+
 func getBrailleChar(pattern int) string {
 	if pattern < 0 || pattern > 255 {
 		return " "
@@ -400,18 +230,16 @@ func getBrailleChar(pattern int) string {
 	return string(braillePatterns[pattern])
 }
 
-func (p *ActivityCard) generateBrailleBarChart(requests []point[int], users []point[int], width, height int) string {
-	if len(requests) == 0 {
-		return strings.Repeat("\n", height-1)
+func (a *ActivityCard) generateBrailleBarChart(requests []point[int], users []point[int], chartWidth, chartHeight int) string {
+	if len(requests) == 0 || chartHeight <= 0 || chartWidth <= 0 {
+		return strings.Repeat("\n", chartHeight) // Return empty lines if no data or invalid dimensions
 	}
 
-	// Create a map for quick user lookup by timestamp
 	userMap := make(map[time.Time]int)
 	for _, user := range users {
 		userMap[user.timestamp] = user.value
 	}
 
-	// Find the maximum request count for scaling
 	maxRequests := 0
 	for _, req := range requests {
 		if req.value > maxRequests {
@@ -420,34 +248,52 @@ func (p *ActivityCard) generateBrailleBarChart(requests []point[int], users []po
 	}
 
 	if maxRequests == 0 {
-		return strings.Repeat("\n", height-1)
+		return strings.Repeat("\n", chartHeight) // Return empty lines if max requests is 0
 	}
 
-	// Calculate Y-axis label width
-	maxLabel := fmt.Sprintf("%d", maxRequests)
-	yAxisWidth := len(maxLabel) + 1
+	yAxisWidth := len(fmt.Sprintf("%d", maxRequests)) + 1 // Max label + 1 for separator
+	effectiveChartWidth := max(chartWidth-yAxisWidth, 1)   // Ensure positive chart width for plotting
 
-	// Adjust chart width to account for Y-axis
-	chartWidth := max(width-yAxisWidth, 10)
-
-	// Create the chart grid
-	chart := make([][]string, height)
-	for i := range chart {
-		chart[i] = make([]string, width)
-		for j := range chart[i] {
-			chart[i][j] = " "
+	// Create the chart grid with Y-axis space
+	chartGrid := make([][]string, chartHeight)
+	for i := range chartGrid {
+		chartGrid[i] = make([]string, chartWidth) // Use original chartWidth here for the final output grid
+		for j := range chartGrid[i] {
+			chartGrid[i][j] = " "
 		}
 	}
 
-	// Green and blue styles
-	greenStyle := lipgloss.NewStyle().Foreground(styles.Green)
-	blueStyle := lipgloss.NewStyle().Foreground(styles.Blue)
-	grayStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
-
 	// Add Y-axis labels
+	a.renderYAxisLabels(chartGrid, maxRequests, chartHeight, yAxisWidth)
+
+	// --- CRUCIAL CHANGE HERE: Canvas width is now 2x effectiveChartWidth ---
+	brailleHeight := chartHeight * 4 // Each row can represent 4 sub-rows (dots 1,2,3,7 or 4,5,6,8)
+	canvasWidthPixels := effectiveChartWidth * 2 // Each Braille char (1 terminal column) covers 2 pixels
+	canvas := make([][]bool, brailleHeight)
+	userCanvas := make([][]bool, brailleHeight)
+	for i := range canvas {
+		canvas[i] = make([]bool, canvasWidthPixels)
+		userCanvas[i] = make([]bool, canvasWidthPixels)
+	}
+
+	// Draw bars on the high-resolution canvas
+	a.drawChartBarsOnCanvas(requests, userMap, canvas, userCanvas, maxRequests, effectiveChartWidth, brailleHeight, canvasWidthPixels)
+
+	// Convert high-resolution canvas to Braille characters and apply styles
+	a.convertCanvasToBraille(chartGrid, canvas, userCanvas, yAxisWidth, effectiveChartWidth, chartHeight, brailleHeight)
+
+	// Convert chart grid to string
+	lines := make([]string, chartHeight)
+	for i, row := range chartGrid {
+		lines[i] = strings.Join(row, "")
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func (a *ActivityCard) renderYAxisLabels(chartGrid [][]string, maxRequests, height, yAxisWidth int) {
 	for row := range height {
-		rowFromTop := row
-		rowValue := int(float64(maxRequests) * float64(height-1-rowFromTop) / float64(height-1))
+		rowValue := int(float64(maxRequests) * float64(height-1-row) / float64(height-1))
 
 		showLabel := false
 		if height <= 8 {
@@ -458,50 +304,45 @@ func (p *ActivityCard) generateBrailleBarChart(requests []point[int], users []po
 			showLabel = row%4 == 0
 		}
 
-		if row == 0 || row == height-1 {
+		if row == 0 || row == height-1 { // Always show top and bottom labels
 			showLabel = true
 		}
 
 		if showLabel && rowValue >= 0 {
 			label := fmt.Sprintf("%d", rowValue)
-			labelStart := yAxisWidth - len(label) - 1
-			if labelStart >= 0 {
-				for i, char := range label {
-					if labelStart+i < len(chart[row]) {
-						chart[row][labelStart+i] = grayStyle.Render(string(char))
-					}
+			labelStart := yAxisWidth - len(label) - 1 // Align right with a space
+			if labelStart < 0 {
+				labelStart = 0 // Prevent negative index
+			}
+			for i, char := range label {
+				if labelStart+i < len(chartGrid[row]) {
+					chartGrid[row][labelStart+i] = a.styles.gray.Render(string(char))
 				}
 			}
 		}
 	}
+}
 
-	// Calculate data points
+// drawChartBarsOnCanvas now takes canvasWidthPixels
+func (a *ActivityCard) drawChartBarsOnCanvas(requests []point[int], userMap map[time.Time]int, canvas, userCanvas [][]bool, maxRequests, effectiveChartWidth, brailleHeight, canvasWidthPixels int) {
 	dataPoints := len(requests)
-
-	// Since each Braille character represents 2x4 dots, we can fit twice as many columns
-	// and have 4 times the vertical resolution per row
-	brailleWidth := chartWidth
-	brailleHeight := height * 4 // Each row can represent 4 sub-rows
-
-	// Create a virtual canvas with higher resolution
-	canvas := make([][]bool, brailleHeight)
-	userCanvas := make([][]bool, brailleHeight) // Track which dots are users vs requests
-	for i := range canvas {
-		canvas[i] = make([]bool, brailleWidth)
-		userCanvas[i] = make([]bool, brailleWidth)
+	if dataPoints == 0 {
+		return
 	}
 
-	// Draw bars on the high-resolution canvas
-	for col := 0; col < brailleWidth && col < dataPoints; col++ {
-		dataIndex := (col * dataPoints) / brailleWidth
-		if dataIndex >= dataPoints {
+	// Each conceptual "bar" in the terminal output is now 2 pixels wide on the canvas.
+	// We need to map our 'dataPoints' (timestamps) across the 'canvasWidthPixels'.
+	for canvasCol := 0; canvasCol < canvasWidthPixels; canvasCol++ {
+		// Map the canvas pixel column back to a data point index
+		// This assumes an even distribution of data points across the total canvas width
+		dataIndex := (canvasCol * dataPoints) / canvasWidthPixels
+		if dataIndex >= dataPoints { // Safety check
 			dataIndex = dataPoints - 1
 		}
 
 		requestCount := requests[dataIndex].value
 		userCount := userMap[requests[dataIndex].timestamp]
 
-		// Calculate bar height in high resolution
 		barHeight := float64(requestCount) * float64(brailleHeight-1) / float64(maxRequests)
 		userHeight := 0.0
 		if requestCount > 0 {
@@ -509,173 +350,160 @@ func (p *ActivityCard) generateBrailleBarChart(requests []point[int], users []po
 			userHeight = barHeight * userProportion
 		}
 
-		// Fill the canvas from bottom up
 		for row := 0; row < int(math.Ceil(barHeight)); row++ {
-			canvasRow := brailleHeight - 1 - row
+			canvasRow := brailleHeight - 1 - row // Fill from bottom up
 			if canvasRow >= 0 && canvasRow < brailleHeight {
-				canvas[canvasRow][col] = true
-				// Mark as user if within user height
+				canvas[canvasRow][canvasCol] = true
 				if float64(row) < userHeight {
-					userCanvas[canvasRow][col] = true
+					userCanvas[canvasRow][canvasCol] = true
 				}
 			}
 		}
 	}
+}
 
-	// Convert high-resolution canvas to Braille characters
-	for row := range height {
-		for col := yAxisWidth; col < yAxisWidth+brailleWidth; col++ {
-			// Each Braille character represents a 2x4 area
-			brailleCol := col - yAxisWidth
-			if brailleCol >= brailleWidth {
-				continue
-			}
-
+// Updated convertCanvasToBraille function
+func (a *ActivityCard) convertCanvasToBraille(chartGrid [][]string, canvas, userCanvas [][]bool, yAxisWidth, effectiveChartWidth, chartHeight, brailleHeight int) {
+	// Iterate through each Braille character position in the *output* grid
+	for row := 0; row < chartHeight; row++ { // chartHeight is the number of terminal rows for the graph
+		for col := 0; col < effectiveChartWidth; col++ { // effectiveChartWidth is the number of terminal columns for the graph
 			pattern := 0
 			isUser := false
 
-			// Check each of the 8 dots in the Braille character
-			// Dots are arranged as:
-			// 1 4
-			// 2 5
-			// 3 6
-			// 7 8
-			dotPositions := []struct{ y, x int }{
-				{row*4 + 0, brailleCol}, // dot 1
-				{row*4 + 1, brailleCol}, // dot 2
-				{row*4 + 2, brailleCol}, // dot 3
-				{row*4 + 3, brailleCol}, // dot 7
-				{row*4 + 0, brailleCol}, // dot 4 (same as 1 since we only have 1 column per char)
-				{row*4 + 1, brailleCol}, // dot 5 (same as 2)
-				{row*4 + 2, brailleCol}, // dot 6 (same as 3)
-				{row*4 + 3, brailleCol}, // dot 8 (same as 7)
+			// Calculate the corresponding pixel columns on the high-resolution canvas
+			canvasColLeft := col * 2
+			canvasColRight := col * 2 + 1
+
+			// Define the mapping of Braille dots to canvas pixel positions
+			// Each entry maps a (yOffset, xOffset within 2x4 cell) to a Braille bit
+			// xOffset 0 is the left 'pixel' column, xOffset 1 is the right 'pixel' column
+			dotMap := []struct {
+				yOffset int // Vertical sub-row (0-3 for 4 sub-rows per Braille char row)
+				xOffset int // Horizontal sub-column (0 for left dots, 1 for right dots)
+				bit     int // The Braille dot bitmask
+			}{
+				{0, 0, brailleDot1}, // Row 0, Left Col -> Dot 1
+				{1, 0, brailleDot2}, // Row 1, Left Col -> Dot 2
+				{2, 0, brailleDot3}, // Row 2, Left Col -> Dot 3
+				{3, 0, brailleDot7}, // Row 3, Left Col -> Dot 7
+
+				{0, 1, brailleDot4}, // Row 0, Right Col -> Dot 4
+				{1, 1, brailleDot5}, // Row 1, Right Col -> Dot 5
+				{2, 1, brailleDot6}, // Row 2, Right Col -> Dot 6
+				{3, 1, brailleDot8}, // Row 3, Right Col -> Dot 8
 			}
 
-			// For single-width characters, we only use dots 1,2,3,7 (left column)
-			for i := range 4 {
-				y, x := dotPositions[i].y, dotPositions[i].x
-				if y >= 0 && y < brailleHeight && x >= 0 && x < brailleWidth {
-					if canvas[y][x] {
-						pattern |= (1 << i)
-						if userCanvas[y][x] {
-							isUser = true
+			// Iterate through all 8 potential dots for the current Braille character
+			for _, dm := range dotMap {
+				canvasY := row*4 + dm.yOffset // Calculate absolute Y on the high-res canvas
+				canvasX := -1                  // Initialize canvasX for the current dot
+
+				// Determine which canvas column to check based on xOffset
+				if dm.xOffset == 0 { // Left dots (1,2,3,7)
+					canvasX = canvasColLeft
+				} else { // Right dots (4,5,6,8)
+					canvasX = canvasColRight
+				}
+
+				// Check if the current canvas pixel exists and is set
+				// Ensure canvasX is within bounds of canvas[0] (which is canvasWidthPixels)
+				if canvasY >= 0 && canvasY < brailleHeight && canvasX >= 0 && canvasX < len(canvas[0]) {
+					if canvas[canvasY][canvasX] {
+						pattern |= dm.bit // Set the corresponding Braille dot bit
+						if userCanvas[canvasY][canvasX] {
+							isUser = true // Mark as user dot if applicable
 						}
 					}
 				}
 			}
 
+			// If any dots are set, get the Braille character and apply style
 			if pattern > 0 {
 				brailleChar := getBrailleChar(pattern)
-				if isUser {
-					chart[row][col] = blueStyle.Render(brailleChar)
-				} else {
-					chart[row][col] = greenStyle.Render(brailleChar)
+				targetCol := yAxisWidth + col // Offset by Y-axis width for placing in the final chartGrid
+
+				if targetCol < len(chartGrid[row]) {
+					if isUser {
+						chartGrid[row][targetCol] = a.styles.blue.Render(brailleChar)
+					} else {
+						chartGrid[row][targetCol] = a.styles.green.Render(brailleChar)
+					}
 				}
 			}
 		}
 	}
-
-	// Convert chart to string
-	lines := make([]string, height)
-	for i, row := range chart {
-		lines[i] = strings.Join(row, "")
-	}
-
-	return strings.Join(lines, "\n")
 }
 
-func (p *ActivityCard) generateSuccessRateGraph(width int) []string {
-	if len(p.successRate) == 0 {
-		// Return empty lines if no success rate data
-		return []string{"", ""}
+func (a *ActivityCard) generateSuccessRateGraph(width int) []string {
+	if len(a.successRate) == 0 {
+		return []string{"", ""} // Return empty lines if no success rate data
 	}
 
-	// Sort success rate data by timestamp
-	sortedSuccessRate := make([]point[float64], len(p.successRate))
-	copy(sortedSuccessRate, p.successRate)
-	sort.Slice(sortedSuccessRate, func(i, j int) bool {
-		return sortedSuccessRate[i].timestamp.Before(sortedSuccessRate[j].timestamp)
-	})
+	sortedSuccessRate := sortPoints(a.successRate)
 
-	// Calculate available width for the graph (total width - padding)
 	leftPadding := 4
 	rightPadding := 2
 	graphWidth := width - leftPadding - rightPadding
 
-	// Ensure we have a positive graph width
 	if graphWidth <= 0 {
-		// If width is too small, return empty lines
 		return []string{"", ""}
 	}
 
-	// Create two rows for the graph
 	topRow := make([]string, graphWidth)
 	bottomRow := make([]string, graphWidth)
 
-	// Calculate how many data points we can fit in the graph width
 	dataPoints := len(sortedSuccessRate)
-	if dataPoints == 0 {
-		// Fill with spaces if no data
-		for i := range graphWidth {
-			topRow[i] = " "
-			bottomRow[i] = " "
-		}
-	} else {
-		// Distribute data points across the graph width
-		for i := range graphWidth {
-			// Map position to data point
-			dataIndex := (i * dataPoints) / graphWidth
-			if dataIndex >= dataPoints {
-				dataIndex = dataPoints - 1
-			}
 
-			successRate := sortedSuccessRate[dataIndex].value
-			color := lipgloss.NewStyle().Foreground(p.getSuccessRateColor(successRate))
-
-			// Create colored vertical bar (2 characters high)
-			coloredChar := color.Render("█")
-			topRow[i] = coloredChar
-			bottomRow[i] = coloredChar
+	for i := range graphWidth {
+		dataIndex := (i * dataPoints) / graphWidth
+		if dataIndex >= dataPoints {
+			dataIndex = dataPoints - 1
 		}
+
+		successRate := sortedSuccessRate[dataIndex].value
+		color := lipgloss.NewStyle().Foreground(a.getSuccessRateColor(successRate))
+
+		coloredChar := color.Render("█")
+		topRow[i] = coloredChar
+		bottomRow[i] = coloredChar
 	}
 
-	// Create padding strings
-	leftPad := strings.Repeat(" ", leftPadding)
-	rightPad := strings.Repeat(" ", rightPadding)
+	leftPadStr := strings.Repeat(" ", leftPadding)
+	rightPadStr := strings.Repeat(" ", rightPadding)
 
 	return []string{
-		leftPad + strings.Join(topRow, "") + rightPad,
-		leftPad + strings.Join(bottomRow, "") + rightPad,
+		leftPadStr + strings.Join(topRow, "") + rightPadStr,
+		leftPadStr + strings.Join(bottomRow, "") + rightPadStr,
 	}
 }
 
-func (p *ActivityCard) getSuccessRateColor(rate float64) lipgloss.Color {
-	if rate == -1 {
+func (a *ActivityCard) getSuccessRateColor(rate float64) lipgloss.Color {
+	if rate == -1 { // Assuming -1 means no data, though 0.0 could also imply 0% success.
 		return styles.LightGray // Grey for no data
 	}
 	switch {
 	case rate >= 0.9:
-		return styles.Green // Best: Green
+		return styles.Green
 	case rate >= 0.8:
 		return lipgloss.Color("154") // Light Green/Chartreuse
 	case rate >= 0.7:
-		return styles.Yellow // Yellow
+		return styles.Yellow
 	case rate >= 0.6:
 		return lipgloss.Color("214") // Orange-Yellow
 	case rate >= 0.5:
-		return styles.Orange // Orange
+		return styles.Orange
 	case rate >= 0.4:
 		return lipgloss.Color("202") // Dark Orange/Reddish-Orange
 	default:
-		return styles.Red // Worst: Red
+		return styles.Red
 	}
 }
 
 func (r *ActivityCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	r.period = period // Store the period
-	r.requests = getRequests(logs, period)
-	r.users = getUsers(logs, period)
-	r.successRate = getSuccessRates(logs, period)
+	r.requests = getRequests(logs)
+	r.users = getUsers(logs)
+	r.successRate = getSuccessRates(logs)
 }
 
 type point[T ~int | ~float32 | ~float64] struct {
@@ -683,14 +511,24 @@ type point[T ~int | ~float32 | ~float64] struct {
 	value     T
 }
 
-func getRequests(logs []nginx.NGINXLog, period period.Period) []point[int] {
-	requestBuckets := make(map[time.Time]int, 0)
+// sortPoints is a generic helper to sort slices of point[T] by timestamp.
+func sortPoints[T ~int | ~float32 | ~float64](points []point[T]) []point[T] {
+	sorted := make([]point[T], len(points))
+	copy(sorted, points)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].timestamp.Before(sorted[j].timestamp)
+	})
+	return sorted
+}
+
+func getRequests(logs []nginx.NGINXLog) []point[int] {
+	requestBuckets := make(map[time.Time]int)
 	for _, log := range logs {
 		timeBucket := nearestHour(*log.Timestamp)
 		requestBuckets[timeBucket]++
 	}
 
-	requests := make([]point[int], 0)
+	requests := make([]point[int], 0, len(requestBuckets))
 	for timestamp, count := range requestBuckets {
 		requests = append(requests, point[int]{value: count, timestamp: timestamp})
 	}
@@ -698,8 +536,8 @@ func getRequests(logs []nginx.NGINXLog, period period.Period) []point[int] {
 	return requests
 }
 
-func getUsers(logs []nginx.NGINXLog, period period.Period) []point[int] {
-	userBuckets := make(map[time.Time]map[string]struct{}, 0)
+func getUsers(logs []nginx.NGINXLog) []point[int] {
+	userBuckets := make(map[time.Time]map[string]struct{})
 	for _, log := range logs {
 		timeBucket := nearestHour(*log.Timestamp)
 		userID := u.UserID(log)
@@ -709,7 +547,7 @@ func getUsers(logs []nginx.NGINXLog, period period.Period) []point[int] {
 		userBuckets[timeBucket][userID] = struct{}{}
 	}
 
-	users := make([]point[int], 0)
+	users := make([]point[int], 0, len(userBuckets))
 	for timestamp, unique := range userBuckets {
 		count := len(unique)
 		users = append(users, point[int]{value: count, timestamp: timestamp})
@@ -718,7 +556,7 @@ func getUsers(logs []nginx.NGINXLog, period period.Period) []point[int] {
 	return users
 }
 
-func getSuccessRates(logs []nginx.NGINXLog, period period.Period) []point[float64] {
+func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
 	successRateBuckets := make(map[time.Time]struct {
 		success int
 		total   int
@@ -728,6 +566,8 @@ func getSuccessRates(logs []nginx.NGINXLog, period period.Period) []point[float6
 		t := nearestHour(*log.Timestamp)
 		bucket := successRateBuckets[t]
 
+		// NGINX status codes: 2xx are success, 3xx are redirection, 4xx are client errors, 5xx are server errors.
+		// A common definition of success is 2xx and 3xx. Let's stick to the current [200, 400) logic.
 		success := *log.Status >= 200 && *log.Status < 400
 		if success {
 			bucket.success++

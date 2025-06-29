@@ -95,11 +95,3 @@ func (r *RequestsCard) formatCount() string {
 	}
 	return fmt.Sprintf("%d", r.count)
 }
-
-// min helper function (for Go versions < 1.21)
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

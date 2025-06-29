@@ -3,7 +3,6 @@ package cards
 import (
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
@@ -36,8 +35,11 @@ func (r *LocationsCard) RenderContent(width, height int) string {
 	locations := r.locations.Locations
 	totalLocations := len(locations)
 
-	// Calculate how many bars we can fit (2 chars per bar: bar + space)
-	maxBars := min(totalLocations, width/2)
+	// Calculate how many bars we can fit
+	// Each bar needs 2 chars, plus 1 space between bars (except the last one)
+	// So for n bars: 2*n + (n-1) = 3*n - 1 characters needed
+	// Solving for n: n = (width + 1) / 3
+	maxBars := min(totalLocations, (width+1)/3)
 	if maxBars == 0 {
 		return r.renderEmptyState(width)
 	}
@@ -116,14 +118,14 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 			var char string
 			if targetHeight > currentPosFromBottom+8 {
 				// Full bar
-				char = "█"
+				char = "██" // Two characters wide
 			} else if targetHeight > currentPosFromBottom {
 				// Partial bar
 				partial := min(targetHeight-currentPosFromBottom, 8)
-				char = plot.BarChars[partial]
+				char = plot.BarChars[partial] + plot.BarChars[partial] // Two characters wide
 			} else {
 				// Empty space
-				char = " "
+				char = "  " // Two spaces
 			}
 
 			line += char
@@ -136,21 +138,28 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 
 func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
 	labelLine := ""
-	for _, l := range locations {
-		// if i > 0 {
-		// labelLine += " " // Space between labels to align with bars
-		// }
-
-		// Use first character of location, handling UTF-8 properly
-		label := "  "
-		if l.Location != "" {
-			if firstRune, _ := utf8.DecodeRuneInString(l.Location); firstRune != utf8.RuneError {
-				// label = string(firstRune)
-				emoji, _ := loc.CountryCodeToEmoji(l.Location)
-				label = emoji
+	for i, l := range locations {
+		// Get flag emoji for the location
+		emoji, err := loc.CountryCodeToEmoji(l.Location)
+		if err != nil || emoji == "" {
+			// Fallback: use just the country code or first two chars
+			if len(l.Location) >= 2 {
+				emoji = l.Location[:2]
+			} else if l.Location != "" {
+				emoji = l.Location + " "
+			} else {
+				emoji = "??"
 			}
 		}
-		labelLine += label
+		
+		// Add the emoji (flag emojis are typically 2 chars wide)
+		labelLine += emoji
+		
+		// Add spacing to align with the 2-char bars + 1 space separation
+		// Only add space if not the last item
+		if i < len(locations)-1 {
+			labelLine += " " // Single space to match bar separation
+		}
 	}
 	return labelLine
 }
@@ -172,7 +181,7 @@ func (r *LocationsCard) overlayRight(line, text string, maxWidth int) string {
 	}
 
 	// Calculate where to place the text
-	targetStart := maxWidth -len(text)
+	targetStart := maxWidth - len(text)
 
 	// If the line is shorter than where we want to place the text, pad it
 	if lineDisplayWidth < targetStart {

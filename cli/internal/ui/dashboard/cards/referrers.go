@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
@@ -103,6 +104,8 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 		Foreground(lipgloss.Color("15")) // White/default text
 
 	var lines []string
+
+	logger.Log.Println("referrers", referrers)
 
 	// Render each referrer as a horizontal bar with overlaid text
 	for i, ep := range referrers {
