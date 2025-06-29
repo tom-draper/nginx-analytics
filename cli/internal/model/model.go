@@ -88,6 +88,8 @@ func New(cfg config.Config) Model {
 	locationsCard := cards.NewLocationsCard(currentLogs, period)
 	activitiesCard := cards.NewActivityCard(currentLogs, period)
 
+	cpusCard := cards.NewCPUCard()
+
 	// Create base cards with renderers - these will all be treated uniformly
 	placeholderCard := cards.NewCard("", cards.NewLogoCard())
 	successCard := cards.NewCard("Success Rate", successRateCard)
@@ -97,7 +99,7 @@ func New(cfg config.Config) Model {
 	endpointCard := cards.NewCard("Endpoints", endpointsCard)
 	locationCard := cards.NewCard("Location", locationsCard)
 	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
-	cpuCard := cards.NewCard("CPU", cards.NewCPUCard())
+	cpuCard := cards.NewCard("CPU", cpusCard)
 	memorycard := cards.NewCard("Memory", cards.NewPlaceholderCard(""))
 	storageCard := cards.NewCard("Storage", cards.NewStorageCard(sysInfo))
 	logCard := cards.NewCard("Logs", cards.NewLogSizeCard(logSizes))
@@ -141,6 +143,10 @@ func New(cfg config.Config) Model {
 		endpointsCard,
 		locationsCard,
 		activitiesCard,
+	}
+
+	systemCalculatable := []cards.CalclatedSystemCard{
+		cpusCard,
 	}
 
 	// Add cards to grid with their layout positions
@@ -191,18 +197,19 @@ func New(cfg config.Config) Model {
 	grid.SetActiveCard(0)
 
 	return Model{
-		Config:            cfg,
-		Grid:              grid,
-		Help:              help.New(),
-		Keys:              ui.NewKeyMap(),
-		Initialized:       false,
-		Periods:           periods,
-		SelectedPeriod:    2, // Default to "30 days"
-		TabNavigationMode: false,
-		calculatable:      calculatable,
-		logs:              logs,
-		parsedLogs:        parsedLogs,
-		currentLogs:       currentLogs,
+		Config:             cfg,
+		Grid:               grid,
+		Help:               help.New(),
+		Keys:               ui.NewKeyMap(),
+		Initialized:        false,
+		Periods:            periods,
+		SelectedPeriod:     2, // Default to "30 days"
+		TabNavigationMode:  false,
+		calculatable:       calculatable,
+		systemCalculatable: systemCalculatable,
+		logs:               logs,
+		parsedLogs:         parsedLogs,
+		currentLogs:        currentLogs,
 	}
 }
 

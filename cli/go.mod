@@ -9,7 +9,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.5
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/term v0.2.1
-	github.com/tom-draper/nginx-analytics/agent v0.0.0-20250629085308-ae9766a35cef
+	github.com/tom-draper/nginx-analytics/agent v0.0.0-20250629101824-40b91fb64e16
 )
 
 require (

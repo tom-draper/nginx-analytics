@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
@@ -18,6 +19,7 @@ func NewCPUCard() *CPUCard {
 }
 
 func (c *CPUCard) RenderContent(width, height int) string {
+	logger.Log.Println("test", c.cpuPercentages)
 	if len(c.cpuPercentages) == 0 {
 		return c.renderEmptyState(width)
 	}
@@ -70,6 +72,7 @@ func (c *CPUCard) centerText(text string, width int, style lipgloss.Style) strin
 }
 
 func (c *CPUCard) UpdateCalculated(sysInfo system.SystemInfo) {
+	c.cpuPercentages = sysInfo.CPU.CoreUsage
 }
 
 func (c *CPUCard) getColorForCPUUsage(usage float64) lipgloss.Color {

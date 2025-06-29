@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	u "github.com/tom-draper/nginx-analytics/cli/internal/logs/user"
@@ -119,8 +118,6 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 			// For other periods, use current datetime
 			lastTime = time.Now().Local().Format("2006-01-02 15:04:05")
 		}
-
-		logger.Log.Println("ActivityCard", "Time Range:", firstTime, "-", lastTime)
 
 		// Apply faint style to the times
 		styledFirstTime := faintStyle.Render(firstTime)
@@ -493,9 +490,6 @@ func (p *ActivityCard) generateBrailleBarChart(requests []point[int], users []po
 		canvas[i] = make([]bool, brailleWidth)
 		userCanvas[i] = make([]bool, brailleWidth)
 	}
-
-	logger.Log.Println("ActivityCard", "Braille Chart Dimensions:", brailleWidth, "x", brailleHeight)
-	logger.Log.Println("ActivityCard", "Data Points:", dataPoints, "Max Requests:", maxRequests)
 
 	// Draw bars on the high-resolution canvas
 	for col := 0; col < brailleWidth && col < dataPoints; col++ {
