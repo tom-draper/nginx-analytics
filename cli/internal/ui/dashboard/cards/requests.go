@@ -32,7 +32,6 @@ func (r *RequestsCard) UpdateCalculated(logs []nginx.NGINXLog, period p.Period) 
 	r.rate = float64(r.count) / float64(p.LogRangePeriodHours(logs, period))
 	timestamps := getTimestamps(logs)
 	r.histogram = plot.NewMicroHistogram(timestamps, 50) // Use default width, will be scaled in render
-	logger.Log.Println(r.histogram)
 }
 
 func getTimestamps(logs []nginx.NGINXLog) []time.Time {
@@ -45,6 +44,7 @@ func getTimestamps(logs []nginx.NGINXLog) []time.Time {
 }
 
 func (r *RequestsCard) RenderContent(width, height int) string {
+	logger.Log.Println(width, height)
 	countStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#ffffff")).
 		Bold(true)

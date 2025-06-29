@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/user"
@@ -31,7 +30,6 @@ func (r *UsersCard) UpdateCalculated(logs []nginx.NGINXLog, period p.Period) {
 	r.rate = float64(r.count) / float64(p.LogRangePeriodHours(logs, period))
 	timestamps := getUserEvents(logs)
 	r.histogram = plot.NewUserMicroHistogram(timestamps, 50) // Use default width, will be scaled in render
-	logger.Log.Println(r.histogram)
 }
 
 func getUserEvents(logs []nginx.NGINXLog) []plot.UserEvent {

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	loc "github.com/tom-draper/nginx-analytics/cli/internal/logs/location"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
@@ -56,8 +55,6 @@ func (r *LocationsCard) RenderContent(width, height int) string {
 	// Add labels
 	labelLine := r.buildLabelLine(topLocations)
 	chart = append(chart, labelLine)
-
-	logger.Log.Println("LocationsCard", width, len(chart[0]))
 
 	// Add count overlay on first line
 	if len(chart) > 0 {

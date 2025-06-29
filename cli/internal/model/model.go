@@ -60,7 +60,6 @@ func New(cfg config.Config) Model {
 	if err != nil {
 		logger.Log.Printf("Error measuring system: %v", err)
 	}
-	logger.Log.Println("System info:", sysInfo)
 
 	logSizes, err := parse.GetLogSizes(cfg.AccessPath)
 	if err != nil {
@@ -119,6 +118,7 @@ func New(cfg config.Config) Model {
 	endpointCard.SetSize(cardWidth, cardHeight)
 	locationCard.SetSize(cardWidth, cardHeight)
 	deviceCard.SetSize(cardWidth, cardHeight)
+	referrerCard.SetSize(cardWidth, 35)
 
 	// Create grid (2x2 for top-left placement)
 	termWidth, _, _ := term.GetSize(os.Stdout.Fd())
@@ -140,7 +140,7 @@ func New(cfg config.Config) Model {
 		storageCard,     // 10 - sub-grid
 		logCard,         // 11 - sub-grid
 		usageTimeCard,   // 12 - new sub-grid card
-		referrerCard,   // 13 - new sub-grid card
+		referrerCard,    // 13 - new sub-grid card
 	}
 
 	calculatable := []cards.CalculatedCard{
@@ -166,22 +166,23 @@ func New(cfg config.Config) Model {
 	}
 
 	// Sidebar card (position 4)
-	grid.AddSidebarCard(allCards[4])
+	grid.AddMain(allCards[4])
 
 	// Middle card (position 5)
 	// Ensure the card implements DynamicHeightCard before adding
-	grid.AddMiddleCard(allCards[5])
+	grid.AddEndpoints(allCards[5])
 
 	// Bottom cards (positions 6-7)
 	grid.AddSidebarBottomCard(allCards[6])
 	grid.AddSidebarBottomCard(allCards[7])
 
-	grid.AddSidebarSubGridCard(allCards[8])
-	grid.AddSidebarSubGridCard(allCards[9])
-	grid.AddSidebarSubGridCard(allCards[10])
-	grid.AddSidebarSubGridCard(allCards[11])
-	grid.AddSidebarSubGridCard(allCards[12])
-	grid.AddSidebarSubGridCard(allCards[13])
+	grid.AddSystemCards(allCards[8])
+	grid.AddSystemCards(allCards[9])
+	grid.AddSystemCards(allCards[10])
+	grid.AddSystemCards(allCards[11])
+
+	grid.AddSidebarFooterCard(allCards[12])
+	grid.AddSidebarFooterCard(allCards[13])
 
 	// Set first card as active
 	grid.SetActiveCard(0)
@@ -397,7 +398,6 @@ func (m *Model) updateCardData() {
 
 func (m *Model) updateSystemCardData() {
 	sysInfo, err := system.MeasureSystem()
-	logger.Log.Println("Measured system info:", sysInfo)
 	if err != nil {
 		logger.Log.Printf("Error measuring system: %v", err)
 		return

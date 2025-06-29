@@ -10,7 +10,6 @@ import (
 )
 
 type MemoryCard struct {
-	cpuPercentages []float64
 	memoryPercentage float64
 	history        []float64 // Store historical average CPU usage
 	maxHistory     int       // Maximum number of historical points to keep
@@ -23,7 +22,7 @@ func NewMemoryCard() *MemoryCard {
 }
 
 func (c *MemoryCard) RenderContent(width, height int) string {
-	if len(c.cpuPercentages) == 0 {
+	if c.memoryPercentage == 0 {
 		return c.renderEmptyState(width)
 	}
 
@@ -128,22 +127,18 @@ func (c *MemoryCard) getPlotData() []float64 {
 
 func (c *MemoryCard) getPlotColor() lipgloss.Color {
 	// Choose plot color based on current average CPU usage
-	if len(c.cpuPercentages) == 0 {
+	if c.memoryPercentage == 0 {
 		return styles.LightGray
 	}
 
-	var sum float64
-	for _, usage := range c.cpuPercentages {
-		sum += usage
-	}
-	avgUsage := sum / float64(len(c.cpuPercentages))
+	usage := c.memoryPercentage
 
 	switch {
-	case avgUsage <= 30:
+	case usage <= 30:
 		return styles.Green
-	case avgUsage <= 50:
+	case usage <= 50:
 		return styles.Yellow
-	case avgUsage <= 70:
+	case usage <= 70:
 		return styles.Orange
 	default:
 		return styles.Red
@@ -167,18 +162,6 @@ func (c *MemoryCard) centerText(text string, width int, style lipgloss.Style) st
 
 func (c *MemoryCard) UpdateCalculated(sysInfo system.SystemInfo) {
 	c.memoryPercentage = (float64(sysInfo.Memory.Used) / float64(sysInfo.Memory.Total)) * 100
-	c.cpuPercentages = sysInfo.CPU.CoreUsage
-	
-	// Calculate average CPU usage for historical tracking
-	if len(c.cpuPercentages) > 0 {
-		// Add to history
-		c.history = append(c.history, c.memoryPercentage)
-		
-		// Trim history if it exceeds maxHistory
-		if len(c.history) > c.maxHistory {
-			c.history = c.history[len(c.history)-c.maxHistory:]
-		}
-	}
 }
 
 func (c *MemoryCard) getColorForCPUUsage(usage float64) lipgloss.Color {
