@@ -155,7 +155,7 @@ func getCPUInfo() (CPUInfo, error) {
 	}
 
 	model := cpuInfo[0].ModelName
-	cores := len(cpuInfo)
+	cores := len(cpuUsage)
 	speed := cpuInfo[0].Mhz
 
 	// Now cpuUsage contains percentage for each logical CPU

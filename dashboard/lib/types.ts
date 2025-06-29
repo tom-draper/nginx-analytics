@@ -32,6 +32,7 @@ export type SystemInfo = {
         cores: number;
         speed: number;
         usage: number | null;
+        coreUsage: number[] | null;
     };
     memory: {
         free: number;

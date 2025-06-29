@@ -36,10 +36,17 @@ func LoadConfig() Config {
 	env := env.LoadEnv()
 	args := args.Parse(args.Arguments(DefaultConfig))
 
+	accessPath := resolveValue(args.AccessPath, env.AccessPath, defaultAccessPath)
+	// If an access path provided, use as default error path
+	_defaultErrorPath := defaultErrorPath
+	if accessPath != defaultAccessPath {
+		_defaultErrorPath = accessPath 
+	}
+
 	return Config{
 		Port:             resolveValue(args.Port, env.Port, defaultPort),
-		AccessPath:       resolveValue(args.AccessPath, env.AccessPath, defaultAccessPath),
-		ErrorPath:        resolveValue(args.ErrorPath, env.ErrorPath, defaultErrorPath),
+		AccessPath:       accessPath,
+		ErrorPath:        resolveValue(args.ErrorPath, env.ErrorPath, _defaultErrorPath),
 		SystemMonitoring: resolveBool(args.SystemMonitoring, env.SystemMonitoring, defaultSystemMonitoring),
 		AuthToken:        resolveValue(args.AuthToken, env.AuthToken, ""),
 		LogFormat:        resolveValue(args.LogFormat, env.LogFormat, defaultLogFormat),
@@ -47,10 +54,10 @@ func LoadConfig() Config {
 }
 
 func resolveValue(argVal, envVal, defaultVal string) string {
-	if argVal != "" {
+	if argVal != "" && argVal != defaultVal {
 		return argVal
 	}
-	if envVal != "" {
+	if envVal != "" && envVal != defaultVal {
 		return envVal
 	}
 	return defaultVal

@@ -168,6 +168,7 @@ export function generateSystemProfile(): SystemInfo {
 
     // Initial CPU and memory usage
     const cpuUsage = 20 + Math.random() * 30; // 20-50% initial usage
+    const coreUsage = generateCoreUsage(cpuUsage, cores)
     const memoryUsed = Math.floor(memoryTotal * (0.3 + Math.random() * 0.3)); // 30-60% used
     const memoryFree = Math.floor(memoryTotal * 0.1); // Some memory is always reserved by system
     const memoryAvailable = memoryTotal - memoryUsed;
@@ -179,7 +180,8 @@ export function generateSystemProfile(): SystemInfo {
             model: cpuModel,
             cores: cores,
             speed: speed,
-            usage: parseFloat(cpuUsage.toFixed(1))
+            usage: parseFloat(cpuUsage.toFixed(1)),
+            coreUsage,
         },
         memory: {
             free: memoryFree,
@@ -191,6 +193,46 @@ export function generateSystemProfile(): SystemInfo {
     };
 
     return systemInfo;
+}
+
+
+/**
+ * Generates realistic per-core CPU usage based on overall usage
+ * @param overallUsage Overall CPU usage percentage
+ * @param coreCount Number of CPU cores
+ * @returns Array of per-core usage percentages
+ */
+function generateCoreUsage(overallUsage: number, coreCount: number): number[] {
+    const coreUsages: number[] = [];
+    
+    // Generate some variation around the overall usage
+    // Most cores should be close to the average, but some can be higher/lower
+    const baseUsage = overallUsage;
+    const variation = Math.min(15, overallUsage * 0.4); // Max 15% variation or 40% of base usage
+    
+    for (let i = 0; i < coreCount; i++) {
+        // Generate random variation for this core
+        const randomFactor = (Math.random() - 0.5) * 2; // -1 to 1
+        let coreUsage = baseUsage + (randomFactor * variation);
+        
+        // Ensure usage stays within realistic bounds (0-100%)
+        coreUsage = Math.max(0, Math.min(100, coreUsage));
+        
+        // Round to 1 decimal place
+        coreUsages.push(parseFloat(coreUsage.toFixed(1)));
+    }
+    
+    // Adjust the core usages so they average closer to the overall usage
+    const currentAverage = coreUsages.reduce((sum, usage) => sum + usage, 0) / coreCount;
+    const adjustment = baseUsage - currentAverage;
+    
+    // Apply adjustment to each core, but keep within bounds
+    for (let i = 0; i < coreUsages.length; i++) {
+        coreUsages[i] = Math.max(0, Math.min(100, coreUsages[i] + adjustment));
+        coreUsages[i] = parseFloat(coreUsages[i].toFixed(1));
+    }
+    
+    return coreUsages;
 }
 
 /**
@@ -349,7 +391,7 @@ export function generateSystemResources(options: SystemResourceGeneratorOptions)
             cores,
             speed,
             memoryTotal,
-            disks
+            disks,
         });
     });
 
@@ -382,6 +424,8 @@ export function generateSystemResources(options: SystemResourceGeneratorOptions)
         cpuUsage = Math.min(95, cpuUsage + 30);
     }
 
+    const coreUsage = generateCoreUsage(cpuUsage, profile.cores)
+
     // Generate realistic memory usage
     const memoryTotal = profile.memoryTotal;
     const memoryUsedPercentage = baselineCpuUsage * 0.8 + Math.random() * 30; // Correlate with CPU somewhat
@@ -412,7 +456,8 @@ export function generateSystemResources(options: SystemResourceGeneratorOptions)
             model: profile.cpuModel,
             cores: profile.cores,
             speed: profile.speed,
-            usage: parseFloat(cpuUsage.toFixed(1))
+            usage: parseFloat(cpuUsage.toFixed(1)),
+            coreUsage,
         },
         memory: {
             free: memoryFree,

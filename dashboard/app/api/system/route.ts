@@ -53,7 +53,7 @@ export async function GET() {
 async function getSystemInfo() {
     const uptime = os.uptime();
     const cpus = os.cpus();
-    const cpuUsage = await getCpuUsage();
+    const cpuData = await getCpuUsage();
     const memory = await getMemoryInfo();
     const diskUsage = await getDiskUsage();
 
@@ -64,7 +64,8 @@ async function getSystemInfo() {
             model: cpus[0].model,
             cores: cpus.length,
             speed: cpus[0].speed,
-            usage: cpuUsage,
+            usage: cpuData.overall,
+            coreUsage: cpuData.perCore,
         },
         memory,
         disk: diskUsage,
@@ -76,11 +77,24 @@ async function getCpuUsage() {
     try {
         // Get current CPU load percentage using systeminformation
         const currentLoad = await si.currentLoad();
-        return parseFloat(currentLoad.currentLoad.toFixed(1));
+        
+        // Extract per-core usage data
+        const perCoreUsage = currentLoad.cpus.map(cpu => 
+            parseFloat(cpu.load.toFixed(1))
+        );
+        
+        return {
+            overall: parseFloat(currentLoad.currentLoad.toFixed(1)),
+            perCore: perCoreUsage
+        };
     } catch (error) {
         console.error('Error calculating CPU usage:', error);
         // Fallback to the original method if systeminformation fails
-        return calculateCpuUsageFallback();
+        const fallbackUsage = await calculateCpuUsageFallback();
+        return {
+            overall: fallbackUsage,
+            perCore: [] // Fallback doesn't provide per-core data
+        };
     }
 }
 
