@@ -130,7 +130,7 @@ func main() {
 			return
 		}
 
-		routes.ServeSystemResources(w)
+		routes.ServeSystemResources(w, r)
 	})
 
 	// Handle graceful shutdown
