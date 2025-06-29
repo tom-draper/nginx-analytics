@@ -73,7 +73,7 @@ func (p *StorageCard) UpdateSystem(sysInfo sys.SystemInfo) {
 		p.used = disk.Used
 		p.total = disk.Size
 	} else {
-		logger.Log.Panicf("Error getting primary disk: %v", err)
+		logger.Log.Printf("Error getting primary disk: %v", err)
 	}
 }
 

@@ -51,19 +51,19 @@ type Model struct {
 func New(cfg config.Config) Model {
 	logs, err := getLogs(cfg.AccessPath)
 	if err != nil {
-		logger.Log.Panicf("Error getting logs: %v", err)
+		logger.Log.Printf("Error getting logs: %v", err)
 	}
 	parsedLogs := l.ParseNginxLogs(logs)
 
 	sysInfo, err := system.MeasureSystem()
 	if err != nil {
-		logger.Log.Panicf("Error measuring system: %v", err)
+		logger.Log.Printf("Error measuring system: %v", err)
 	}
 	logger.Log.Println("System info:", sysInfo)
 
 	logSizes, err := parse.GetLogSizes(cfg.AccessPath)
 	if err != nil {
-		logger.Log.Panicf("Error getting log sizes: %v", err)
+		logger.Log.Printf("Error getting log sizes: %v", err)
 	}
 
 	// Initialize periods
