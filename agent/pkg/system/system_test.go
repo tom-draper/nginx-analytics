@@ -1,318 +1,127 @@
 package system
 
-// import (
-// 	"encoding/json"
-// 	"net/http"
-// 	"net/http/httptest"
-// 	"os"
-// 	"os/exec"
-// 	"reflect"
-// 	"runtime"
-// 	"testing"
-// 	"time"
-// )
+import (
+	"testing"
+	"time"
+)
 
-// func TestServeSystemResources(t *testing.T) {
-// 	// Create a test recorder to capture the response
-// 	w := httptest.NewRecorder()
+func TestMeasureSystem(t *testing.T) {
+	info, err := MeasureSystem()
+	if err != nil {
+		t.Fatalf("MeasureSystem() returned an error: %v", err)
+	}
 
-// 	// Call the function being tested
-// 	ServeSystemResources(w)
+	if info.Uptime <= 0 {
+		t.Error("Expected uptime to be positive")
+	}
 
-// 	// Check status code
-// 	if w.Code != http.StatusOK {
-// 		t.Errorf("Expected status code %d, got %d", http.StatusOK, w.Code)
-// 	}
+	_, err = time.Parse(time.RFC3339, info.Timestamp)
+	if err != nil {
+		t.Errorf("Invalid timestamp format: %v", err)
+	}
 
-// 	// Check content type
-// 	contentType := w.Header().Get("Content-Type")
-// 	if contentType != "application/json" {
-// 		t.Errorf("Expected Content-Type %s, got %s", "application/json", contentType)
-// 	}
+	if info.CPU.Model == "" {
+		t.Error("CPU model should not be empty")
+	}
+	if info.CPU.Cores <= 0 {
+		t.Error("Expected CPU cores to be positive")
+	}
 
-// 	// Decode the response
-// 	var systemInfo SystemInfo
-// 	if err := json.Unmarshal(w.Body.Bytes(), &systemInfo); err != nil {
-// 		t.Fatalf("Failed to decode response: %v", err)
-// 	}
+	if info.Memory.Total == 0 {
+		t.Error("Total memory should not be zero")
+	}
 
-// 	// Basic validation of response fields
-// 	if systemInfo.Uptime <= 0 {
-// 		t.Errorf("Expected positive uptime, got %d", systemInfo.Uptime)
-// 	}
+	if len(info.Disk) == 0 {
+		t.Error("Disk info should not be empty")
+	}
+}
 
-// 	if _, err := time.Parse(time.RFC3339, systemInfo.Timestamp); err != nil {
-// 		t.Errorf("Invalid timestamp format: %s", systemInfo.Timestamp)
-// 	}
+func TestGetUptime(t *testing.T) {
+	uptime, err := getUptime()
+	if err != nil {
+		t.Fatalf("getUptime() returned an error: %v", err)
+	}
+	if uptime <= 0 {
+		t.Error("Uptime should be a positive value")
+	}
+}
 
-// 	if systemInfo.CPU.Cores <= 0 {
-// 		t.Errorf("Expected positive number of CPU cores, got %d", systemInfo.CPU.Cores)
-// 	}
+func TestGetCPUInfo(t *testing.T) {
+	cpuInfo, err := getCPUInfo()
+	if err != nil {
+		t.Fatalf("getCPUInfo() returned an error: %v", err)
+	}
+	if cpuInfo.Model == "" {
+		t.Error("CPU model should not be empty")
+	}
+	if cpuInfo.Cores <= 0 {
+		t.Error("Expected CPU cores to be a positive value")
+	}
+	if cpuInfo.Speed < 0 {
+		t.Error("CPU speed should not be negative")
+	}
+	if cpuInfo.Usage < 0 || cpuInfo.Usage > 100 {
+		t.Errorf("CPU usage is outside the expected range (0-100): %f", cpuInfo.Usage)
+	}
+}
 
-// 	if systemInfo.Memory.Total <= 0 {
-// 		t.Errorf("Expected positive total memory, got %d", systemInfo.Memory.Total)
-// 	}
+func TestGetMemoryInfo(t *testing.T) {
+	memInfo, err := getMemoryInfo()
+	if err != nil {
+		t.Fatalf("getMemoryInfo() returned an error: %v", err)
+	}
+	if memInfo.Total == 0 {
+		t.Error("Total memory should not be zero")
+	}
+	if memInfo.Used > memInfo.Total {
+		t.Errorf("Used memory (%d) should not be greater than total memory (%d)", memInfo.Used, memInfo.Total)
+	}
+	if memInfo.Free > memInfo.Total {
+		t.Errorf("Free memory (%d) should not be greater than total memory (%d)", memInfo.Free, memInfo.Total)
+	}
+}
 
-// 	if len(systemInfo.Disk) == 0 {
-// 		t.Error("Expected at least one disk entry")
-// 	}
-// }
+func TestGetDiskInfo(t *testing.T) {
+	diskInfo, err := getDiskInfo()
+	if err != nil {
+		t.Fatalf("getDiskInfo() returned an error: %v", err)
+	}
+	if len(diskInfo) == 0 {
+		t.Error("Disk info should not be empty")
+	}
+	for _, d := range diskInfo {
+		if d.Filesystem == "" {
+			t.Error("Filesystem name should not be empty")
+		}
+		if d.MountedOn == "" {
+			t.Error("Mount point should not be empty")
+		}
+		if d.Used > d.Size {
+			t.Errorf("Used disk space (%d) should not be greater than total size (%d) for %s", d.Used, d.Size, d.Filesystem)
+		}
+	}
+}
 
-// // Mock for the exec.Command function to simulate command execution
-// type mockCmd struct {
-// 	output string
-// 	err    error
-// }
+func TestParseFloat(t *testing.T) {
+	testCases := []struct {
+		name      string
+		value     float64
+		precision int
+		expected  float64
+	}{
+		{"Positive value, round up", 123.456, 2, 123.46},
+		{"Positive value, round down", 123.454, 2, 123.45},
+		{"Zero precision", 123.456, 0, 123},
+		{"Negative value", -123.456, 2, -123.46},
+		{"No change", 123.45, 2, 123.45},
+	}
 
-// func (m mockCmd) Output() ([]byte, error) {
-// 	return []byte(m.output), m.err
-// }
-
-// // Test helper to patch the exec.Command function during tests
-// func patchExecCommand(t *testing.T, mockOutput string, mockErr error) func() {
-// 	// Save original implementation
-// 	original := execCommand
-
-// 	// Replace with mock
-// 	execCommand = func(command string, args ...string) cmdInterface {
-// 		return mockCmd{output: mockOutput, err: mockErr}
-// 	}
-
-// 	// Return a function to restore the original implementation
-// 	return func() {
-// 		execCommand = original
-// 	}
-// }
-
-// // Interface to abstract exec.Cmd functionality
-// type cmdInterface interface {
-// 	Output() ([]byte, error)
-// }
-
-// // Variable to hold the exec.Command function for mocking
-// var execCommand = func(command string, args ...string) cmdInterface {
-// 	cmd := exec.Command(command, args...)
-// 	return cmdAdapter{cmd}
-// }
-
-// // Adapter to implement cmdInterface for exec.Cmd
-// type cmdAdapter struct {
-// 	*exec.Cmd
-// }
-
-// func (c cmdAdapter) Output() ([]byte, error) {
-// 	return c.Cmd.Output()
-// }
-
-// func TestGetUptime(t *testing.T) {
-// 	tests := []struct {
-// 		name        string
-// 		mockOutput  string
-// 		mockError   error
-// 		expected    int64
-// 		shouldError bool
-// 	}{
-// 		{
-// 			name:        "Linux successful uptime",
-// 			mockOutput:  "12345.67 98765.43",
-// 			mockError:   nil,
-// 			expected:    12345,
-// 			shouldError: false,
-// 		},
-// 		{
-// 			name:        "Error getting uptime",
-// 			mockOutput:  "",
-// 			mockError:   os.ErrNotExist,
-// 			expected:    0,
-// 			shouldError: true,
-// 		},
-// 		{
-// 			name:        "Invalid uptime format",
-// 			mockOutput:  "not a number",
-// 			mockError:   nil,
-// 			expected:    0,
-// 			shouldError: true,
-// 		},
-// 	}
-
-// 	for _, tc := range tests {
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			// Skip test if it requires mocking on unsupported platforms
-// 			if tc.mockOutput != "" && runtime.GOOS != "linux" {
-// 				t.Skip("Skipping test that uses Linux mocking on non-Linux platform")
-// 			}
-
-// 			// Patch exec.Command
-// 			restore := patchExecCommand(t, tc.mockOutput, tc.mockError)
-// 			defer restore()
-
-// 			// Call the function
-// 			uptime, err := getUptime()
-
-// 			// Check results
-// 			if tc.shouldError && err == nil {
-// 				t.Error("Expected an error but got none")
-// 			}
-
-// 			if !tc.shouldError && err != nil {
-// 				t.Errorf("Unexpected error: %v", err)
-// 			}
-
-// 			if !tc.shouldError && uptime != tc.expected {
-// 				t.Errorf("Expected uptime %d, got %d", tc.expected, uptime)
-// 			}
-// 		})
-// 	}
-// }
-
-// func TestParseFloat(t *testing.T) {
-// 	tests := []struct {
-// 		input     float64
-// 		precision int
-// 		expected  float64
-// 	}{
-// 		{123.456789, 2, 123.46},
-// 		{0.123456789, 3, 0.123},
-// 		{9.99999, 1, 10.0},
-// 		{0, 2, 0},
-// 		{-123.456789, 2, -123.46},
-// 	}
-
-// 	for _, tc := range tests {
-// 		result := parseFloat(tc.input, tc.precision)
-// 		if result != tc.expected {
-// 			t.Errorf("ParseFloat(%f, %d): expected %f, got %f",
-// 				tc.input, tc.precision, tc.expected, result)
-// 		}
-// 	}
-// }
-
-// // TestSystemInfoJsonMarshaling tests that the JSON marshaling of SystemInfo works correctly
-// func TestSystemInfoJsonMarshaling(t *testing.T) {
-// 	// Create a sample SystemInfo
-// 	sampleInfo := SystemInfo{
-// 		Uptime:    12345,
-// 		Timestamp: "2023-01-01T12:00:00Z",
-// 		CPU: CPUInfo{
-// 			Model: "Test CPU",
-// 			Cores: 4,
-// 			Speed: 3200.0,
-// 			Usage: 75.5,
-// 		},
-// 		Memory: MemoryInfo{
-// 			Free:      1024 * 1024 * 1024,
-// 			Available: 2048 * 1024 * 1024,
-// 			Used:      3072 * 1024 * 1024,
-// 			Total:     4096 * 1024 * 1024,
-// 		},
-// 		Disk: []DiskInfo{
-// 			{
-// 				Filesystem: "/dev/sda1",
-// 				Size:       1000 * 1024 * 1024 * 1024,
-// 				Used:       500 * 1024 * 1024 * 1024,
-// 				MountedOn:  "/",
-// 			},
-// 		},
-// 	}
-
-// 	// Marshal to JSON
-// 	jsonData, err := json.Marshal(sampleInfo)
-// 	if err != nil {
-// 		t.Fatalf("Failed to marshal SystemInfo: %v", err)
-// 	}
-
-// 	// Unmarshal back to a new struct
-// 	var unmarshaledInfo SystemInfo
-// 	if err := json.Unmarshal(jsonData, &unmarshaledInfo); err != nil {
-// 		t.Fatalf("Failed to unmarshal SystemInfo: %v", err)
-// 	}
-
-// 	// Compare the original and unmarshaled structs
-// 	if !reflect.DeepEqual(sampleInfo, unmarshaledInfo) {
-// 		t.Errorf("Unmarshaled SystemInfo does not match original:\nOriginal: %+v\nUnmarshaled: %+v",
-// 			sampleInfo, unmarshaledInfo)
-// 	}
-// }
-
-// // MockSystemInfoProvider is a test double for functions that require real system information
-// type MockSystemInfoProvider struct {
-// 	UptimeFunc     func() (int64, error)
-// 	CPUInfoFunc    func() (CPUInfo, error)
-// 	MemoryInfoFunc func() (MemoryInfo, error)
-// 	DiskInfoFunc   func() ([]DiskInfo, error)
-// }
-
-// func TestCollectSystemInfo(t *testing.T) {
-// 	// For full integration testing, you'd need to expose the functions or use dependency injection
-// 	// Here's a demonstration of how you might test it with mock dependencies
-
-// 	// This test assumes you've modified your code to accept dependencies, which isn't shown in the original code
-// 	// The following is a conceptual example:
-
-// 	/*
-// 		mockProvider := MockSystemInfoProvider{
-// 			UptimeFunc: func() (int64, error) {
-// 				return 12345, nil
-// 			},
-// 			CPUInfoFunc: func() (routes.CPUInfo, error) {
-// 				return routes.CPUInfo{
-// 					Model:  "Test CPU",
-// 					Cores:  4,
-// 					Speed:  3200.0,
-// 					Usage:  75.5,
-// 				}, nil
-// 			},
-// 			MemoryInfoFunc: func() (routes.MemInfo, error) {
-// 				return routes.MemInfo{
-// 					Free:      1024 * 1024 * 1024,
-// 					Available: 2048 * 1024 * 1024,
-// 					Used:      3072 * 1024 * 1024,
-// 					Total:     4096 * 1024 * 1024,
-// 				}, nil
-// 			},
-// 			DiskInfoFunc: func() ([]routes.DiskInfo, error) {
-// 				return []routes.DiskInfo{
-// 					{
-// 						Filesystem: "/dev/sda1",
-// 						Size:       1000 * 1024 * 1024 * 1024,
-// 						Used:       500 * 1024 * 1024 * 1024,
-// 						MountedOn:  "/",
-// 					},
-// 				}, nil
-// 			},
-// 		}
-
-// 		systemInfo, err := routes.CollectSystemInfoWithDependencies(mockProvider)
-// 		if err != nil {
-// 			t.Fatalf("CollectSystemInfo returned an error: %v", err)
-// 		}
-
-// 		// Verify the returned system info matches what we expect from our mocks
-// 		if systemInfo.Uptime != 12345 {
-// 			t.Errorf("Expected uptime 12345, got %d", systemInfo.Uptime)
-// 		}
-
-// 		if systemInfo.CPU.Cores != 4 {
-// 			t.Errorf("Expected 4 CPU cores, got %d", systemInfo.CPU.Cores)
-// 		}
-// 	*/
-
-// 	// Instead, for now we'll do a simple integration test:
-// 	systemInfo, err := MeasureSystem()
-// 	if err != nil {
-// 		t.Fatalf("CollectSystemInfo returned an error: %v", err)
-// 	}
-
-// 	// Basic validation
-// 	if systemInfo.Uptime <= 0 {
-// 		t.Errorf("Expected positive uptime, got %d", systemInfo.Uptime)
-// 	}
-
-// 	if systemInfo.CPU.Cores <= 0 {
-// 		t.Errorf("Expected at least one CPU core, got %d", systemInfo.CPU.Cores)
-// 	}
-
-// 	if systemInfo.Memory.Total <= 0 {
-// 		t.Errorf("Expected positive total memory, got %d", systemInfo.Memory.Total)
-// 	}
-// }
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := parseFloat(tc.value, tc.precision)
+			if result != tc.expected {
+				t.Errorf("Expected %f, got %f", tc.expected, result)
+			}
+		})
+	}
+}
