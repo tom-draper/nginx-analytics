@@ -7,7 +7,7 @@ import (
 	system "github.com/tom-draper/nginx-analytics/agent/pkg/system"
 )
 
-func ServeSystemResources(w http.ResponseWriter) {
+func ServeSystemResources(w http.ResponseWriter, r *http.Request) {
 	systemInfo, err := system.MeasureSystem()
 	if err != nil {
 		log.Printf("Error collecting system info: %v", err)
