@@ -14,14 +14,14 @@ import (
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
 	parse "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
+	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
-	period "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+	period "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 )
 
 // Model represents the application state
@@ -39,7 +39,8 @@ type Model struct {
 	SelectedPeriod    int
 	TabNavigationMode bool // true when navigating tabs, false when navigating cards
 
-	calculatable []cards.CalculatedCard
+	calculatable       []cards.CalculatedCard
+	systemCalculatable []cards.CalclatedSystemCard
 
 	logs       []string
 	parsedLogs []nginx.NGINXLog // Parsed logs for card updates
@@ -206,24 +207,24 @@ func New(cfg config.Config) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
-	// return tea.Batch(
-	// tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
-	// 	return UpdateDataMsg{}
-	// }),
-	// )
+	return tea.Batch(
+		tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+			return UpdateSystemDataMsg{}
+		}),
+	)
 }
 
 // UpdateDataMsg is sent to trigger data updates
 type UpdateDataMsg struct{}
 
+type UpdateSystemDataMsg struct{}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case UpdateDataMsg:
-		// Simulate real-time data updates
-		m.updateCardData()
+	case UpdateSystemDataMsg:
+		m.updateSystemCardData()
 		return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
-			return UpdateDataMsg{}
+			return UpdateSystemDataMsg{}
 		})
 
 	case tea.KeyMsg:
@@ -262,7 +263,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Cycle through all cards (backwards)
 				totalCards := m.Grid.GetTotalCardCount()
 				newIndex := (m.Grid.ActiveCard - 1 + totalCards) % totalCards
-				m.Grid.SetActiveCard(newIndex);
+				m.Grid.SetActiveCard(newIndex)
 			}
 		case key.Matches(msg, m.Keys.Right):
 			if m.TabNavigationMode {
@@ -392,15 +393,21 @@ func (m *Model) updateCardData() {
 	period := m.GetSelectedPeriod()
 	m.currentLogs = l.FilterLogs(m.parsedLogs, period)
 
-	// Update all calculatable cards with updated logs
-	// _, err := system.MeasureSystem()
-	// if err != nil {
-	// 	logger.Log.Printf("Error measuring system: %v", err)
-	// 	// Optionally, handle the error more gracefully, e.g., by passing a nil sysInfo or an empty one
-	// }
-
 	for _, card := range m.calculatable {
 		card.UpdateCalculated(m.currentLogs, period)
+	}
+}
+
+func (m *Model) updateSystemCardData() {
+	sysInfo, err := system.MeasureSystem()
+	logger.Log.Println("Measured system info:", sysInfo)
+	if err != nil {
+		logger.Log.Printf("Error measuring system: %v", err)
+		return
+	}
+
+	for _, card := range m.systemCalculatable {
+		card.UpdateCalculated(sysInfo)
 	}
 }
 

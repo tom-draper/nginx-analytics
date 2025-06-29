@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
 	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
@@ -140,4 +141,8 @@ type DynamicHeightCard interface {
 
 type CalculatedCard interface {
 	UpdateCalculated(logs []nginx.NGINXLog, period p.Period)
+}
+
+type CalclatedSystemCard interface {
+	UpdateCalculated(sysInfo system.SystemInfo)
 }
