@@ -68,7 +68,7 @@ func (d *DashboardGrid) AddSidebarBottomCard(card *cards.Card) {
 
 // AddSidebarSubGridCard adds a card to the 2x2 sub-grid in sidebar area (max 4 cards).
 func (d *DashboardGrid) AddSidebarSubGridCard(card *cards.Card) {
-	if len(d.SidebarSubGridCards) < 4 {
+	if len(d.SidebarSubGridCards) < 6 {
 		d.SidebarSubGridCards = append(d.SidebarSubGridCards, card)
 		d.AllCards = append(d.AllCards, card)
 	}
@@ -259,7 +259,7 @@ func (d *DashboardGrid) GetSidebarSubGridPosition(cardIndex int) (int, int) {
 
 // GetSidebarSubGridCardByPosition returns the card index in the sidebar sub-grid at the given row/col
 func (d *DashboardGrid) GetSidebarSubGridCardByPosition(row, col int) int {
-	if row < 0 || row >= 2 || col < 0 || col >= 2 {
+	if row < 0 || row >= 3 || col < 0 || col >= 2 {
 		return -1
 	}
 	subGridIndex := row*2 + col
@@ -416,7 +416,7 @@ func (d *DashboardGrid) MoveDown() {
 	case "sidebar-subgrid":
 		// From sidebar sub-grid, move down within sub-grid or wrap
 		subRow, subCol := d.GetSidebarSubGridPosition(d.ActiveCard)
-		if subRow < 1 { // Can move down within sidebar sub-grid
+		if subRow < 2 { // Can move down within sidebar sub-grid
 			newSubIndex := d.GetSidebarSubGridCardByPosition(subRow+1, subCol)
 			if newSubIndex != -1 {
 				d.SetActiveCard(newSubIndex)
@@ -739,7 +739,7 @@ func (d *DashboardGrid) renderSidebarSubGrid(sidebarWidth int) string {
 	rightCardWidth := availableWidth / 2      // Rounds down for odd numbers
 
 	var sidebarSubGridRows []string
-	for row := range 2 {
+	for row := range 3 {
 		var currentRowCards []string
 		for col := range 2 {
 			cardIndex := row*2 + col
@@ -750,7 +750,7 @@ func (d *DashboardGrid) renderSidebarSubGrid(sidebarWidth int) string {
 					cardWidth = rightCardWidth
 				}
 				cardHeight := 8
-				if row == 1 {
+				if row == 1 || row == 2 {
 					cardHeight = 2
 				}
 
