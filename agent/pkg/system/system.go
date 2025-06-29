@@ -2,15 +2,16 @@ package system
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/disk"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 type SystemInfo struct {
@@ -75,7 +76,6 @@ func MeasureSystem() (SystemInfo, error) {
 func getUptime() (int64, error) {
 	switch runtime.GOOS {
 	case "windows":
-		// Windows implementation...
 		cmd := exec.Command("systeminfo")
 		output, err := cmd.Output()
 		if err != nil {
@@ -95,7 +95,6 @@ func getUptime() (int64, error) {
 		return 0, fmt.Errorf("could not determine system uptime")
 
 	case "darwin":
-		// macOS-specific code
 		cmd := exec.Command("sysctl", "-n", "kern.boottime")
 		output, err := cmd.Output()
 		if err != nil {
@@ -118,7 +117,6 @@ func getUptime() (int64, error) {
 		return currentTime - bootTime, nil
 
 	default:
-		// Assume Linux
 		cmd := exec.Command("cat", "/proc/uptime")
 		output, err := cmd.Output()
 		if err != nil {
@@ -136,18 +134,23 @@ func getUptime() (int64, error) {
 }
 
 func getCPUInfo() (CPUInfo, error) {
-	cpuUsage, err := cpu.Percent(100*time.Millisecond, false)
-	if err != nil {
-		return CPUInfo{}, err
-	}
-
+	// Try gopsutil first
 	cpuInfo, err := cpu.Info()
 	if err != nil {
-		return CPUInfo{}, err
+		log.Printf("gopsutil cpu.Info() failed: %v, trying OS-specific fallback", err)
+		return getCPUInfoFallback()
 	}
 
 	if len(cpuInfo) == 0 {
-		return CPUInfo{}, fmt.Errorf("no CPU info available")
+		log.Printf("gopsutil returned empty CPU info, trying OS-specific fallback")
+		return getCPUInfoFallback()
+	}
+
+	// Get CPU usage
+	cpuUsage, err := cpu.Percent(time.Second, false)
+	if err != nil {
+		log.Printf("Warning: Could not get CPU usage: %v", err)
+		cpuUsage = []float64{0.0} // Default to 0 if can't read
 	}
 
 	model := cpuInfo[0].ModelName
@@ -165,6 +168,144 @@ func getCPUInfo() (CPUInfo, error) {
 		Speed: speed,
 		Usage: parseFloat(usage, 1),
 	}, nil
+}
+
+func getCPUInfoFallback() (CPUInfo, error) {
+	switch runtime.GOOS {
+	case "darwin":
+		return getCPUInfoMacOS()
+	case "windows":
+		return getCPUInfoWindows()
+	default:
+		return getCPUInfoLinux()
+	}
+}
+
+func getCPUInfoMacOS() (CPUInfo, error) {
+	var info CPUInfo
+
+	// Get CPU model
+	cmd := exec.Command("sysctl", "-n", "machdep.cpu.brand_string")
+	output, err := cmd.Output()
+	if err == nil {
+		info.Model = strings.TrimSpace(string(output))
+	} else {
+		info.Model = "Unknown"
+	}
+
+	// Get CPU core count
+	cmd = exec.Command("sysctl", "-n", "hw.ncpu")
+	output, err = cmd.Output()
+	if err == nil {
+		if cores, err := strconv.Atoi(strings.TrimSpace(string(output))); err == nil {
+			info.Cores = cores
+		}
+	} else {
+		info.Cores = runtime.NumCPU() // Fallback to runtime value
+	}
+
+	// Get CPU frequency (try multiple sysctl keys)
+	freqKeys := []string{"hw.cpufrequency_max", "hw.cpufrequency", "machdep.cpu.max_basic"}
+	for _, key := range freqKeys {
+		cmd = exec.Command("sysctl", "-n", key)
+		output, err = cmd.Output()
+		if err == nil {
+			if freq, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64); err == nil {
+				if freq > 1000000 { // If in Hz, convert to MHz
+					info.Speed = freq / 1000000
+				} else {
+					info.Speed = freq
+				}
+				break
+			}
+		}
+	}
+
+	// For CPU usage, still try gopsutil
+	cpuUsage, err := cpu.Percent(time.Second, false)
+	if err == nil && len(cpuUsage) > 0 {
+		info.Usage = parseFloat(cpuUsage[0], 1)
+	} else {
+		info.Usage = 0.0
+	}
+
+	return info, nil
+}
+
+func getCPUInfoWindows() (CPUInfo, error) {
+	var info CPUInfo
+
+	// Get CPU info using wmic
+	cmd := exec.Command("wmic", "cpu", "get", "Name,NumberOfCores,MaxClockSpeed", "/format:csv")
+	output, err := cmd.Output()
+	if err != nil {
+		return info, err
+	}
+
+	lines := strings.SplitSeq(string(output), "\n")
+	for line := range lines {
+		if strings.Contains(line, ",") && !strings.Contains(line, "Node") {
+			parts := strings.Split(line, ",")
+			if len(parts) >= 4 {
+				info.Model = strings.TrimSpace(parts[2])
+				if cores, err := strconv.Atoi(strings.TrimSpace(parts[3])); err == nil {
+					info.Cores = cores
+				}
+				if speed, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64); err == nil {
+					info.Speed = speed
+				}
+				break
+			}
+		}
+	}
+
+	// Try to get CPU usage
+	cpuUsage, err := cpu.Percent(time.Second, false)
+	if err == nil && len(cpuUsage) > 0 {
+		info.Usage = parseFloat(cpuUsage[0], 1)
+	}
+
+	return info, nil
+}
+
+func getCPUInfoLinux() (CPUInfo, error) {
+	var info CPUInfo
+
+	// Read /proc/cpuinfo
+	cmd := exec.Command("cat", "/proc/cpuinfo")
+	output, err := cmd.Output()
+	if err != nil {
+		return info, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	coreCount := 0
+	for _, line := range lines {
+		if strings.HasPrefix(line, "model name") {
+			parts := strings.Split(line, ":")
+			if len(parts) >= 2 {
+				info.Model = strings.TrimSpace(parts[1])
+			}
+		} else if strings.HasPrefix(line, "cpu MHz") {
+			parts := strings.Split(line, ":")
+			if len(parts) >= 2 {
+				if speed, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64); err == nil {
+					info.Speed = speed
+				}
+			}
+		} else if strings.HasPrefix(line, "processor") {
+			coreCount++
+		}
+	}
+	info.Cores = coreCount
+
+	// Try to get CPU usage
+	cpuUsage, err := cpu.Percent(time.Second, false)
+	if err == nil && len(cpuUsage) > 0 {
+		info.Usage = parseFloat(cpuUsage[0], 1)
+	}
+
+	return info, nil
 }
 
 func getMemoryInfo() (MemoryInfo, error) {
@@ -192,6 +333,7 @@ func getDiskInfo() ([]DiskInfo, error) {
 	for _, partition := range partitions {
 		usage, err := disk.Usage(partition.Mountpoint)
 		if err != nil {
+			log.Printf("Error getting disk usage for %s: %v", partition.Mountpoint, err)
 			continue // Skip this partition if there's an error
 		}
 
