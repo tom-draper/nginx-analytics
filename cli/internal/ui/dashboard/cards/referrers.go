@@ -107,11 +107,12 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 
 	logger.Log.Println("referrers", referrers)
 
+	// Calculate how many referrers we can actually display
+	maxDisplayReferrers := min(len(referrers), height)
+
 	// Render each referrer as a horizontal bar with overlaid text
-	for i, ep := range referrers {
-		if i >= height {
-			break // Don't exceed available height
-		}
+	for i := 0; i < maxDisplayReferrers; i++ {
+		ep := referrers[i]
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -179,7 +180,8 @@ func getReferrers(logs []nginx.NGINXLog) []referrer {
 	referrerMap := make(map[referrerID]int)
 
 	for _, log := range logs {
-		if log.Referrer == "" {
+		// Filter out empty referrers and "-" referrers
+		if log.Referrer == "" || log.Referrer == "-" {
 			continue
 		}
 		id := referrerID{

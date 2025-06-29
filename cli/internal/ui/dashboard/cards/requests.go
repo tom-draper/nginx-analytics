@@ -76,7 +76,7 @@ func (r *RequestsCard) RenderContent(width, height int) string {
 			lines = append(lines, "")
 		}
 		// Add histogram as last row
-		lines = append(lines, r.histogram.Render(width))
+		lines = append(lines, r.histogram.Render(width, styles.Green))
 	} else {
 		// Fill to height
 		for len(lines) < height {

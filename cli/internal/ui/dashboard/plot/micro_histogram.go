@@ -76,6 +76,12 @@ type MicroHistogram struct {
 	histogram []int
 }
 
+// NewMicroHistogramFromBins creates a MicroHistogram directly from a slice of integer bins.
+// This is useful when the bins have already been calculated externally.
+func NewMicroHistogramFromBins(bins []int) MicroHistogram {
+	return MicroHistogram{histogram: bins}
+}
+
 // NewMicroHistogram creates histogram buckets from a slice of timestamps and returns a slice of bucket counts.
 func NewMicroHistogram(timestamps []time.Time, bucketCount int) MicroHistogram {
 	if len(timestamps) == 0 || bucketCount <= 0 {
@@ -204,9 +210,7 @@ func NewUserMicroHistogram(events []UserEvent, bucketCount int) MicroHistogram {
 	return MicroHistogram{histogram: histogram}
 }
 
-// Render now produces a Braille micro-histogram string.
-// It assumes a height of 1 terminal row, using 8 "sub-pixels" vertically.
-func (h MicroHistogram) Render(width int) string {
+func (h MicroHistogram) Render(width int, color lipgloss.Color) string { // Added 'color lipgloss.Color' parameter
 	if len(h.histogram) == 0 || width <= 0 {
 		return strings.Repeat(" ", width)
 	}
@@ -223,93 +227,69 @@ func (h MicroHistogram) Render(width int) string {
 		return strings.Repeat(" ", width)
 	}
 
-	// Braille characters provide 4 vertical "pixels" per terminal row (dots 1,2,3,7 and 4,5,6,8)
-	// For a micro-histogram, we use 1 terminal row, so 4 (or 8 for full 8-dot) vertical resolution.
-	// Let's use 8 sub-pixels (representing the full height of a 2x4 Braille cell) for maximum resolution.
-	brailleVerticalResolution := 8 // 4 dot positions in each column for an 8-dot Braille character
+	brailleVerticalResolution := 8
 
-	// --- Canvas initialization ---
-	// The canvas needs to be twice as wide as the output graph width
-	// because each Braille character represents 2 horizontal "pixels".
 	canvasWidthPixels := width * 2
 	canvas := make([][]bool, brailleVerticalResolution)
 	for i := range canvas {
 		canvas[i] = make([]bool, canvasWidthPixels)
 	}
 
-	// --- Draw bars on canvas ---
-	// Iterate through each horizontal pixel column on the canvas
 	for canvasCol := 0; canvasCol < canvasWidthPixels; canvasCol++ {
-		// Map the canvas pixel column back to a histogram bin index
-		// This distributes the histogram bins across the canvas width
 		binIndex := (canvasCol * len(h.histogram)) / canvasWidthPixels
 		if binIndex >= len(h.histogram) {
-			binIndex = len(h.histogram) - 1 // Safety check for last pixel
+			binIndex = len(h.histogram) - 1
 		}
 
 		binValue := h.histogram[binIndex]
 
-		// Calculate bar height in terms of canvas "pixels" (0 to brailleVerticalResolution-1)
-		// Scale the bin value to the full vertical resolution of the Braille character
 		barHeightPixels := float64(binValue) * float64(brailleVerticalResolution) / float64(maxVal)
 
-		// Fill canvas from bottom up for the current bar
 		for y := 0; y < int(math.Ceil(barHeightPixels)); y++ {
-			canvasRow := brailleVerticalResolution - 1 - y // Fill from the bottom up (inverted Y-axis for drawing)
+			canvasRow := brailleVerticalResolution - 1 - y
 			if canvasRow >= 0 && canvasRow < brailleVerticalResolution {
 				canvas[canvasRow][canvasCol] = true
 			}
 		}
 	}
 
-	// --- Convert canvas to Braille string ---
 	brailleLine := strings.Builder{}
 
-	// Iterate for the single terminal row (brailleRow is 0)
-	// Iterate for each Braille character column in the output
 	for brailleCol := 0; brailleCol < width; brailleCol++ {
 		pattern := 0
 
-		// Calculate the corresponding pixel columns on the high-resolution canvas
 		canvasColLeft := brailleCol * 2
 		canvasColRight := brailleCol * 2 + 1
 
-		// Define the mapping of Braille dots to canvas pixel positions for a single Braille character.
-		// yOffset (0-3) maps to vertical position within the 2x4 braille cell.
-		// xOffset (0-1) maps to horizontal position (left or right column of dots).
 		dotMap := []struct {
-			yOffset int // Vertical sub-row (0-3 for 4 sub-rows per Braille char row)
-			xOffset int // Horizontal sub-column (0 for left dots, 1 for right dots)
-			bit     int // The Braille dot bitmask
+			yOffset int
+			xOffset int
+			bit     int
 		}{
-			{0, 0, brailleDot1}, // Top-most Y, Left X -> Dot 1
-			{1, 0, brailleDot2}, // 2nd Y, Left X -> Dot 2
-			{2, 0, brailleDot3}, // 3rd Y, Left X -> Dot 3
-			{3, 0, brailleDot7}, // Bottom-most Y, Left X -> Dot 7
+			{0, 0, brailleDot1},
+			{1, 0, brailleDot2},
+			{2, 0, brailleDot3},
+			{3, 0, brailleDot7},
 
-			{0, 1, brailleDot4}, // Top-most Y, Right X -> Dot 4
-			{1, 1, brailleDot5}, // 2nd Y, Right X -> Dot 5
-			{2, 1, brailleDot6}, // 3rd Y, Right X -> Dot 6
-			{3, 1, brailleDot8}, // Bottom-most Y, Right X -> Dot 8
+			{0, 1, brailleDot4},
+			{1, 1, brailleDot5},
+			{2, 1, brailleDot6},
+			{3, 1, brailleDot8},
 		}
 
-		// Iterate through all 8 potential dots for the current Braille character
 		for _, dm := range dotMap {
-			canvasY := dm.yOffset // Since we are generating a 1-row graph, brailleRow is 0, so canvasY is just yOffset.
-			canvasX := -1         // Initialize canvasX for the current dot
+			canvasY := dm.yOffset
+			canvasX := -1
 
-			// Determine which canvas column to check based on xOffset
-			if dm.xOffset == 0 { // Left dots (1,2,3,7)
+			if dm.xOffset == 0 {
 				canvasX = canvasColLeft
-			} else { // Right dots (4,5,6,8)
+			} else {
 				canvasX = canvasColRight
 			}
 
-			// Check if the current canvas pixel exists and is set
-			// Ensure canvasX is within bounds of canvas[0] (which is canvasWidthPixels)
 			if canvasY >= 0 && canvasY < brailleVerticalResolution && canvasX >= 0 && canvasX < len(canvas[0]) {
 				if canvas[canvasY][canvasX] {
-					pattern |= dm.bit // Set the corresponding Braille dot bit
+					pattern |= dm.bit
 				}
 			}
 		}
@@ -317,14 +297,126 @@ func (h MicroHistogram) Render(width int) string {
 		brailleLine.WriteString(brailleChar)
 	}
 
-	barStyle := lipgloss.NewStyle().Foreground(styles.Green) // Use a consistent color
+	// Apply the passed-in color to the barStyle
+	// If no color is passed (e.g. lipgloss.Color("")), you might want a default
+	if color == "" {
+		color = styles.Blue // Default color if none provided
+	}
+	barStyle := lipgloss.NewStyle().Foreground(color)
 	return barStyle.Render(brailleLine.String())
 }
 
-// min helper function (assuming it's not globally available)
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+// // Render now produces a Braille micro-histogram string.
+// // It assumes a height of 1 terminal row, using 8 "sub-pixels" vertically.
+// func (h MicroHistogram) Render(width int) string {
+// 	if len(h.histogram) == 0 || width <= 0 {
+// 		return strings.Repeat(" ", width)
+// 	}
+
+// 	// Find max value for scaling
+// 	maxVal := 0
+// 	for _, val := range h.histogram {
+// 		if val > maxVal {
+// 			maxVal = val
+// 		}
+// 	}
+
+// 	if maxVal == 0 {
+// 		return strings.Repeat(" ", width)
+// 	}
+
+// 	// Braille characters provide 4 vertical "pixels" per terminal row (dots 1,2,3,7 and 4,5,6,8)
+// 	// For a micro-histogram, we use 1 terminal row, so 8 "sub-pixels" for maximum resolution.
+// 	brailleVerticalResolution := 8
+
+// 	// --- Canvas initialization ---
+// 	// The canvas needs to be twice as wide as the output graph width
+// 	// because each Braille character represents 2 horizontal "pixels".
+// 	canvasWidthPixels := width * 2
+// 	canvas := make([][]bool, brailleVerticalResolution)
+// 	for i := range canvas {
+// 		canvas[i] = make([]bool, canvasWidthPixels)
+// 	}
+
+// 	// --- Draw bars on canvas ---
+// 	// Iterate through each horizontal pixel column on the canvas
+// 	for canvasCol := 0; canvasCol < canvasWidthPixels; canvasCol++ {
+// 		// Map the canvas pixel column back to a histogram bin index
+// 		// This distributes the histogram bins across the canvas width
+// 		binIndex := (canvasCol * len(h.histogram)) / canvasWidthPixels
+// 		if binIndex >= len(h.histogram) {
+// 			binIndex = len(h.histogram) - 1 // Safety check for last pixel
+// 		}
+
+// 		binValue := h.histogram[binIndex]
+
+// 		// Calculate bar height in terms of canvas "pixels" (0 to brailleVerticalResolution-1)
+// 		// Scale the bin value to the full vertical resolution of the Braille character
+// 		barHeightPixels := float64(binValue) * float64(brailleVerticalResolution) / float64(maxVal)
+
+// 		// Fill canvas from bottom up for the current bar
+// 		for y := 0; y < int(math.Ceil(barHeightPixels)); y++ {
+// 			canvasRow := brailleVerticalResolution - 1 - y // Fill from the bottom up (inverted Y-axis for drawing)
+// 			if canvasRow >= 0 && canvasRow < brailleVerticalResolution {
+// 				canvas[canvasRow][canvasCol] = true
+// 			}
+// 		}
+// 	}
+
+// 	// --- Convert canvas to Braille string ---
+// 	brailleLine := strings.Builder{}
+
+// 	// Iterate for the single terminal row (brailleRow is 0)
+// 	// Iterate for each Braille character column in the output
+// 	for brailleCol := 0; brailleCol < width; brailleCol++ {
+// 		pattern := 0
+
+// 		// Calculate the corresponding pixel columns on the high-resolution canvas
+// 		canvasColLeft := brailleCol * 2
+// 		canvasColRight := brailleCol * 2 + 1
+
+// 		// Define the mapping of Braille dots to canvas pixel positions for a single Braille character.
+// 		// yOffset (0-3) maps to vertical position within the 2x4 braille cell.
+// 		// xOffset (0-1) maps to horizontal position (left or right column of dots).
+// 		dotMap := []struct {
+// 			yOffset int // Vertical sub-row (0-3 for 4 sub-rows per Braille char row)
+// 			xOffset int // Horizontal sub-column (0 for left dots, 1 for right dots)
+// 			bit     int // The Braille dot bitmask
+// 		}{
+// 			{0, 0, brailleDot1}, // Top-most Y, Left X -> Dot 1
+// 			{1, 0, brailleDot2}, // 2nd Y, Left X -> Dot 2
+// 			{2, 0, brailleDot3}, // 3rd Y, Left X -> Dot 3
+// 			{3, 0, brailleDot7}, // Bottom-most Y, Left X -> Dot 7
+
+// 			{0, 1, brailleDot4}, // Top-most Y, Right X -> Dot 4
+// 			{1, 1, brailleDot5}, // 2nd Y, Right X -> Dot 5
+// 			{2, 1, brailleDot6}, // 3rd Y, Right X -> Dot 6
+// 			{3, 1, brailleDot8}, // Bottom-most Y, Right X -> Dot 8
+// 		}
+
+// 		// Iterate through all 8 potential dots for the current Braille character
+// 		for _, dm := range dotMap {
+// 			canvasY := dm.yOffset // Since we are generating a 1-row graph, brailleRow is 0, so canvasY is just yOffset.
+// 			canvasX := -1         // Initialize canvasX for the current dot
+
+// 			// Determine which canvas column to check based on xOffset
+// 			if dm.xOffset == 0 { // Left dots (1,2,3,7)
+// 				canvasX = canvasColLeft
+// 			} else { // Right dots (4,5,6,8)
+// 				canvasX = canvasColRight
+// 			}
+
+// 			// Check if the current canvas pixel exists and is set
+// 			if canvasY >= 0 && canvasY < brailleVerticalResolution && canvasX >= 0 && canvasX < len(canvas[0]) {
+// 				if canvas[canvasY][canvasX] {
+// 					pattern |= dm.bit // Set the corresponding Braille dot bit
+// 				}
+// 			}
+// 		}
+// 		brailleChar := getBrailleChar(pattern)
+// 		brailleLine.WriteString(brailleChar)
+// 	}
+
+// 	barStyle := lipgloss.NewStyle().Foreground(styles.Green) // Use a consistent color
+// 	return barStyle.Render(brailleLine.String())
+// }
