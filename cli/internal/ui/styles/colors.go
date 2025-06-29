@@ -14,5 +14,7 @@ var (
 	Green       = lipgloss.Color("2")
 	// Green = lipgloss.Color("#00FF00")
 	Red   = lipgloss.Color("1")
+	Orange = lipgloss.Color("208")
+	Yellow = lipgloss.Color("220")
 	Black = lipgloss.Color("0")
 )

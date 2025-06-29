@@ -96,7 +96,7 @@ func New(cfg config.Config) Model {
 	endpointCard := cards.NewCard("Endpoints", endpointsCard)
 	locationCard := cards.NewCard("Location", locationsCard)
 	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
-	cpuCard := cards.NewCard("CPU", cards.NewPlaceholderCard(""))
+	cpuCard := cards.NewCard("CPU", cards.NewCPUCard())
 	memorycard := cards.NewCard("Memory", cards.NewPlaceholderCard(""))
 	storageCard := cards.NewCard("Storage", cards.NewStorageCard(sysInfo))
 	logCard := cards.NewCard("Logs", cards.NewLogSizeCard(logSizes))
@@ -393,6 +393,12 @@ func (m *Model) updateCardData() {
 	m.currentLogs = l.FilterLogs(m.parsedLogs, period)
 
 	// Update all calculatable cards with updated logs
+	// _, err := system.MeasureSystem()
+	// if err != nil {
+	// 	logger.Log.Printf("Error measuring system: %v", err)
+	// 	// Optionally, handle the error more gracefully, e.g., by passing a nil sysInfo or an empty one
+	// }
+
 	for _, card := range m.calculatable {
 		card.UpdateCalculated(m.currentLogs, period)
 	}
