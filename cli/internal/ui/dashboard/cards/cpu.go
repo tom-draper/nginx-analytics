@@ -19,7 +19,6 @@ func NewCPUCard() *CPUCard {
 }
 
 func (c *CPUCard) RenderContent(width, height int) string {
-	logger.Log.Println("test", c.cpuPercentages)
 	if len(c.cpuPercentages) == 0 {
 		return c.renderEmptyState(width)
 	}
@@ -80,15 +79,19 @@ func (c *CPUCard) UpdateCalculated(sysInfo system.SystemInfo) {
 
 func (c *CPUCard) getColorForCPUUsage(usage float64) lipgloss.Color {
 	switch {
-	case usage >= 90:
-		return styles.Red
-	case usage >= 70:
-		return styles.Orange
-	case usage >= 50:
-		return styles.Yellow
-	case usage >= 30:
-		return styles.Green
+	case usage <= 30:
+		return styles.Green // Best: Green
+	case usage <= 40:
+		return lipgloss.Color("154") // Light Green/Chartreuse
+	case usage <= 50:
+		return styles.Yellow // Yellow
+	case usage <= 60:
+		return lipgloss.Color("214") // Orange-Yellow
+	case usage <= 70:
+		return styles.Orange // Orange
+	case usage <= 80:
+		return lipgloss.Color("202") // Dark Orange/Reddish-Orange
 	default:
-		return styles.Blue
+		return styles.Red // Worst: Red
 	}
 }

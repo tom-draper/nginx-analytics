@@ -42,16 +42,25 @@ func successCount(logs []nginx.NGINXLog) int {
 }
 
 func rateColor(rate float64) lipgloss.TerminalColor {
-	if rate >= 0.9 {
-		return styles.Green // Green for 90%+
-	} else if rate >= 0.75 {
-		return lipgloss.Color("228") // Yellow for 75%+
-	} else if rate >= 0.5 {
-		return lipgloss.Color("202") // Orange for 50%+
-	} else if rate == -1 {
+	if rate == -1 {
 		return styles.LightGray // Grey for no data
 	}
-	return styles.Red // Red for below 50%
+	switch {
+	case rate >= 0.9:
+		return styles.Green // Best: Green
+	case rate >= 0.8:
+		return lipgloss.Color("154") // Light Green/Chartreuse
+	case rate >= 0.7:
+		return styles.Yellow // Yellow
+	case rate >= 0.6:
+		return lipgloss.Color("214") // Orange-Yellow
+	case rate >= 0.5:
+		return styles.Orange // Orange
+	case rate >= 0.4:
+		return lipgloss.Color("202") // Dark Orange/Reddish-Orange
+	default:
+		return styles.Red // Worst: Red
+	}
 }
 
 func (r *SuccessRateCard) RenderContent(width, height int) string {
