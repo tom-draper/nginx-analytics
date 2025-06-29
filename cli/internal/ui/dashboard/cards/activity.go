@@ -649,27 +649,6 @@ func (p *ActivityCard) generateSuccessRateGraph(width int) []string {
 	}
 }
 
-// func (p *ActivityCard) getSuccessRateColor(rate float64) lipgloss.Style {
-// 	// Green for high success rates (>= 0.95)
-// 	if rate >= 0.95 {
-// 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00"))
-// 	}
-// 	// Red for low success rates (< 0.05)
-// 	if rate < 0.05 {
-// 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
-// 	}
-// 	// Yellow for medium success rates (around 0.5)
-// 	if rate >= 0.4 && rate <= 0.6 {
-// 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00"))
-// 	}
-// 	// Orange for moderate-low success rates (0.05 - 0.4)
-// 	if rate < 0.4 {
-// 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FF8000"))
-// 	}
-// 	// Light green for good success rates (0.6 - 0.95)
-// 	return lipgloss.NewStyle().Foreground(lipgloss.Color("#80FF00"))
-// }
-
 func (p *ActivityCard) getSuccessRateColor(rate float64) lipgloss.Color {
 	if rate == -1 {
 		return styles.LightGray // Grey for no data

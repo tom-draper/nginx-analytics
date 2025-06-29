@@ -89,6 +89,8 @@ func New(cfg config.Config) Model {
 	activitiesCard := cards.NewActivityCard(currentLogs, period)
 
 	cpusCard := cards.NewCPUCard()
+	usageTimesCard := cards.NewUsageTimeCard(currentLogs, period)
+	referrersCard := cards.NewReferrersCard(currentLogs, period)
 
 	// Create base cards with renderers - these will all be treated uniformly
 	placeholderCard := cards.NewCard("", cards.NewLogoCard())
@@ -103,6 +105,8 @@ func New(cfg config.Config) Model {
 	memorycard := cards.NewCard("Memory", cards.NewPlaceholderCard(""))
 	storageCard := cards.NewCard("Storage", cards.NewStorageCard(sysInfo))
 	logCard := cards.NewCard("Logs", cards.NewLogSizeCard(logSizes))
+	usageTimeCard := cards.NewCard("Usage Time", usageTimesCard)
+	referrerCard := cards.NewCard("Referrers", referrersCard)
 
 	// Set small sizes for compact display
 	cardWidth, cardHeight := 18, 4
@@ -134,6 +138,8 @@ func New(cfg config.Config) Model {
 		memorycard,      // 9 - sub-grid
 		storageCard,     // 10 - sub-grid
 		logCard,         // 11 - sub-grid
+		usageTimeCard,   // 12 - new sub-grid card
+		referrerCard,   // 13 - new sub-grid card
 	}
 
 	calculatable := []cards.CalculatedCard{
@@ -143,6 +149,8 @@ func New(cfg config.Config) Model {
 		endpointsCard,
 		locationsCard,
 		activitiesCard,
+		usageTimesCard,
+		referrersCard,
 	}
 
 	systemCalculatable := []cards.CalclatedSystemCard{
@@ -170,28 +178,8 @@ func New(cfg config.Config) Model {
 	grid.AddSidebarSubGridCard(allCards[9])
 	grid.AddSidebarSubGridCard(allCards[10])
 	grid.AddSidebarSubGridCard(allCards[11])
-
-	// Add cards to grid with their layout positions
-	// Main grid cards (positions 0-3)
-	for i := range 4 {
-		grid.AddCard(allCards[i])
-	}
-
-	// Sidebar card (position 4)
-	grid.AddSidebarCard(allCards[4])
-
-	// Middle card (position 5)
-	// Ensure the card implements DynamicHeightCard before adding
-	grid.AddMiddleCard(allCards[5])
-
-	// Bottom cards (positions 6-7)
-	grid.AddSidebarBottomCard(allCards[6])
-	grid.AddSidebarBottomCard(allCards[7])
-
-	grid.AddSidebarSubGridCard(allCards[8])
-	grid.AddSidebarSubGridCard(allCards[9])
-	grid.AddSidebarSubGridCard(allCards[10])
-	grid.AddSidebarSubGridCard(allCards[11])
+	grid.AddSidebarSubGridCard(allCards[12])
+	grid.AddSidebarSubGridCard(allCards[13])
 
 	// Set first card as active
 	grid.SetActiveCard(0)
