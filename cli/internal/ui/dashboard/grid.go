@@ -921,48 +921,42 @@ func (d *DashboardGrid) renderSidebarSubGrid(sidebarWidth int) string {
 }
 
 func (d *DashboardGrid) renderSidebarFooterCards(sidebarWidth int) string {
-	if len(d.SidebarSubGridCards) == 0 {
+	if len(d.SidebarFooterCards) == 0 {
 		return ""
 	}
 
-	// Handle odd widths by making left cards slightly bigger
-	availableWidth := sidebarWidth - 2        // Account for spacing between cards
-	leftCardWidth := (availableWidth + 1) / 2 // Rounds up for odd numbers
-	rightCardWidth := availableWidth / 2      // Rounds down for odd numbers
+	var renderedCards []string
+	if len(d.SidebarFooterCards) == 1 {
+		card := d.SidebarFooterCards[0]
+		cardWidth := sidebarWidth
+		cardHeight := 10 // Default height
+		if dynamicHeightRenderer, ok := card.Renderer.(cards.DynamicHeightCard); ok {
+			cardHeight = dynamicHeightRenderer.GetRequiredHeight(cardWidth - 2)
+		}
+		card.SetSize(cardWidth, cardHeight)
+		renderedCards = append(renderedCards, card.Render())
+	} else if len(d.SidebarFooterCards) == 2 {
+		availableWidth := sidebarWidth - 2
+		leftCardWidth := (availableWidth + 1) / 2
+		rightCardWidth := availableWidth / 2
 
-	var sidebarSubGridRows []string
-	for row := range 3 {
-		var currentRowCards []string
-		for col := range 2 {
-			cardIndex := row*2 + col
-			if cardIndex < len(d.SidebarFooterCards) {
-				// Left column gets the wider width for odd numbers
-				cardWidth := leftCardWidth
-				if col == 1 {
-					cardWidth = rightCardWidth
-				}
-				cardHeight := 8
-				if row == 1 || row == 2 {
-					cardHeight = 2
-				}
-
-
-				// Check if the middle card supports dynamic height
-				if dynamicHeightRenderer, ok := d.MiddleCard.Renderer.(cards.DynamicHeightCard); ok {
-					// If it does, ask the renderer for its required height based on the targetWidth
-					cardHeight = dynamicHeightRenderer.GetRequiredHeight(cardWidth - 2) // Subtract 2 for card's own borders
-				}
-				d.SidebarFooterCards[cardIndex].SetSize(cardWidth, cardHeight)
-				currentRowCards = append(currentRowCards, d.SidebarFooterCards[cardIndex].Render())
+		for i, card := range d.SidebarFooterCards {
+			cardWidth := leftCardWidth
+			if i == 1 {
+				cardWidth = rightCardWidth
 			}
-		}
-		if len(currentRowCards) > 0 {
-			sidebarSubGridRows = append(sidebarSubGridRows, lipgloss.JoinHorizontal(lipgloss.Top, currentRowCards...))
+			cardHeight := 10 // Default height
+			if dynamicHeightRenderer, ok := card.Renderer.(cards.DynamicHeightCard); ok {
+				cardHeight = dynamicHeightRenderer.GetRequiredHeight(cardWidth - 2)
+			}
+			card.SetSize(cardWidth, cardHeight)
+			renderedCards = append(renderedCards, card.Render())
 		}
 	}
 
-	if len(sidebarSubGridRows) > 0 {
-		return lipgloss.JoinVertical(lipgloss.Left, sidebarSubGridRows...)
+	if len(renderedCards) > 0 {
+		return lipgloss.JoinHorizontal(lipgloss.Top, renderedCards...)
 	}
+
 	return ""
 }
