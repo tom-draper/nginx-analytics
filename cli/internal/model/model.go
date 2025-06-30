@@ -218,7 +218,6 @@ func initialSelectedPeriodIndex(periods []period.Period, logs []nginx.NGINXLog) 
 }
 
 
-// UpdateDataMsg is sent to trigger data updates
 type UpdateDataMsg struct{}
 
 type UpdateSystemDataMsg struct{
@@ -226,35 +225,26 @@ type UpdateSystemDataMsg struct{
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(
-		fetchSystemInfoCmd(),
-		periodicSystemInfoCmd(time.Second * 2),
-	)
+	return periodicSystemInfoCmd(0)
 }
 
 func periodicSystemInfoCmd(d time.Duration) tea.Cmd {
     return tea.Tick(d, func(t time.Time) tea.Msg {
-        return fetchSystemInfoCmd()()
-    })
-}
-
-func fetchSystemInfoCmd() tea.Cmd {
-    return func() tea.Msg {
-		logger.Log.Println("Checking system resources...")
+        logger.Log.Println("Checking system resources...")
         sysInfo, err := system.MeasureSystem()
         if err != nil {
             logger.Log.Printf("Error measuring system: %v", err)
             return nil
         }
         return UpdateSystemDataMsg{SysInfo: sysInfo}
-    }
+    })
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case UpdateSystemDataMsg:
 		m.updateSystemCardData(msg.SysInfo)
-		return m, nil
+		return m, periodicSystemInfoCmd(time.Second * 2)
 
 	case tea.KeyMsg:
 		switch {
