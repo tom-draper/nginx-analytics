@@ -1,5 +1,7 @@
 # NGINX Analytics Dashboard
 
+A full-stack log analytics dashboard, build with Next.js.
+
 ## Deployment Guide
 
 Deploy the Next.js dashboard on the same server as NGINX.
@@ -16,7 +18,6 @@ npm start
 > ```bash
 > pm2 start npm --name "nginx-analytics" -- start
 > ```
-
 
 Or use Docker if preferred.
 
