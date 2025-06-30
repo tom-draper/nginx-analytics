@@ -946,6 +946,12 @@ func (d *DashboardGrid) renderSidebarFooterCards(sidebarWidth int) string {
 					cardHeight = 2
 				}
 
+
+				// Check if the middle card supports dynamic height
+				if dynamicHeightRenderer, ok := d.MiddleCard.Renderer.(cards.DynamicHeightCard); ok {
+					// If it does, ask the renderer for its required height based on the targetWidth
+					cardHeight = dynamicHeightRenderer.GetRequiredHeight(cardWidth - 2) // Subtract 2 for card's own borders
+				}
 				d.SidebarFooterCards[cardIndex].SetSize(cardWidth, cardHeight)
 				currentRowCards = append(currentRowCards, d.SidebarFooterCards[cardIndex].Render())
 			}

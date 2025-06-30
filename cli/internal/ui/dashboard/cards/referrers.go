@@ -205,6 +205,6 @@ func (r *ReferrersCard) GetRequiredHeight(width int) int {
 		return 3 // Minimum height for "No referrers found" message
 	}
 
-	// Each referrer needs one line, plus some padding
-	return min(len(r.referrers), maxReferrers) // +2 for padding/borders
+	// Each referrer needs one line
+	return min(len(r.referrers), maxReferrers)
 }
