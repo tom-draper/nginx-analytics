@@ -1,6 +1,6 @@
 # NGINX Analytics Dashboard
 
-A full-stack log analytics dashboard, build with Next.js.
+A full-stack log analytics dashboard, built with Next.js.
 
 ## Deployment Guide
 
