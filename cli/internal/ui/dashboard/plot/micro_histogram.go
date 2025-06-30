@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
@@ -160,7 +159,6 @@ func NewUserMicroHistogram(events []UserEvent, bucketCount int) MicroHistogram {
 			maxTime = e.Timestamp
 		}
 	}
-	logger.Log.Println(minTime, maxTime)
 
 	if minTime.Equal(maxTime) {
 		buckets := make(map[string]struct{})

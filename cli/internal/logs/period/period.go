@@ -34,7 +34,18 @@ func PeriodHours(period Period) int {
 	}
 }
 
-func LogRange(logs []nginx.NGINXLog) time.Duration {
+func LogRange(logs []nginx.NGINXLog) (time.Time, time.Time) {
+	if len(logs) == 0 {
+		return time.Time{}, time.Time{}
+	}
+
+	start := logs[0].Timestamp
+	end := logs[len(logs)-1].Timestamp
+
+	return *start, *end
+}
+
+func LogRangeDuration(logs []nginx.NGINXLog) time.Duration {
 	if len(logs) == 0 {
 		return 0
 	}
@@ -44,17 +55,28 @@ func LogRange(logs []nginx.NGINXLog) time.Duration {
 	return end.Sub(*start)
 }
 
+func LogRangeHours(logs []nginx.NGINXLog) int {
+	duration := LogRangeDuration(logs)
+
+	hours := int(duration.Hours())
+	if hours < 1 {
+		return 1 // At least 1 hour
+	}
+
+	return hours
+}
+
 func LogRangePeriodHours(logs []nginx.NGINXLog, period Period) int {
 	if period != PeriodAllTime && len(logs) > 0 {
 		return PeriodHours(period)
 	}
 
-	logRange := LogRange(logs)
-	if logRange == 0 {
+	duration := LogRangeDuration(logs)
+	if duration == 0 {
 		return 1 // No logs to calculate range
 	}
 
-	hours := int(logRange.Hours())
+	hours := int(duration.Hours())
 	if hours < 1 {
 		return 1 // At least 1 hour
 	}

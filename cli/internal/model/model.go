@@ -2,8 +2,8 @@ package model
 
 import (
 	"os"
-	"strings"
 	"time"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -56,11 +56,6 @@ func New(cfg config.Config) Model {
 	}
 	parsedLogs := l.ParseNginxLogs(logs)
 
-	sysInfo, err := system.MeasureSystem()
-	if err != nil {
-		logger.Log.Printf("Error measuring system: %v", err)
-	}
-
 	logSizes, err := parse.GetLogSizes(cfg.AccessPath)
 	if err != nil {
 		logger.Log.Printf("Error getting log sizes: %v", err)
@@ -74,7 +69,7 @@ func New(cfg config.Config) Model {
 		period.Period6Months,
 		period.PeriodAllTime,
 	}
-	selectedPeriod := 2
+	selectedPeriod := initialSelectedPeriodIndex(periods, parsedLogs)
 	period := periods[selectedPeriod]
 
 	currentLogs := l.FilterLogs(parsedLogs, period)
@@ -91,6 +86,7 @@ func New(cfg config.Config) Model {
 	memorysCard := cards.NewMemoryCard()
 	usageTimesCard := cards.NewUsageTimeCard(currentLogs, period)
 	referrersCard := cards.NewReferrersCard(currentLogs, period)
+	storagesCard := cards.NewStorageCard()
 
 	// Create base cards with renderers - these will all be treated uniformly
 	placeholderCard := cards.NewCard("", cards.NewLogoCard())
@@ -103,7 +99,7 @@ func New(cfg config.Config) Model {
 	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
 	cpuCard := cards.NewCard("CPU", cpusCard)
 	memorycard := cards.NewCard("Memory", memorysCard)
-	storageCard := cards.NewCard("Storage", cards.NewStorageCard(sysInfo))
+	storageCard := cards.NewCard("Storage", storagesCard)
 	logCard := cards.NewCard("Logs", cards.NewLogSizeCard(logSizes))
 	usageTimeCard := cards.NewCard("Usage Time", usageTimesCard)
 	referrerCard := cards.NewCard("Referrers", referrersCard)
@@ -157,6 +153,7 @@ func New(cfg config.Config) Model {
 	systemCalculatable := []cards.CalclatedSystemCard{
 		cpusCard,
 		memorysCard,
+		storagesCard,
 	}
 
 	// Add cards to grid with their layout positions
@@ -194,7 +191,7 @@ func New(cfg config.Config) Model {
 		Keys:               ui.NewKeyMap(),
 		Initialized:        false,
 		Periods:            periods,
-		SelectedPeriod:     2, // Default to "30 days"
+		SelectedPeriod:     selectedPeriod, // Default to "30 days"
 		TabNavigationMode:  false,
 		calculatable:       calculatable,
 		systemCalculatable: systemCalculatable,
@@ -204,26 +201,60 @@ func New(cfg config.Config) Model {
 	}
 }
 
-func (m Model) Init() tea.Cmd {
-	return tea.Batch(
-		tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
-			return UpdateSystemDataMsg{}
-		}),
-	)
+func initialSelectedPeriodIndex(periods []period.Period, logs []nginx.NGINXLog) int {
+	logStart, _ := period.LogRange(logs)
+
+	selectedPeriod := 2 // 1 month
+
+	for i, p := range periods {
+		if p == period.PeriodAllTime || logStart.After(p.Start()) {
+			selectedPeriod = i
+			break
+		}
+
+	}
+
+	return selectedPeriod
 }
+
 
 // UpdateDataMsg is sent to trigger data updates
 type UpdateDataMsg struct{}
 
-type UpdateSystemDataMsg struct{}
+type UpdateSystemDataMsg struct{
+	SysInfo system.SystemInfo
+}
+
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(
+		fetchSystemInfoCmd(),
+		periodicSystemInfoCmd(time.Second * 2),
+	)
+}
+
+func periodicSystemInfoCmd(d time.Duration) tea.Cmd {
+    return tea.Tick(d, func(t time.Time) tea.Msg {
+        return fetchSystemInfoCmd()()
+    })
+}
+
+func fetchSystemInfoCmd() tea.Cmd {
+    return func() tea.Msg {
+		logger.Log.Println("Checking system resources...")
+        sysInfo, err := system.MeasureSystem()
+        if err != nil {
+            logger.Log.Printf("Error measuring system: %v", err)
+            return nil
+        }
+        return UpdateSystemDataMsg{SysInfo: sysInfo}
+    }
+}
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case UpdateSystemDataMsg:
-		m.updateSystemCardData()
-		return m, tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
-			return UpdateSystemDataMsg{}
-		})
+		m.updateSystemCardData(msg.SysInfo)
+		return m, nil
 
 	case tea.KeyMsg:
 		switch {
@@ -396,13 +427,7 @@ func (m *Model) updateCardData() {
 	}
 }
 
-func (m *Model) updateSystemCardData() {
-	sysInfo, err := system.MeasureSystem()
-	if err != nil {
-		logger.Log.Printf("Error measuring system: %v", err)
-		return
-	}
-
+func (m *Model) updateSystemCardData(sysInfo system.SystemInfo) {
 	for _, card := range m.systemCalculatable {
 		card.UpdateCalculated(sysInfo)
 	}

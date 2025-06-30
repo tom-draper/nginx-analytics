@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	p "github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/plot"
@@ -44,7 +43,6 @@ func getTimestamps(logs []nginx.NGINXLog) []time.Time {
 }
 
 func (r *RequestsCard) RenderContent(width, height int) string {
-	logger.Log.Println(width, height)
 	countStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#ffffff")).
 		Bold(true)

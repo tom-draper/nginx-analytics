@@ -17,9 +17,8 @@ type StorageCard struct {
 	total uint64
 }
 
-func NewStorageCard(sysInfo sys.SystemInfo) *StorageCard {
+func NewStorageCard() *StorageCard {
 	card := &StorageCard{}
-	card.UpdateSystem(sysInfo)
 	return card
 }
 
@@ -67,7 +66,7 @@ func (p *StorageCard) RenderContent(width, height int) string {
 	return strings.Join(lines[:height], "\n")
 }
 
-func (p *StorageCard) UpdateSystem(sysInfo sys.SystemInfo) {
+func (p *StorageCard) UpdateCalculated(sysInfo sys.SystemInfo) {
 	disk, err := getPrimaryDisk(sysInfo.Disk)
 	if err == nil {
 		p.used = disk.Used
