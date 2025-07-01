@@ -310,10 +310,7 @@ func (a *ActivityCard) renderYAxisLabels(chartGrid [][]string, maxRequests, heig
 
 		if showLabel && rowValue >= 0 {
 			label := fmt.Sprintf("%d", rowValue)
-			labelStart := yAxisWidth - len(label) - 1 // Align right with a space
-			if labelStart < 0 {
-				labelStart = 0 // Prevent negative index
-			}
+			labelStart := max(yAxisWidth - len(label) - 1, 0)
 			for i, char := range label {
 				if labelStart+i < len(chartGrid[row]) {
 					chartGrid[row][labelStart+i] = a.styles.gray.Render(string(char))
@@ -365,8 +362,8 @@ func (a *ActivityCard) drawChartBarsOnCanvas(requests []point[int], userMap map[
 // Updated convertCanvasToBraille function
 func (a *ActivityCard) convertCanvasToBraille(chartGrid [][]string, canvas, userCanvas [][]bool, yAxisWidth, effectiveChartWidth, chartHeight, brailleHeight int) {
 	// Iterate through each Braille character position in the *output* grid
-	for row := 0; row < chartHeight; row++ { // chartHeight is the number of terminal rows for the graph
-		for col := 0; col < effectiveChartWidth; col++ { // effectiveChartWidth is the number of terminal columns for the graph
+	for row := range chartHeight { // chartHeight is the number of terminal rows for the graph
+		for col := range effectiveChartWidth { // effectiveChartWidth is the number of terminal columns for the graph
 			pattern := 0
 			isUser := false
 
