@@ -23,10 +23,11 @@ type SystemInfo struct {
 }
 
 type CPUInfo struct {
-	Model string  `json:"model"`
-	Cores int     `json:"cores"`
-	Speed float64 `json:"speed"`
-	Usage float64 `json:"usage"`
+	Model     string    `json:"model"`
+	Cores     int       `json:"cores"`
+	Speed     float64   `json:"speed"`
+	Usage     float64   `json:"usage"`
+	CoreUsage []float64 `json:"coreUsage"`
 }
 
 type MemoryInfo struct {
@@ -146,27 +147,34 @@ func getCPUInfo() (CPUInfo, error) {
 		return getCPUInfoFallback()
 	}
 
-	// Get CPU usage
-	cpuUsage, err := cpu.Percent(time.Second, false)
+	// Get per-CPU usage (set percpu=true)
+	cpuUsage, err := cpu.Percent(time.Second, true) // true = per CPU
 	if err != nil {
 		log.Printf("Warning: Could not get CPU usage: %v", err)
-		cpuUsage = []float64{0.0} // Default to 0 if can't read
+		cpuUsage = make([]float64, len(cpuInfo)) // Default to zeros
 	}
 
 	model := cpuInfo[0].ModelName
-	cores := len(cpuInfo)
+	cores := len(cpuUsage)
 	speed := cpuInfo[0].Mhz
 
-	var usage float64
+	// Now cpuUsage contains percentage for each logical CPU
+	var overallUsage float64
 	if len(cpuUsage) > 0 {
-		usage = cpuUsage[0]
+		// Calculate average usage across all cores
+		var total float64
+		for _, usage := range cpuUsage {
+			total += usage
+		}
+		overallUsage = total / float64(len(cpuUsage))
 	}
 
 	return CPUInfo{
-		Model: model,
-		Cores: cores,
-		Speed: speed,
-		Usage: parseFloat(usage, 1),
+		Model:     model,
+		Cores:     cores,
+		Speed:     speed,
+		Usage:     parseFloat(overallUsage, 1),
+		CoreUsage: cpuUsage,
 	}, nil
 }
 

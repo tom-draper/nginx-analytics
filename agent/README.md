@@ -5,10 +5,13 @@ A lightweight agent to securely expose log files and monitor system resources, w
 ## Deployment Guide
 
 ```bash
-go build -o nginx-analytics-agent agent.go
-scp nginx-analytics-agent user@yourserver:/usr/local/bin/
+make
+# or...
+go build -o bin/agent cmd/agent
+
+scp bin/agent user@yourserver:/usr/local/bin/
 ssh user@yourserver
-chmod +x /usr/local/bin/nginx-analytics-agent
+chmod +x /usr/local/bin/agent
 ```
 
 > If your NGINX log path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
@@ -19,7 +22,7 @@ chmod +x /usr/local/bin/nginx-analytics-agent
 > ```
 <br>
 
-Update your existing NGINX configuration to redirect to the agent, or copy the below config into `/etc/nginx/conf.d/nginx-analytics-agent.conf`.
+Update your existing NGINX configuration to redirect to the agent, or copy the below config into `/etc/nginx/conf.d/agent.conf`.
 
 ```nginx
 server {
@@ -64,11 +67,11 @@ Setup a systemd service `/etc/systemd/system/nginx-analytics-agent.service` to r
 
 ```service
 [Unit]
-Description=NGINXAnalytics Agent
+Description=NGINX Analytics Agent
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/nginx-analytics-agent
+ExecStart=/usr/local/bin/agent
 Restart=always
 User=nobody
 Group=nogroup
@@ -101,15 +104,35 @@ Host the dashboard on your preferred platform, with environment variables set po
 NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 ```
 
-### CLI
-
-Run the CLI from anywhere, with environment variables set pointing to the agent's endpoints.
-
-```env
-NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
-```
+<!-- ### CLI -->
+<!---->
+<!-- Run the CLI from anywhere, with environment variables set pointing to the agent's endpoints. -->
+<!---->
+<!-- ```env -->
+<!-- NGINX_ANALYTICS_SERVER_URL=https://yourserver.com -->
+<!-- ``` -->
 
 ## Configuration
+
+### Access Logs
+
+By default, when `NGINX_ANALYTICS_ACCESS_PATH` is set to a directory, all compressed (.gz) and uncompressed (.log) log files within the directory will be served to the dashboard. To target a single `access.log` file, use a full filepath instead.
+
+```env
+NGINX_ANALYTICS_ACCESS_PATH=/path/to/nginx/access/logs
+# or...
+NGINX_ANALYTICS_ACCESS_PATH=/path/to/nginx/access.log
+```
+
+### Error Logs
+
+By default, any access log path provided will be checked for error logs if it is pointing to a directory. If your error logs are stored in a different path, or targeting a single log file instead, you can specify the location of your error logs separately using `NGINX_ANALYTICS_ERROR_PATH`.
+
+```env
+NGINX_ANALYTICS_ERROR_PATH=/path/to/nginx/error/logs
+# or...
+NGINX_ANALYTICS_ERROR_PATH=/path/to/nginx/error.log
+```
 
 ### Port
 
@@ -125,4 +148,4 @@ By default, system monitoring is disabled. To enable it, set the `NGINX_ANALYTIC
 
 #### HTTPS
 
-Deploying with HTTPS is always recommended. Without this, you risk exposing any personal information within your log files such as IP addresses.
+Deploying over a secure HTTPS connection is always recommended. Without this, you risk exposing any personal information within your log files such as IP addresses.

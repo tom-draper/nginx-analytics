@@ -29,18 +29,7 @@ ChartJS.register(
 );
 
 // CPU Core visualization component
-const CPUCores = ({ cores, usage }: { cores: number, usage: number }) => {
-    // Generate mock data for individual core usage
-    const generateCoreUsages = (coreCount: number, avgUsage: number) => {
-        // Create a somewhat realistic distribution around the average
-        return Array.from({ length: coreCount }, () => {
-            const variance = Math.random() * 30 - 15; // ±15% variance
-            return Math.min(Math.max(avgUsage + variance, 5), 100); // Clamp between 5% and 100%
-        });
-    };
-
-    const coreUsages = generateCoreUsages(cores, usage);
-
+const CPUCores = ({ coreUsages }: { coreUsages: number[] }) => {
     // Get color based on usage percentage
     const getColorForUsage = (usage: number) => {
         return gradient[Math.min(Math.floor(usage / 10), 9)]
@@ -184,6 +173,7 @@ export function CPU({ resources, loading, historyData }: { resources: SystemInfo
 
     // Get percentage values
     const cpuUsage = resources.cpu.usage;
+    const cpuCoreUsage = resources.cpu.coreUsage;
 
     const getColorForUsage = (usage: number) => {
         if (usage < 50) return "#1af073"; // green
@@ -208,7 +198,7 @@ export function CPU({ resources, loading, historyData }: { resources: SystemInfo
             {/* CPU Usage with chart */}
             <div className="p-2 h-[inherit] flex flex-col">
                 {/* CPU Cores visualization */}
-                <CPUCores cores={resources.cpu.cores} usage={cpuUsage || 0} />
+                <CPUCores coreUsages={cpuCoreUsage || []} />
 
                 {/* CPU Usage Chart */}
                 <div className="mt-4">
