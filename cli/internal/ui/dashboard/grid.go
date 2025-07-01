@@ -16,6 +16,7 @@ type DashboardGrid struct {
 
 	// New fields for custom layout
 	MiddleCard          *cards.Card   // Large card below the main grid (left side)
+	BottomCard          *cards.Card   // Card below the MiddleCard (left side)
 	SidebarBottomCards  []*cards.Card // Two cards at the bottom of sidebar
 	SidebarSubGridCards []*cards.Card // 2x2 grid below bottom cards in sidebar area
 	SidebarFooterCards  []*cards.Card // 2x1 row below sub-grid cards in sidebar area
@@ -35,6 +36,7 @@ func NewDashboardGrid(rows, cols, terminalWidth int) *DashboardGrid {
 		SidebarCard:         nil,
 		TerminalWidth:       terminalWidth,
 		MiddleCard:          nil,
+		BottomCard:          nil,
 		SidebarBottomCards:  make([]*cards.Card, 0),
 		SidebarSubGridCards: make([]*cards.Card, 0),
 		SidebarFooterCards:  make([]*cards.Card, 0),
@@ -57,6 +59,12 @@ func (d *DashboardGrid) AddMain(card *cards.Card) {
 // AddEndpoints sets the card to be displayed below the main grid.
 func (d *DashboardGrid) AddEndpoints(card *cards.Card) {
 	d.MiddleCard = card
+	d.AllCards = append(d.AllCards, card)
+}
+
+// AddBottomCard sets the card to be displayed below the MiddleCard.
+func (d *DashboardGrid) AddBottomCard(card *cards.Card) {
+	d.BottomCard = card
 	d.AllCards = append(d.AllCards, card)
 }
 
@@ -108,7 +116,7 @@ func (d *DashboardGrid) GetTotalCardCount() int {
 	return len(d.AllCards)
 }
 
-// RenderGrid renders the custom layout with main grid, middle card, sidebar, and sidebar cards.
+// RenderGrid renders the custom layout with main grid, middle card, bottom card, sidebar, and sidebar cards.
 func (d *DashboardGrid) RenderGrid() string {
 	if len(d.AllCards) == 0 {
 		return ""
@@ -121,13 +129,19 @@ func (d *DashboardGrid) RenderGrid() string {
 	// Render middle card (below main grid, same width)
 	middleCardView := d.renderMiddleCard(mainGridWidth)
 
-	// Combine left column (main grid + middle card)
+	// Render bottom card (below middle card, same width)
+	bottomCardView := d.renderBottomCard(mainGridWidth)
+
+	// Combine left column (main grid + middle card + bottom card)
 	leftColumnParts := []string{}
 	if mainGridView != "" {
 		leftColumnParts = append(leftColumnParts, mainGridView)
 	}
 	if middleCardView != "" {
 		leftColumnParts = append(leftColumnParts, middleCardView)
+	}
+	if bottomCardView != "" {
+		leftColumnParts = append(leftColumnParts, bottomCardView)
 	}
 
 	leftColumnView := ""
@@ -223,6 +237,23 @@ func (d *DashboardGrid) renderMiddleCard(targetWidth int) string {
 
 	d.MiddleCard.SetSize(targetWidth-2, targetHeight)
 	return d.MiddleCard.Render()
+}
+
+func (d *DashboardGrid) renderBottomCard(targetWidth int) string {
+	if d.BottomCard == nil {
+		return ""
+	}
+
+	targetHeight := 9 // Default height
+
+	// Check if the bottom card supports dynamic height
+	if dynamicHeightRenderer, ok := d.BottomCard.Renderer.(cards.DynamicHeightCard); ok {
+		// If it does, ask the renderer for its required height based on the targetWidth
+		targetHeight = dynamicHeightRenderer.GetRequiredHeight(targetWidth - 2) // Subtract 2 for card's own borders
+	}
+
+	d.BottomCard.SetSize(targetWidth-2, targetHeight)
+	return d.BottomCard.Render()
 }
 
 func (d *DashboardGrid) renderSidebarBottomCards(sidebarWidth int) string {

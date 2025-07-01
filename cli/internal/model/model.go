@@ -79,7 +79,9 @@ func New(cfg config.Config) Model {
 	requestsCard := cards.NewRequestsCard(currentLogs, period)
 	usersCard := cards.NewUsersCard(currentLogs, period)
 	endpointsCard := cards.NewEndpointsCard(currentLogs, period)
+	versionsCard := cards.NewVersionCard("")
 	locationsCard := cards.NewLocationsCard(currentLogs, period)
+	devicesCard := cards.NewDeviceCard("")
 	activitiesCard := cards.NewActivityCard(currentLogs, period)
 
 	cpusCard := cards.NewCPUCard()
@@ -96,13 +98,14 @@ func New(cfg config.Config) Model {
 	activityCard := cards.NewCard("Activity", activitiesCard)
 	endpointCard := cards.NewCard("Endpoints", endpointsCard)
 	locationCard := cards.NewCard("Location", locationsCard)
-	deviceCard := cards.NewCard("Device", cards.NewPlaceholderCard(""))
+	deviceCard := cards.NewCard("Device", devicesCard)
 	cpuCard := cards.NewCard("CPU", cpusCard)
 	memorycard := cards.NewCard("Memory", memorysCard)
 	storageCard := cards.NewCard("Storage", storagesCard)
 	logCard := cards.NewCard("Logs", cards.NewLogSizeCard(logSizes))
 	usageTimeCard := cards.NewCard("Usage Time", usageTimesCard)
 	referrerCard := cards.NewCard("Referrers", referrersCard)
+	versionCard := cards.NewCard("Version", versionsCard)
 
 	// Set small sizes for compact display
 	cardWidth, cardHeight := 18, 4
@@ -137,6 +140,7 @@ func New(cfg config.Config) Model {
 		logCard,         // 11 - sub-grid
 		usageTimeCard,   // 12 - new sub-grid card
 		referrerCard,    // 13 - new sub-grid card
+		versionCard,
 	}
 
 	calculatable := []cards.CalculatedCard{
@@ -180,6 +184,8 @@ func New(cfg config.Config) Model {
 
 	grid.AddSidebarFooterCard(allCards[12])
 	grid.AddSidebarFooterCard(allCards[13])
+
+	grid.AddBottomCard(versionCard)
 
 	// Set first card as active
 	grid.SetActiveCard(0)
