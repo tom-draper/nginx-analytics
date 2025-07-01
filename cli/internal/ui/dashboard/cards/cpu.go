@@ -2,11 +2,11 @@ package cards
 
 import (
 	"fmt"
-	"strings"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/guptarohit/asciigraph"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
+	"strings"
 )
 
 type CPUCard struct {
@@ -28,26 +28,34 @@ func (c *CPUCard) RenderContent(width, height int) string {
 
 	// Calculate available height for grid vs plot
 	gridHeight := height / 2
-	plotHeight := height - gridHeight - 3 // Reserve 3 lines for spacing and title
+	plotHeight := max(
+		// Reserve 3 lines for spacing and title
+		height-gridHeight-3, 3)
 
 	// Render the CPU grid
 	gridContent := c.renderCPUGrid(width, gridHeight)
-	
+
 	// Render the historical plot
-	plotContent := c.renderHistoryPlot(width, plotHeight)
-	
+	plot := c.renderHistoryPlot(width, plotHeight)
+
+	plotLines := len(strings.Split(plot, "\n"))
+
+	for range (plotHeight + 1) - plotLines {
+		plot = "\n" + plot
+	}
+
 	// Combine both with spacing
-	return lipgloss.JoinVertical(lipgloss.Left, 
+	return lipgloss.JoinVertical(lipgloss.Left,
 		gridContent,
 		"", // Empty line for spacing
-		plotContent,
+		plot,
 	)
 }
 
 func (c *CPUCard) renderCPUGrid(width, height int) string {
 	var rows []string
 	squareSize := 5 // Adjust as needed for square dimensions
-	
+
 	// Calculate how many squares fit per row
 	squaresPerRow := width / squareSize
 	if squaresPerRow == 0 {
@@ -82,7 +90,7 @@ func (c *CPUCard) renderCPUGrid(width, height int) string {
 func (c *CPUCard) renderHistoryPlot(width, plotHeight int) string {
 	// Always render a plot, even with minimal data
 	data := c.getPlotData()
-	
+
 	if len(data) == 0 {
 		// If no history yet, use current CPU average as single data point
 		if len(c.cpuPercentages) > 0 {
@@ -103,9 +111,9 @@ func (c *CPUCard) renderHistoryPlot(width, plotHeight int) string {
 	}
 
 	// Calculate chart dimensions
-	chartWidth := width - 8 // Small padding
+	chartWidth := width - 8   // Small padding
 	chartHeight := plotHeight // Reserve 1 line for title
-	
+
 	if chartWidth < 10 {
 		chartWidth = 10
 	}
@@ -115,7 +123,6 @@ func (c *CPUCard) renderHistoryPlot(width, plotHeight int) string {
 
 	// Create the plot using asciigraph
 	plot := asciigraph.Plot(data, asciigraph.Width(chartWidth), asciigraph.Height(chartHeight))
-	
 
 	// Style the plot
 	plotStyle := lipgloss.NewStyle().
@@ -123,7 +130,7 @@ func (c *CPUCard) renderHistoryPlot(width, plotHeight int) string {
 		// Width(width).
 		// Align(lipgloss.Left)
 
-	return lipgloss.JoinVertical(lipgloss.Left, 
+	return lipgloss.JoinVertical(lipgloss.Left,
 		plotStyle.Render(plot),
 	)
 }
@@ -177,7 +184,7 @@ func (c *CPUCard) centerText(text string, width int, style lipgloss.Style) strin
 
 func (c *CPUCard) UpdateCalculated(sysInfo system.SystemInfo) {
 	c.cpuPercentages = sysInfo.CPU.CoreUsage
-	
+
 	// Calculate average CPU usage for historical tracking
 	if len(c.cpuPercentages) > 0 {
 		var sum float64
@@ -185,10 +192,10 @@ func (c *CPUCard) UpdateCalculated(sysInfo system.SystemInfo) {
 			sum += usage
 		}
 		avgUsage := sum / float64(len(c.cpuPercentages))
-		
+
 		// Add to history
 		c.history = append(c.history, avgUsage)
-		
+
 		// Trim history if it exceeds maxHistory
 		if len(c.history) > c.maxHistory {
 			c.history = c.history[len(c.history)-c.maxHistory:]

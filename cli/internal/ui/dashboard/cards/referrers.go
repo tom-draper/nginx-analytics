@@ -28,7 +28,7 @@ type ReferrersCard struct {
 	referrers []referrer
 }
 
-const maxReferrers = 35 // Maximum number of referrers to display
+const maxReferrers = 16 // Maximum number of referrers to display
 
 func NewReferrersCard(logs []nginx.NGINXLog, period period.Period) *ReferrersCard {
 	card := &ReferrersCard{}
@@ -108,7 +108,7 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 	maxDisplayReferrers := min(len(referrers), height)
 
 	// Render each referrer as a horizontal bar with overlaid text
-	for i := 0; i < maxDisplayReferrers; i++ {
+	for i := range maxDisplayReferrers {
 		ep := referrers[i]
 
 		// Calculate bar length proportional to count, using full width

@@ -94,10 +94,7 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		endpoints = sortedEndpoints
 	}
 
-	// Define lipgloss styles for the bars
-	barStyle := lipgloss.NewStyle().
-		Background(styles.Green). // Green background
-		Foreground(styles.Black)  // Black text
+
 
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
@@ -129,6 +126,34 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 			} else {
 				overlayText = overlayText[:width]
 			}
+		}
+
+		var barStyle lipgloss.Style
+		if ep.status >= 200 && ep.status <= 299 {
+			// Define lipgloss styles for the bars
+			barStyle = lipgloss.NewStyle().
+				Background(styles.Green). // Green background
+				Foreground(styles.Black)  // Black text
+		} else if ep.status >= 300 && ep.status <= 399 {
+			// Define lipgloss styles for the bars
+			barStyle = lipgloss.NewStyle().
+				Background(styles.Blue). // Green background
+				Foreground(styles.Black)  // Black text
+		} else if ep.status >= 400 && ep.status <= 499 {
+			// Define lipgloss styles for the bars
+			barStyle = lipgloss.NewStyle().
+				Background(styles.Yellow). // Green background
+				Foreground(styles.Black)  // Black text
+		} else if ep.status >= 500 && ep.status <= 599 {
+			// Define lipgloss styles for the bars
+			barStyle = lipgloss.NewStyle().
+				Background(styles.Red). // Green background
+				Foreground(styles.Black)  // Black text
+		} else {
+			// Define lipgloss styles for the bars
+			barStyle = lipgloss.NewStyle().
+				Background(styles.Gray). // Green background
+				Foreground(styles.Black)  // Black text
 		}
 
 		// Build the line using lipgloss styles

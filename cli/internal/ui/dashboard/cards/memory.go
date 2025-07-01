@@ -98,13 +98,18 @@ func (c *MemoryCard) renderHistoryPlot(width, plotHeight int) string {
 	if chartWidth < 10 {
 		chartWidth = 10
 	}
-	if chartHeight < 3 {
-		chartHeight = 3
+	if chartHeight < 4 {
+		chartHeight = 4
 	}
 
 	// Create the plot using asciigraph
 	plot := asciigraph.Plot(data, asciigraph.Width(chartWidth), asciigraph.Height(chartHeight))
-	
+
+	plotLines := len(strings.Split(plot, "\n"))
+
+	for range chartHeight - plotLines {
+		plot = "\n" + plot
+	}
 
 	// Style the plot
 	plotStyle := lipgloss.NewStyle().
