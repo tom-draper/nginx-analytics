@@ -136,26 +136,19 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
 	labelLine := ""
 	for i, l := range locations {
-		// Get flag emoji for the location
-		emoji, err := loc.CountryCodeToEmoji(l.Location)
-		if err != nil || emoji == "" {
-			// Fallback: use just the country code or first two chars
-			if len(l.Location) >= 2 {
-				emoji = l.Location[:2]
-			} else if l.Location != "" {
-				emoji = l.Location + " "
-			} else {
-				emoji = "??"
-			}
+		var displayStr string
+		if len(l.Location) >= 2 {
+			displayStr = l.Location[:2]
+		} else if l.Location != "" {
+			displayStr = l.Location + " "
+		} else {
+			displayStr = "??"
 		}
-		
-		// Add the emoji (flag emojis are typically 2 chars wide)
-		labelLine += emoji
-		
-		// Add spacing to align with the 2-char bars + 1 space separation
-		// Only add space if not the last item
+
+		labelLine += displayStr
+
 		if i < len(locations)-1 {
-			labelLine += " " // Single space to match bar separation
+			labelLine += " "
 		}
 	}
 	return labelLine

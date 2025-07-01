@@ -40,5 +40,8 @@ func CountryCodeToEmoji(countryCode string) (string, error) {
 		}
 		emoji += string(rune(0x1F1E6 + (r - 'A')))
 	}
+	if emoji == "" {
+		return "", fmt.Errorf("failed to convert country code to emoji")
+	}
 	return emoji, nil
 }
