@@ -19,7 +19,7 @@ type UsageTimeCard struct {
 }
 
 func NewUsageTimeCard(logs []nginx.NGINXLog, period period.Period) *UsageTimeCard {
-	card := &UsageTimeCard{}
+	card := &UsageTimeCard{bucketMinutes: 60}
 	card.UpdateCalculated(logs, period) // This was missing!
 	return card
 }
@@ -29,103 +29,55 @@ func (c *UsageTimeCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Pe
 	logger.Log.Println(c.usageTimes)
 }
 
-func (c UsageTimeCard) calculateUsageTimePoints(logs []nginx.NGINXLog) []point[int] {
-	points := make([]point[int], 0, len(logs))
+func (c UsageTimeCard) calculateUsageTimePointsBucketed(logs []nginx.NGINXLog, bucketMinutes int) []point[int] {
+	// Create a map to count requests per time bucket
+	bucketCounts := make(map[time.Time]int)
 
+	// Find the base date to use (use today if no logs, or the date from the first log)
+	var baseDate time.Time
+	if len(logs) > 0 && logs[0].Timestamp != nil {
+		baseDate = logs[0].Timestamp.Truncate(24 * time.Hour) // Start of the day
+	} else {
+		now := time.Now()
+		baseDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	}
+
+	// Count actual requests per time bucket
 	for _, log := range logs {
 		if log.Timestamp != nil {
+			// Extract the time of day and apply it to our base date
+			hour, min, _ := log.Timestamp.Clock()
+			bucketTime := time.Date(baseDate.Year(), baseDate.Month(), baseDate.Day(), hour, min, 0, 0, baseDate.Location())
+			bucketTime = bucketTime.Truncate(time.Duration(bucketMinutes) * time.Minute)
+			bucketCounts[bucketTime]++
+		}
+	}
+
+	// Create a complete 24-hour timeline with buckets
+	var points []point[int]
+	for hour := 0; hour < 24; hour += bucketMinutes / 60 {
+		if bucketMinutes < 60 {
+			// Handle sub-hour buckets
+			for minute := 0; minute < 60; minute += bucketMinutes {
+				bucketTime := time.Date(baseDate.Year(), baseDate.Month(), baseDate.Day(), hour, minute, 0, 0, baseDate.Location())
+				count := bucketCounts[bucketTime] // Will be 0 if no data for this time
+				points = append(points, point[int]{
+					timestamp: bucketTime,
+					value:     count,
+				})
+			}
+		} else {
+			// Handle hour or multi-hour buckets
+			bucketTime := time.Date(baseDate.Year(), baseDate.Month(), baseDate.Day(), hour, 0, 0, 0, baseDate.Location())
+			count := bucketCounts[bucketTime] // Will be 0 if no data for this time
 			points = append(points, point[int]{
-				timestamp: *log.Timestamp,
-				value:     1,
+				timestamp: bucketTime,
+				value:     count,
 			})
 		}
 	}
 
 	return points
-}
-
-func (c UsageTimeCard) calculateUsageTimePointsBucketed(logs []nginx.NGINXLog, bucketMinutes int) []point[int] {
-	if len(logs) == 0 {
-		return []point[int]{}
-	}
-
-	// Create a map to count requests per time bucket
-	bucketCounts := make(map[time.Time]int)
-
-	for _, log := range logs {
-		if log.Timestamp != nil {
-			// Round timestamp to nearest bucket
-			bucketTime := log.Timestamp.Truncate(time.Duration(bucketMinutes) * time.Minute)
-			bucketCounts[bucketTime]++
-		}
-	}
-
-	// Convert map to sorted slice of points
-	var points []point[int]
-	for timestamp, count := range bucketCounts {
-		points = append(points, point[int]{
-			timestamp: timestamp,
-			value:     count,
-		})
-	}
-
-	// Sort by timestamp
-	// You'll need to implement sorting or use the sortPoints function from your other card
-
-	return points
-}
-
-func (c UsageTimeCard) calculateUsageTime(logs []nginx.NGINXLog) []int {
-	if len(logs) == 0 {
-		return []int{}
-	}
-
-	// Find the time range of all logs
-	var minTime, maxTime time.Time
-	for i, log := range logs {
-		if log.Timestamp == nil {
-			continue
-		}
-		if i == 0 {
-			minTime = *log.Timestamp
-			maxTime = *log.Timestamp
-		} else {
-			if log.Timestamp.Before(minTime) {
-				minTime = *log.Timestamp
-			}
-			if log.Timestamp.After(maxTime) {
-				maxTime = *log.Timestamp
-			}
-		}
-	}
-
-	// Round down minTime to the nearest 10-minute boundary
-	minTime = minTime.Truncate(10 * time.Minute)
-
-	// Calculate the number of 10-minute buckets needed
-	duration := maxTime.Sub(minTime)
-	numBuckets := int(duration.Minutes()/10) + 1
-
-	// Initialize bucket counts
-	buckets := make([]int, numBuckets)
-
-	// Count requests in each bucket
-	for _, log := range logs {
-		if log.Timestamp == nil {
-			continue
-		}
-
-		// Calculate which bucket this timestamp belongs to
-		timeSinceMin := log.Timestamp.Sub(minTime)
-		bucketIndex := int(timeSinceMin.Minutes() / 10)
-
-		// Ensure we don't go out of bounds
-		if bucketIndex >= 0 && bucketIndex < numBuckets {
-			buckets[bucketIndex]++
-		}
-	}
-
-	return buckets
 }
 
 func (a *UsageTimeCard) generateBrailleBarChart(values []point[int], chartWidth, chartHeight int) string {
@@ -141,7 +93,8 @@ func (a *UsageTimeCard) generateBrailleBarChart(values []point[int], chartWidth,
 	}
 
 	if maxValue == 0 {
-		return strings.Repeat("\n", chartHeight) // Return empty lines if max value is 0
+		// Still show the timeline even with no data
+		maxValue = 1 // Set a minimal scale
 	}
 
 	yAxisWidth := len(fmt.Sprintf("%d", maxValue)) + 1   // Max label + 1 for separator
@@ -221,7 +174,7 @@ func (a *UsageTimeCard) drawChartBarsOnCanvas(values []point[int], canvas [][]bo
 
 	// Each conceptual "bar" in the terminal output is now 2 pixels wide on the canvas.
 	// We need to map our 'dataPoints' (timestamps) across the 'canvasWidthPixels'.
-	for canvasCol := 0; canvasCol < canvasWidthPixels; canvasCol++ {
+	for canvasCol := range canvasWidthPixels {
 		// Map the canvas pixel column back to a data point index
 		// This assumes an even distribution of data points across the total canvas width
 		dataIndex := (canvasCol * dataPoints) / canvasWidthPixels
@@ -233,7 +186,7 @@ func (a *UsageTimeCard) drawChartBarsOnCanvas(values []point[int], canvas [][]bo
 
 		barHeight := float64(valueCount) * float64(brailleHeight-1) / float64(maxValue)
 
-		for row := 0; row < int(math.Ceil(barHeight)); row++ {
+		for row := range int(math.Ceil(barHeight)) {
 			canvasRow := brailleHeight - 1 - row // Fill from bottom up
 			if canvasRow >= 0 && canvasRow < brailleHeight {
 				canvas[canvasRow][canvasCol] = true
@@ -308,10 +261,6 @@ func (a *UsageTimeCard) convertCanvasToBraille(chartGrid [][]string, canvas [][]
 }
 
 func (c *UsageTimeCard) RenderContent(width, height int) string {
-	if len(c.usageTimes) == 0 {
-		return strings.Repeat("\n", height)
-	}
-
 	// Reserve space for x-axis labels (1 row)
 	chartHeight := max(height-1, 1)
 	
@@ -326,23 +275,6 @@ func (c *UsageTimeCard) RenderContent(width, height int) string {
 }
 
 func (c *UsageTimeCard) renderTimeLabels(width int) string {
-	if len(c.usageTimes) == 0 {
-		return strings.Repeat(" ", width)
-	}
-	
-	// Find min and max timestamps
-	minTime := c.usageTimes[0].timestamp
-	maxTime := c.usageTimes[0].timestamp
-	
-	for _, point := range c.usageTimes {
-		if point.timestamp.Before(minTime) {
-			minTime = point.timestamp
-		}
-		if point.timestamp.After(maxTime) {
-			maxTime = point.timestamp
-		}
-	}
-	
 	// Calculate Y-axis width (same as in generateBrailleBarChart)
 	maxValue := 0
 	for _, val := range c.usageTimes {
@@ -350,24 +282,40 @@ func (c *UsageTimeCard) renderTimeLabels(width int) string {
 			maxValue = val.value
 		}
 	}
+	if maxValue == 0 {
+		maxValue = 1
+	}
 	yAxisWidth := len(fmt.Sprintf("%d", maxValue)) + 1
 	
 	// Available width for time labels
 	labelWidth := width - yAxisWidth
 	
-	// Format time labels
-	startLabel := minTime.Format("15:04")
-	endLabel := maxTime.Format("15:04")
-	
-	// Create the label line
+	// Create the label line with fixed 24-hour labels
 	grayStyle := lipgloss.NewStyle().Foreground(styles.Gray)
 	labelLine := strings.Repeat(" ", yAxisWidth) // Y-axis spacing
 	
-	if labelWidth >= len(startLabel)+len(endLabel)+2 {
-		// Enough space for both labels
+	// Always show 12AM and 12PM (noon) labels for 24-hour view
+	startLabel := "12AM"
+	middleLabel := "12PM"
+	endLabel := "12AM" // End of day (next day's midnight)
+	
+	if labelWidth >= len(startLabel)+len(middleLabel)+len(endLabel)+4 {
+		// Enough space for all three labels
 		labelLine += grayStyle.Render(startLabel)
 		
-		// Calculate spacing between labels
+		// Calculate spacing
+		remainingWidth := labelWidth - len(startLabel) - len(middleLabel) - len(endLabel)
+		leftSpacing := remainingWidth / 2
+		rightSpacing := remainingWidth - leftSpacing
+		
+		labelLine += strings.Repeat(" ", leftSpacing)
+		labelLine += grayStyle.Render(middleLabel)
+		labelLine += strings.Repeat(" ", rightSpacing)
+		labelLine += grayStyle.Render(endLabel)
+	} else if labelWidth >= len(startLabel)+len(endLabel)+2 {
+		// Space for start and end labels
+		labelLine += grayStyle.Render(startLabel)
+		
 		middleSpacing := labelWidth - len(startLabel) - len(endLabel)
 		labelLine += strings.Repeat(" ", middleSpacing)
 		labelLine += grayStyle.Render(endLabel)
