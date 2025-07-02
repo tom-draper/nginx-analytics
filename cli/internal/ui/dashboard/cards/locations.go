@@ -3,6 +3,7 @@ package cards
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 	loc "github.com/tom-draper/nginx-analytics/cli/internal/logs/location"
@@ -51,6 +52,7 @@ func (r *LocationsCard) RenderContent(width, height int) string {
 
 	// Build the chart
 	chart := r.buildChart(topLocations, maxCount, chartHeight, width)
+	// chart = []string{"\n", "\n", "\n", "\n"}
 
 	// Add labels
 	labelLine := r.buildLabelLine(topLocations)
@@ -161,35 +163,28 @@ func (r *LocationsCard) addCountOverlay(line string, totalLocations, width int) 
 
 func (r *LocationsCard) overlayRight(line, text string, maxWidth int) string {
 	faintStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
-
-	lineDisplayWidth := len(line)
+	
+	// Use lipgloss.Width for consistent display width calculations
+	lineDisplayWidth := lipgloss.Width(line)
 	textDisplayWidth := lipgloss.Width(text)
-
+	
 	// If the text is too wide, just return the original line
 	if textDisplayWidth >= maxWidth {
 		return line
 	}
-
+	
 	// Calculate where to place the text
-	targetStart := maxWidth - len(text)
-
+	targetStart := maxWidth - textDisplayWidth
+	
 	// If the line is shorter than where we want to place the text, pad it
 	if lineDisplayWidth < targetStart {
 		padding := targetStart - lineDisplayWidth
 		line += strings.Repeat(" ", padding)
 	} else if lineDisplayWidth > targetStart {
-		// Truncate the line to make room for the text
-		// This is tricky with styled text, so we'll use a simpler approach
-		truncateAt := targetStart
-		if truncateAt > 0 {
-			// Find a safe truncation point (avoiding cutting styled text)
-			runes := []rune(line)
-			if len(runes) > truncateAt {
-				line = string(runes[:truncateAt])
-			}
-		}
+		// Truncate the line using lipgloss.Truncate to handle styled text properly
+		line = lipgloss.NewStyle().Width(targetStart).Render(line)
 	}
-
+	
 	return line + faintStyle.Render(text)
 }
 

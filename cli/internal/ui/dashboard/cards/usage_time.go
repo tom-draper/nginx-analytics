@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
@@ -26,7 +25,6 @@ func NewUsageTimeCard(logs []nginx.NGINXLog, period period.Period) *UsageTimeCar
 
 func (c *UsageTimeCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	c.usageTimes = c.calculateUsageTimePointsBucketed(logs, c.bucketMinutes)
-	logger.Log.Println(c.usageTimes)
 }
 
 func (c UsageTimeCard) calculateUsageTimePointsBucketed(logs []nginx.NGINXLog, bucketMinutes int) []point[int] {
