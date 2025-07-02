@@ -49,18 +49,13 @@ type Model struct {
 }
 
 func New(cfg config.Config) Model {
-	logs, err := getLogs(cfg.AccessPath)
-	if err != nil {
-		logger.Log.Printf("Error getting logs: %v", err)
-	}
-	parsedLogs := l.ParseNginxLogs(logs)
+	return NewModel(cfg)
+}
 
-	logSizes, err := parse.GetLogSizes(cfg.AccessPath)
-	if err != nil {
-		logger.Log.Printf("Error getting log sizes: %v", err)
-	}
+func NewModel(cfg config.Config) Model {
+	logs, parsedLogs := fetchLogs(cfg.AccessPath)
+	logSizes := fetchLogSizes(cfg.AccessPath)
 
-	// Initialize periods
 	periods := []period.Period{
 		period.Period24Hours,
 		period.Period1Week,
@@ -69,106 +64,14 @@ func New(cfg config.Config) Model {
 		period.PeriodAllTime,
 	}
 	selectedPeriod := initialSelectedPeriodIndex(periods, parsedLogs)
-	period := periods[selectedPeriod]
+	p := periods[selectedPeriod]
 
-	currentLogs := l.FilterLogs(parsedLogs, period)
+	currentLogs := l.FilterLogs(parsedLogs, p)
 
-	// Create specific card instances
-	successRateCard := cards.NewSuccessRateCard(currentLogs, period)
-	requestsCard := cards.NewRequestsCard(currentLogs, period)
-	usersCard := cards.NewUsersCard(currentLogs, period)
-	endpointsCard := cards.NewEndpointsCard(currentLogs, period)
-	versionsCard := cards.NewVersionCard()
-	locationsCard := cards.NewLocationsCard(currentLogs, period)
-	devicesCard := cards.NewDeviceCard("")
-	activitiesCard := cards.NewActivityCard(currentLogs, period)
+	cardInstances := createCards(currentLogs, p, logSizes)
+	grid := setupGrid(cardInstances)
 
-	cpusCard := cards.NewCPUCard()
-	memorysCard := cards.NewMemoryCard()
-	usageTimesCard := cards.NewUsageTimeCard(currentLogs, period)
-	referrersCard := cards.NewReferrersCard(currentLogs, period)
-	storagesCard := cards.NewStorageCard()
-
-	// Create base cards with renderers - these will all be treated uniformly
-	placeholderCard := cards.NewCard("", cards.NewLogoCard())
-	successCard := cards.NewCard("Success Rate", successRateCard)
-	requestCard := cards.NewCard("Requests", requestsCard)
-	userCard := cards.NewCard("Users", usersCard)
-	activityCard := cards.NewCard("Activity", activitiesCard)
-	endpointCard := cards.NewCard("Endpoints", endpointsCard)
-	locationCard := cards.NewCard("Location", locationsCard)
-	deviceCard := cards.NewCard("Device", devicesCard)
-	cpuCard := cards.NewCard("CPU", cpusCard)
-	memorycard := cards.NewCard("Memory", memorysCard)
-	storageCard := cards.NewCard("Storage", storagesCard)
-	logCard := cards.NewCard("Logs", cards.NewLogSizeCard(logSizes))
-	usageTimeCard := cards.NewCard("Usage Time", usageTimesCard)
-	referrerCard := cards.NewCard("Referrers", referrersCard)
-	versionCard := cards.NewCard("Version", versionsCard)
-
-	// Set small sizes for compact display
-	cardWidth, cardHeight := 18, 4
-	placeholderCard.SetSize(cardWidth, cardHeight)
-	successCard.SetSize(cardWidth, cardHeight)
-	requestCard.SetSize(cardWidth, cardHeight)
-	userCard.SetSize(cardWidth, cardHeight)
-	activityCard.SetSize(cardWidth, cardHeight)
-	endpointCard.SetSize(cardWidth, cardHeight)
-	locationCard.SetSize(cardWidth, cardHeight)
-	deviceCard.SetSize(cardWidth, cardHeight)
-	referrerCard.SetSize(cardWidth, 35)
-
-	// Create grid (2x2 for top-left placement)
-	termWidth, _, _ := term.GetSize(os.Stdout.Fd())
-	grid := dashboard.NewDashboardGrid(2, 2, termWidth)
-
-	calculatable := []cards.CalculatedCard{
-		successRateCard,
-		requestsCard,
-		usersCard,
-		endpointsCard,
-		locationsCard,
-		activitiesCard,
-		usageTimesCard,
-		referrersCard,
-		versionsCard,
-	}
-
-	systemCalculatable := []cards.CalclatedSystemCard{
-		cpusCard,
-		memorysCard,
-		storagesCard,
-	}
-
-	// Add cards to grid with their layout positions
-	grid.AddMiniCard(placeholderCard)
-	grid.AddMiniCard(successCard)
-	grid.AddMiniCard(requestCard)
-	grid.AddMiniCard(userCard)
-
-	// Sidebar card (position 4)
-	grid.AddActivityCard(activityCard)
-
-	// Middle card (position 5)
-	// Ensure the card implements DynamicHeightCard before adding
-	grid.AddEndpointsCard(endpointCard)
-
-	// Bottom cards (positions 6-7)
-	grid.AddCenterPairCard(locationCard)
-	grid.AddCenterPairCard(deviceCard)
-
-	grid.AddSystemCard(cpuCard)
-	grid.AddSystemCard(memorycard)
-	grid.AddSystemCard(storageCard)
-	grid.AddSystemCard(logCard)
-
-	grid.AddFooterCard(usageTimeCard)
-	grid.AddFooterCard(referrerCard)
-
-	grid.AddVersionCard(versionCard)
-
-	// Set first card as active
-	grid.SetActiveCard(0)
+	calculatable, systemCalculatable := collectCalculatableCards(cardInstances)
 
 	return Model{
 		Config:             cfg,
@@ -177,7 +80,7 @@ func New(cfg config.Config) Model {
 		Keys:               ui.NewKeyMap(),
 		Initialized:        false,
 		Periods:            periods,
-		SelectedPeriod:     selectedPeriod, // Default to "30 days"
+		SelectedPeriod:     selectedPeriod,
 		TabNavigationMode:  false,
 		calculatable:       calculatable,
 		systemCalculatable: systemCalculatable,
@@ -185,6 +88,114 @@ func New(cfg config.Config) Model {
 		parsedLogs:         parsedLogs,
 		currentLogs:        currentLogs,
 	}
+}
+
+func fetchLogs(accessPath string) ([]string, []nginx.NGINXLog) {
+	logs, err := getLogs(accessPath)
+	if err != nil {
+		logger.Log.Printf("Error getting logs: %v", err)
+	}
+	return logs, l.ParseNginxLogs(logs)
+}
+
+func fetchLogSizes(accessPath string) parse.LogSizes {
+	logSizes, err := parse.GetLogSizes(accessPath)
+	if err != nil {
+		logger.Log.Printf("Error getting log sizes: %v", err)
+	}
+	return logSizes
+}
+
+func createCards(currentLogs []nginx.NGINXLog, p period.Period, logSizes parse.LogSizes) map[string]*cards.Card {
+	// Create specific card instances
+	successRateCard := cards.NewSuccessRateCard(currentLogs, p)
+	requestsCard := cards.NewRequestsCard(currentLogs, p)
+	usersCard := cards.NewUsersCard(currentLogs, p)
+	endpointsCard := cards.NewEndpointsCard(currentLogs, p)
+	versionsCard := cards.NewVersionCard()
+	locationsCard := cards.NewLocationsCard(currentLogs, p)
+	devicesCard := cards.NewDeviceCard("")
+	activitiesCard := cards.NewActivityCard(currentLogs, p)
+	cpusCard := cards.NewCPUCard()
+	memorysCard := cards.NewMemoryCard()
+	usageTimesCard := cards.NewUsageTimeCard(currentLogs, p)
+	referrersCard := cards.NewReferrersCard(currentLogs, p)
+	storagesCard := cards.NewStorageCard()
+
+	// Create base cards with renderers
+	cardInstances := map[string]*cards.Card{
+		"placeholder": cards.NewCard("", cards.NewLogoCard()),
+		"success":     cards.NewCard("Success Rate", successRateCard),
+		"request":     cards.NewCard("Requests", requestsCard),
+		"user":        cards.NewCard("Users", usersCard),
+		"activity":    cards.NewCard("Activity", activitiesCard),
+		"endpoint":    cards.NewCard("Endpoints", endpointsCard),
+		"location":    cards.NewCard("Location", locationsCard),
+		"device":      cards.NewCard("Device", devicesCard),
+		"cpu":         cards.NewCard("CPU", cpusCard),
+		"memory":      cards.NewCard("Memory", memorysCard),
+		"storage":     cards.NewCard("Storage", storagesCard),
+		"log":         cards.NewCard("Logs", cards.NewLogSizeCard(logSizes)),
+		"usageTime":   cards.NewCard("Usage Time", usageTimesCard),
+		"referrer":    cards.NewCard("Referrers", referrersCard),
+		"version":     cards.NewCard("Version", versionsCard),
+	}
+
+	// Set small sizes for compact display
+	cardWidth, cardHeight := 18, 4
+	cardInstances["placeholder"].SetSize(cardWidth, cardHeight)
+	cardInstances["success"].SetSize(cardWidth, cardHeight)
+	cardInstances["request"].SetSize(cardWidth, cardHeight)
+	cardInstances["user"].SetSize(cardWidth, cardHeight)
+	cardInstances["activity"].SetSize(cardWidth, cardHeight)
+	cardInstances["endpoint"].SetSize(cardWidth, cardHeight)
+	cardInstances["location"].SetSize(cardWidth, cardHeight)
+	cardInstances["device"].SetSize(cardWidth, cardHeight)
+	cardInstances["referrer"].SetSize(cardWidth, 35)
+
+	return cardInstances
+}
+
+func setupGrid(cardInstances map[string]*cards.Card) *dashboard.DashboardGrid {
+	termWidth, _, _ := term.GetSize(os.Stdout.Fd())
+	grid := dashboard.NewDashboardGrid(2, 2, termWidth)
+
+	// Add cards to grid with their layout positions
+	grid.AddMiniCard(cardInstances["placeholder"])
+	grid.AddMiniCard(cardInstances["success"])
+	grid.AddMiniCard(cardInstances["request"])
+	grid.AddMiniCard(cardInstances["user"])
+	grid.AddActivityCard(cardInstances["activity"])
+	grid.AddEndpointsCard(cardInstances["endpoint"])
+	grid.AddCenterPairCard(cardInstances["location"])
+	grid.AddCenterPairCard(cardInstances["device"])
+	grid.AddSystemCard(cardInstances["cpu"])
+	grid.AddSystemCard(cardInstances["memory"])
+	grid.AddSystemCard(cardInstances["storage"])
+	grid.AddSystemCard(cardInstances["log"])
+	grid.AddFooterCard(cardInstances["usageTime"])
+	grid.AddFooterCard(cardInstances["referrer"])
+	grid.AddVersionCard(cardInstances["version"])
+
+	grid.SetActiveCard(0)
+
+	return grid
+}
+
+func collectCalculatableCards(cardInstances map[string]*cards.Card) ([]cards.CalculatedCard, []cards.CalclatedSystemCard) {
+	var calculatable []cards.CalculatedCard
+	var systemCalculatable []cards.CalclatedSystemCard
+
+	for _, card := range cardInstances {
+		if c, ok := card.Renderer.(cards.CalculatedCard); ok {
+			calculatable = append(calculatable, c)
+		}
+		if sc, ok := card.Renderer.(cards.CalclatedSystemCard); ok {
+			systemCalculatable = append(systemCalculatable, sc)
+		}
+	}
+
+	return calculatable, systemCalculatable
 }
 
 func initialSelectedPeriodIndex(periods []period.Period, logs []nginx.NGINXLog) int {
