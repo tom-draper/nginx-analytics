@@ -2,8 +2,8 @@ package model
 
 import (
 	"os"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -48,7 +48,6 @@ type Model struct {
 	currentLogs []nginx.NGINXLog
 }
 
-// New creates a new model with initial state
 func New(cfg config.Config) Model {
 	logs, err := getLogs(cfg.AccessPath)
 	if err != nil {
@@ -79,7 +78,7 @@ func New(cfg config.Config) Model {
 	requestsCard := cards.NewRequestsCard(currentLogs, period)
 	usersCard := cards.NewUsersCard(currentLogs, period)
 	endpointsCard := cards.NewEndpointsCard(currentLogs, period)
-	versionsCard := cards.NewVersionCard("")
+	versionsCard := cards.NewVersionCard()
 	locationsCard := cards.NewLocationsCard(currentLogs, period)
 	devicesCard := cards.NewDeviceCard("")
 	activitiesCard := cards.NewActivityCard(currentLogs, period)
@@ -123,26 +122,6 @@ func New(cfg config.Config) Model {
 	termWidth, _, _ := term.GetSize(os.Stdout.Fd())
 	grid := dashboard.NewDashboardGrid(2, 2, termWidth)
 
-	// Add all cards to the grid - the grid will handle layout positioning
-	// The order here determines the navigation order
-	allCards := []*cards.Card{
-		placeholderCard, // 0 - top-left grid
-		successCard,     // 1 - top-right grid
-		requestCard,     // 2 - bottom-left grid
-		userCard,        // 3 - bottom-right grid
-		activityCard,    // 4 - sidebar
-		endpointCard,    // 5 - middle
-		locationCard,    // 6 - bottom area
-		deviceCard,      // 7 - bottom area
-		cpuCard,         // 8 - sub-grid
-		memorycard,      // 9 - sub-grid
-		storageCard,     // 10 - sub-grid
-		logCard,         // 11 - sub-grid
-		usageTimeCard,   // 12 - new sub-grid card
-		referrerCard,    // 13 - new sub-grid card
-		versionCard,
-	}
-
 	calculatable := []cards.CalculatedCard{
 		successRateCard,
 		requestsCard,
@@ -152,6 +131,7 @@ func New(cfg config.Config) Model {
 		activitiesCard,
 		usageTimesCard,
 		referrersCard,
+		versionsCard,
 	}
 
 	systemCalculatable := []cards.CalclatedSystemCard{
@@ -161,31 +141,31 @@ func New(cfg config.Config) Model {
 	}
 
 	// Add cards to grid with their layout positions
-	// Main grid cards (positions 0-3)
-	for i := range 4 {
-		grid.AddCard(allCards[i])
-	}
+	grid.AddMiniCard(placeholderCard)
+	grid.AddMiniCard(successCard)
+	grid.AddMiniCard(requestCard)
+	grid.AddMiniCard(userCard)
 
 	// Sidebar card (position 4)
-	grid.AddMain(allCards[4])
+	grid.AddActivityCard(activityCard)
 
 	// Middle card (position 5)
 	// Ensure the card implements DynamicHeightCard before adding
-	grid.AddEndpoints(allCards[5])
+	grid.AddEndpointsCard(endpointCard)
 
 	// Bottom cards (positions 6-7)
-	grid.AddSidebarBottomCard(allCards[6])
-	grid.AddSidebarBottomCard(allCards[7])
+	grid.AddCenterPairCard(locationCard)
+	grid.AddCenterPairCard(deviceCard)
 
-	grid.AddSystemCards(allCards[8])
-	grid.AddSystemCards(allCards[9])
-	grid.AddSystemCards(allCards[10])
-	grid.AddSystemCards(allCards[11])
+	grid.AddSystemCard(cpuCard)
+	grid.AddSystemCard(memorycard)
+	grid.AddSystemCard(storageCard)
+	grid.AddSystemCard(logCard)
 
-	grid.AddSidebarFooterCard(allCards[12])
-	grid.AddSidebarFooterCard(allCards[13])
+	grid.AddFooterCard(usageTimeCard)
+	grid.AddFooterCard(referrerCard)
 
-	grid.AddBottomCard(versionCard)
+	grid.AddVersionCard(versionCard)
 
 	// Set first card as active
 	grid.SetActiveCard(0)
@@ -223,10 +203,9 @@ func initialSelectedPeriodIndex(periods []period.Period, logs []nginx.NGINXLog) 
 	return selectedPeriod
 }
 
-
 type UpdateDataMsg struct{}
 
-type UpdateSystemDataMsg struct{
+type UpdateSystemDataMsg struct {
 	SysInfo system.SystemInfo
 }
 
@@ -235,15 +214,15 @@ func (m Model) Init() tea.Cmd {
 }
 
 func periodicSystemInfoCmd(d time.Duration) tea.Cmd {
-    return tea.Tick(d, func(t time.Time) tea.Msg {
-        logger.Log.Println("Checking system resources...")
-        sysInfo, err := system.MeasureSystem()
-        if err != nil {
-            logger.Log.Printf("Error measuring system: %v", err)
-            return nil
-        }
-        return UpdateSystemDataMsg{SysInfo: sysInfo}
-    })
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		logger.Log.Println("Checking system resources...")
+		sysInfo, err := system.MeasureSystem()
+		if err != nil {
+			logger.Log.Printf("Error measuring system: %v", err)
+			return nil
+		}
+		return UpdateSystemDataMsg{SysInfo: sysInfo}
+	})
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

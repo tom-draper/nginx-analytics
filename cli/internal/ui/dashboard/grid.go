@@ -44,48 +44,48 @@ func NewDashboardGrid(rows, cols, terminalWidth int) *DashboardGrid {
 	}
 }
 
-// AddCard adds a card to the main grid.
-func (d *DashboardGrid) AddCard(card *cards.Card) {
+// AddMiniCard adds a card to the main grid.
+func (d *DashboardGrid) AddMiniCard(card *cards.Card) {
 	d.Cards = append(d.Cards, card)
 	d.AllCards = append(d.AllCards, card)
 }
 
-// AddMain sets the card to be displayed in the sidebar.
-func (d *DashboardGrid) AddMain(card *cards.Card) {
+// AddActivityCard sets the card to be displayed in the sidebar.
+func (d *DashboardGrid) AddActivityCard(card *cards.Card) {
 	d.SidebarCard = card
 	d.AllCards = append(d.AllCards, card)
 }
 
-// AddEndpoints sets the card to be displayed below the main grid.
-func (d *DashboardGrid) AddEndpoints(card *cards.Card) {
+// AddEndpointsCard sets the card to be displayed below the main grid.
+func (d *DashboardGrid) AddEndpointsCard(card *cards.Card) {
 	d.MiddleCard = card
 	d.AllCards = append(d.AllCards, card)
 }
 
-// AddBottomCard sets the card to be displayed below the MiddleCard.
-func (d *DashboardGrid) AddBottomCard(card *cards.Card) {
+// AddVersionCard sets the card to be displayed below the MiddleCard.
+func (d *DashboardGrid) AddVersionCard(card *cards.Card) {
 	d.BottomCard = card
 	d.AllCards = append(d.AllCards, card)
 }
 
-// AddSidebarBottomCard adds a card to the bottom row of sidebar (max 2 cards).
-func (d *DashboardGrid) AddSidebarBottomCard(card *cards.Card) {
+// AddCenterPairCard adds a card to the bottom row of sidebar (max 2 cards).
+func (d *DashboardGrid) AddCenterPairCard(card *cards.Card) {
 	if len(d.SidebarBottomCards) < 2 {
 		d.SidebarBottomCards = append(d.SidebarBottomCards, card)
 		d.AllCards = append(d.AllCards, card)
 	}
 }
 
-// AddSystemCards adds a card to the 2x2 sub-grid in sidebar area (max 4 cards).
-func (d *DashboardGrid) AddSystemCards(card *cards.Card) {
+// AddSystemCard adds a card to the 2x2 sub-grid in sidebar area (max 4 cards).
+func (d *DashboardGrid) AddSystemCard(card *cards.Card) {
 	if len(d.SidebarSubGridCards) < 4 {
 		d.SidebarSubGridCards = append(d.SidebarSubGridCards, card)
 		d.AllCards = append(d.AllCards, card)
 	}
 }
 
-// AddSidebarFooterCard adds a card to the 2x1 footer row in sidebar area (max 2 cards).
-func (d *DashboardGrid) AddSidebarFooterCard(card *cards.Card) {
+// AddFooterCard adds a card to the 2x1 footer row in sidebar area (max 2 cards).
+func (d *DashboardGrid) AddFooterCard(card *cards.Card) {
 	if len(d.SidebarFooterCards) < 2 {
 		d.SidebarFooterCards = append(d.SidebarFooterCards, card)
 		d.AllCards = append(d.AllCards, card)

@@ -3,7 +3,6 @@ package cards
 import (
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 	loc "github.com/tom-draper/nginx-analytics/cli/internal/logs/location"
@@ -52,7 +51,6 @@ func (r *LocationsCard) RenderContent(width, height int) string {
 
 	// Build the chart
 	chart := r.buildChart(topLocations, maxCount, chartHeight, width)
-	// chart = []string{"\n", "\n", "\n", "\n"}
 
 	// Add labels
 	labelLine := r.buildLabelLine(topLocations)
