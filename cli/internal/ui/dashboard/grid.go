@@ -35,7 +35,17 @@ const (
 type LayoutSection struct {
 	Cards      []*cards.Card
 	MaxCards   int
-	RenderFunc func(*DashboardGrid, int) string
+	RenderFunc func(*Layout, int) string
+}
+
+// Layout manages the layout of the dashboard.
+type Layout struct {
+	grid *DashboardGrid
+}
+
+// NewLayout creates a new layout with the given grid.
+func NewLayout(grid *DashboardGrid) *Layout {
+	return &Layout{grid: grid}
 }
 
 // DashboardGrid manages a collection of cards in a custom layout with sidebar.
@@ -47,16 +57,13 @@ type DashboardGrid struct {
 	ActiveCard    int
 
 	// Card collections
-	mainGridCards   []*cards.Card
-	activityCard    *cards.Card
-	endpointsCard   *cards.Card
-	versionCard     *cards.Card
-	centerPairCards []*cards.Card
-	systemCards     []*cards.Card
-	footerCards     []*cards.Card
+	cardsByPosition map[CardPosition][]*cards.Card
 
 	// Unified navigation
 	allCards []Card
+
+	// Layout
+	layout *Layout
 }
 
 // Card represents a card with its position for navigation
@@ -67,116 +74,36 @@ type Card struct {
 
 // NewDashboardGrid creates a new dashboard grid with sensible defaults.
 func NewDashboardGrid(rows, cols, terminalWidth int) *DashboardGrid {
-	return &DashboardGrid{
+	d := &DashboardGrid{
 		Rows:            rows,
 		Cols:            cols,
 		TerminalWidth:   terminalWidth,
 		ActiveCard:      0,
-		mainGridCards:   make([]*cards.Card, 0, rows*cols),
-		centerPairCards: make([]*cards.Card, 0, 2),
-		systemCards:     make([]*cards.Card, 0, 4),
-		footerCards:     make([]*cards.Card, 0, 2),
+		cardsByPosition: make(map[CardPosition][]*cards.Card),
 		allCards:        make([]Card, 0),
 	}
+	d.layout = NewLayout(d)
+	return d
 }
 
-// Card addition methods with improved error handling and consistency
-
-// AddMiniCard adds a card to the main grid.
-func (d *DashboardGrid) AddMiniCard(card *cards.Card) error {
+// AddCard adds a card to the specified position in the grid.
+func (d *DashboardGrid) AddCard(card *cards.Card, position CardPosition) error {
 	if card == nil {
 		return ErrNilCard
 	}
-	if len(d.mainGridCards) >= d.Rows*d.Cols {
-		return ErrMaxCardsExceeded
+
+	// Check if the card already exists at the specified position
+	if _, ok := d.cardsByPosition[position]; ok {
+		// Check if the card already exists in the slice
+		for _, c := range d.cardsByPosition[position] {
+			if c == card {
+				return ErrCardAlreadyExists
+			}
+		}
 	}
 
-	d.mainGridCards = append(d.mainGridCards, card)
-	d.addToAllCards(card, PositionMainGrid)
-	return nil
-}
-
-// AddActivityCard sets the card to be displayed in the sidebar.
-func (d *DashboardGrid) AddActivityCard(card *cards.Card) error {
-	if card == nil {
-		return ErrNilCard
-	}
-	if d.activityCard != nil {
-		return ErrCardAlreadyExists
-	}
-
-	d.activityCard = card
-	d.addToAllCards(card, PositionSidebar)
-	return nil
-}
-
-// AddEndpointsCard sets the card to be displayed below the main grid.
-func (d *DashboardGrid) AddEndpointsCard(card *cards.Card) error {
-	if card == nil {
-		return ErrNilCard
-	}
-	if d.endpointsCard != nil {
-		return ErrCardAlreadyExists
-	}
-
-	d.endpointsCard = card
-	d.addToAllCards(card, PositionEndpoints)
-	return nil
-}
-
-// AddVersionCard sets the card to be displayed below the endpoints card.
-func (d *DashboardGrid) AddVersionCard(card *cards.Card) error {
-	if card == nil {
-		return ErrNilCard
-	}
-	if d.versionCard != nil {
-		return ErrCardAlreadyExists
-	}
-
-	d.versionCard = card
-	d.addToAllCards(card, PositionVersion)
-	return nil
-}
-
-// AddCenterPairCard adds a card to the center pair section (max 2 cards).
-func (d *DashboardGrid) AddCenterPairCard(card *cards.Card) error {
-	if card == nil {
-		return ErrNilCard
-	}
-	if len(d.centerPairCards) >= 2 {
-		return ErrMaxCardsExceeded
-	}
-
-	d.centerPairCards = append(d.centerPairCards, card)
-	d.addToAllCards(card, PositionCenterPair)
-	return nil
-}
-
-// AddSystemCard adds a card to the system section (max 4 cards).
-func (d *DashboardGrid) AddSystemCard(card *cards.Card) error {
-	if card == nil {
-		return ErrNilCard
-	}
-	if len(d.systemCards) >= 4 {
-		return ErrMaxCardsExceeded
-	}
-
-	d.systemCards = append(d.systemCards, card)
-	d.addToAllCards(card, PositionSystem)
-	return nil
-}
-
-// AddFooterCard adds a card to the footer section (max 2 cards).
-func (d *DashboardGrid) AddFooterCard(card *cards.Card) error {
-	if card == nil {
-		return ErrNilCard
-	}
-	if len(d.footerCards) >= 2 {
-		return ErrMaxCardsExceeded
-	}
-
-	d.footerCards = append(d.footerCards, card)
-	d.addToAllCards(card, PositionFooter)
+	d.cardsByPosition[position] = append(d.cardsByPosition[position], card)
+	d.addToAllCards(card, position)
 	return nil
 }
 
@@ -231,14 +158,17 @@ func (d *DashboardGrid) addToAllCards(card *cards.Card, position CardPosition) {
 
 // Main rendering method
 
-// RenderGrid renders the complete dashboard layout.
 func (d *DashboardGrid) RenderGrid() string {
-	if len(d.allCards) == 0 {
+	return d.layout.RenderGrid()
+}
+
+func (l *Layout) RenderGrid() string {
+	if len(l.grid.allCards) == 0 {
 		return ""
 	}
 
-	leftColumn := d.buildLeftColumn()
-	rightColumn := d.buildRightColumn(lipgloss.Width(leftColumn))
+	leftColumn := l.buildLeftColumn()
+	rightColumn := l.buildRightColumn(lipgloss.Width(leftColumn))
 
 	if rightColumn == "" {
 		return leftColumn
@@ -248,10 +178,10 @@ func (d *DashboardGrid) RenderGrid() string {
 }
 
 // buildLeftColumn constructs the left column of the layout.
-func (d *DashboardGrid) buildLeftColumn() string {
+func (l *Layout) buildLeftColumn() string {
 	var parts []string
 
-	if mainGrid := d.renderMainGrid(); mainGrid != "" {
+	if mainGrid := l.renderMainGrid(); mainGrid != "" {
 		parts = append(parts, mainGrid)
 	}
 
@@ -260,11 +190,11 @@ func (d *DashboardGrid) buildLeftColumn() string {
 		mainGridWidth = lipgloss.Width(parts[0])
 	}
 
-	if endpoints := d.renderSingleCard(d.endpointsCard, mainGridWidth, DefaultEndpointsHeight); endpoints != "" {
+	if endpoints := l.renderSingleCard(l.grid.cardsByPosition[PositionEndpoints][0], mainGridWidth, DefaultEndpointsHeight); endpoints != "" {
 		parts = append(parts, endpoints)
 	}
 
-	if version := d.renderSingleCard(d.versionCard, mainGridWidth, DefaultVersionHeight); version != "" {
+	if version := l.renderSingleCard(l.grid.cardsByPosition[PositionVersion][0], mainGridWidth, DefaultVersionHeight); version != "" {
 		parts = append(parts, version)
 	}
 
@@ -276,29 +206,29 @@ func (d *DashboardGrid) buildLeftColumn() string {
 }
 
 // buildRightColumn constructs the right column (sidebar area) of the layout.
-func (d *DashboardGrid) buildRightColumn(leftColumnWidth int) string {
-	if d.activityCard == nil {
+func (l *Layout) buildRightColumn(leftColumnWidth int) string {
+	if len(l.grid.cardsByPosition[PositionSidebar]) == 0 {
 		return ""
 	}
 
-	mainContentWidth := max(d.TerminalWidth-leftColumnWidth-CardSpacing, 0)
+	mainContentWidth := max(l.grid.TerminalWidth-leftColumnWidth-CardSpacing, 0)
 	var parts []string
 
 	// Main sidebar card
-	if sidebar := d.renderSingleCard(d.activityCard, mainContentWidth+2, DefaultSidebarHeight); sidebar != "" {
+	if sidebar := l.renderSingleCard(l.grid.cardsByPosition[PositionSidebar][0], mainContentWidth+2, DefaultSidebarHeight); sidebar != "" {
 		parts = append(parts, sidebar)
 	}
 
 	// Additional sidebar sections
-	if centerPair := d.renderCenterPairCards(mainContentWidth); centerPair != "" {
+	if centerPair := l.renderCenterPairCards(mainContentWidth); centerPair != "" {
 		parts = append(parts, centerPair)
 	}
 
-	if system := d.renderSystemCards(mainContentWidth); system != "" {
+	if system := l.renderSystemCards(mainContentWidth); system != "" {
 		parts = append(parts, system)
 	}
 
-	if footer := d.renderFooterCards(mainContentWidth); footer != "" {
+	if footer := l.renderFooterCards(mainContentWidth); footer != "" {
 		parts = append(parts, footer)
 	}
 
@@ -312,18 +242,18 @@ func (d *DashboardGrid) buildRightColumn(leftColumnWidth int) string {
 // Card rendering methods
 
 // renderMainGrid renders the main grid in the top-left.
-func (d *DashboardGrid) renderMainGrid() string {
-	if len(d.mainGridCards) == 0 || d.Rows == 0 || d.Cols == 0 {
+func (l *Layout) renderMainGrid() string {
+	if len(l.grid.cardsByPosition[PositionMainGrid]) == 0 || l.grid.Rows == 0 || l.grid.Cols == 0 {
 		return ""
 	}
 
 	var rows []string
-	for r := range d.Rows {
+	for r := range l.grid.Rows {
 		var rowCards []string
-		for c := range d.Cols {
-			cardIndex := r*d.Cols + c
-			if cardIndex < len(d.mainGridCards) {
-				rowCards = append(rowCards, d.mainGridCards[cardIndex].Render())
+		for c := range l.grid.Cols {
+			cardIndex := r*l.grid.Cols + c
+			if cardIndex < len(l.grid.cardsByPosition[PositionMainGrid]) {
+				rowCards = append(rowCards, l.grid.cardsByPosition[PositionMainGrid][cardIndex].Render())
 			}
 		}
 		if len(rowCards) > 0 {
@@ -339,7 +269,7 @@ func (d *DashboardGrid) renderMainGrid() string {
 }
 
 // renderSingleCard renders a single card with dynamic height support.
-func (d *DashboardGrid) renderSingleCard(card *cards.Card, targetWidth, defaultHeight int) string {
+func (l *Layout) renderSingleCard(card *cards.Card, targetWidth, defaultHeight int) string {
 	if card == nil {
 		return ""
 	}
@@ -357,19 +287,19 @@ func (d *DashboardGrid) renderSingleCard(card *cards.Card, targetWidth, defaultH
 }
 
 // renderCenterPairCards renders the center pair cards section.
-func (d *DashboardGrid) renderCenterPairCards(sidebarWidth int) string {
-	return d.renderHorizontalCardPair(d.centerPairCards, sidebarWidth, DefaultCenterPairHeight)
+func (l *Layout) renderCenterPairCards(sidebarWidth int) string {
+	return l.renderHorizontalCardPair(l.grid.cardsByPosition[PositionCenterPair], sidebarWidth, DefaultCenterPairHeight)
 }
 
 // renderFooterCards renders the footer cards section.
-func (d *DashboardGrid) renderFooterCards(sidebarWidth int) string {
-	if len(d.footerCards) == 0 {
+func (l *Layout) renderFooterCards(sidebarWidth int) string {
+	if len(l.grid.cardsByPosition[PositionFooter]) == 0 {
 		return ""
 	}
 
 	var renderedCards []string
-	for i, card := range d.footerCards {
-		cardWidth := d.calculateCardWidth(sidebarWidth, len(d.footerCards), i)
+	for i, card := range l.grid.cardsByPosition[PositionFooter] {
+		cardWidth := l.calculateCardWidth(sidebarWidth, len(l.grid.cardsByPosition[PositionFooter]), i)
 
 		height := DefaultFooterHeight
 		if dynamicRenderer, ok := card.Renderer.(cards.DynamicHeightCard); ok {
@@ -384,8 +314,8 @@ func (d *DashboardGrid) renderFooterCards(sidebarWidth int) string {
 }
 
 // renderSystemCards renders the system cards in a 2x2 grid layout.
-func (d *DashboardGrid) renderSystemCards(sidebarWidth int) string {
-	if len(d.systemCards) == 0 {
+func (l *Layout) renderSystemCards(sidebarWidth int) string {
+	if len(l.grid.cardsByPosition[PositionSystem]) == 0 {
 		return ""
 	}
 
@@ -394,11 +324,11 @@ func (d *DashboardGrid) renderSystemCards(sidebarWidth int) string {
 	rightCardWidth := availableWidth / 2
 
 	var rows []string
-	for row := 0; row < 3 && row*2 < len(d.systemCards); row++ {
+	for row := 0; row < 3 && row*2 < len(l.grid.cardsByPosition[PositionSystem]); row++ {
 		var rowCards []string
 		for col := range 2 {
 			cardIndex := row*2 + col
-			if cardIndex >= len(d.systemCards) {
+			if cardIndex >= len(l.grid.cardsByPosition[PositionSystem]) {
 				break
 			}
 
@@ -412,8 +342,8 @@ func (d *DashboardGrid) renderSystemCards(sidebarWidth int) string {
 				cardHeight = SmallSystemCardHeight
 			}
 
-			d.systemCards[cardIndex].SetSize(cardWidth, cardHeight)
-			rowCards = append(rowCards, d.systemCards[cardIndex].Render())
+			l.grid.cardsByPosition[PositionSystem][cardIndex].SetSize(cardWidth, cardHeight)
+			rowCards = append(rowCards, l.grid.cardsByPosition[PositionSystem][cardIndex].Render())
 		}
 
 		if len(rowCards) > 0 {
@@ -429,14 +359,14 @@ func (d *DashboardGrid) renderSystemCards(sidebarWidth int) string {
 }
 
 // renderHorizontalCardPair renders a pair of cards horizontally.
-func (d *DashboardGrid) renderHorizontalCardPair(cardSlice []*cards.Card, totalWidth, cardHeight int) string {
+func (l *Layout) renderHorizontalCardPair(cardSlice []*cards.Card, totalWidth, cardHeight int) string {
 	if len(cardSlice) == 0 {
 		return ""
 	}
 
 	var renderedCards []string
 	for i, card := range cardSlice {
-		cardWidth := d.calculateCardWidth(totalWidth, len(cardSlice), i)
+		cardWidth := l.calculateCardWidth(totalWidth, len(cardSlice), i)
 		card.SetSize(cardWidth, cardHeight)
 		renderedCards = append(renderedCards, card.Render())
 	}
@@ -445,7 +375,7 @@ func (d *DashboardGrid) renderHorizontalCardPair(cardSlice []*cards.Card, totalW
 }
 
 // calculateCardWidth calculates the width for a card in a horizontal layout.
-func (d *DashboardGrid) calculateCardWidth(totalWidth, numCards, cardIndex int) int {
+func (l *Layout) calculateCardWidth(totalWidth, numCards, cardIndex int) int {
 	if numCards == 1 {
 		return totalWidth
 	}
