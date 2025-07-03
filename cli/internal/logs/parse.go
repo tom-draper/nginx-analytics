@@ -9,7 +9,6 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 )
 
-// ParseNginxLogs parses nginx access log entries
 func ParseNginxLogs(logs []string) []nginx.NGINXLog {
 	// Regex pattern for common nginx access log format
 	regex := regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]+)" "([^"]+)"`)
@@ -38,7 +37,6 @@ func ParseNginxLogs(logs []string) []nginx.NGINXLog {
 	return data
 }
 
-// parseDate parses nginx timestamp format
 func parseDate(dateStr string) *time.Time {
 	if dateStr == "" {
 		return nil
@@ -69,7 +67,6 @@ func parseDate(dateStr string) *time.Time {
 	return nil
 }
 
-// parseIntPtr safely parses string to int pointer
 func parseIntPtr(s string) *int {
 	if s == "" {
 		return nil
@@ -80,7 +77,6 @@ func parseIntPtr(s string) *int {
 	return nil
 }
 
-// ParseNginxErrors parses nginx error log entries
 func ParseNginxErrors(logLines []string) []nginx.NGINXError {
 	var errors []nginx.NGINXError
 
@@ -169,7 +165,6 @@ func ParseNginxErrors(logLines []string) []nginx.NGINXError {
 	return errors
 }
 
-// extractMessage extracts the main message from the log line
 func extractMessage(line, cid, level string, pid int, tid string) string {
 	// Try to extract message after CID
 	if cid != "0" {

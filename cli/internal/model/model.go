@@ -1,6 +1,10 @@
 package model
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -27,6 +31,7 @@ import (
 // Model represents the application state
 type Model struct {
 	Config      config.Config
+	ServerURL   string
 	Grid        *dashboard.DashboardGrid
 	Help        help.Model
 	Keys        ui.KeyMap
@@ -48,13 +53,13 @@ type Model struct {
 	currentLogs []nginx.NGINXLog
 }
 
-func New(cfg config.Config) Model {
-	return NewModel(cfg)
+func New(cfg config.Config, serverURL string) Model {
+	return NewModel(cfg, serverURL)
 }
 
-func NewModel(cfg config.Config) Model {
-	logs, parsedLogs := fetchLogs(cfg.AccessPath)
-	logSizes := fetchLogSizes(cfg.AccessPath)
+func NewModel(cfg config.Config, serverURL string) Model {
+	logs, parsedLogs := getLogs(cfg.AccessPath, serverURL)
+	logSizes := getLogsSizes(cfg.AccessPath, serverURL)
 
 	periods := []period.Period{
 		period.Period24Hours,
@@ -75,6 +80,7 @@ func NewModel(cfg config.Config) Model {
 
 	return Model{
 		Config:             cfg,
+		ServerURL:          serverURL,
 		Grid:               grid,
 		Help:               help.New(),
 		Keys:               ui.NewKeyMap(),
@@ -90,20 +96,103 @@ func NewModel(cfg config.Config) Model {
 	}
 }
 
-func fetchLogs(accessPath string) ([]string, []nginx.NGINXLog) {
-	logs, err := getLogs(accessPath)
+func getLogs(accessPath, serverURL string) ([]string, []nginx.NGINXLog) {
+	var logs []string
+	var err error
+
+	if serverURL != "" {
+		logs, err = fetchLogs(serverURL)
+	} else {
+		logs, err = readLogs(accessPath)
+	}
+
 	if err != nil {
 		logger.Log.Printf("Error getting logs: %v", err)
 	}
+
 	return logs, l.ParseNginxLogs(logs)
 }
 
-func fetchLogSizes(accessPath string) parse.LogSizes {
-	logSizes, err := parse.GetLogSizes(accessPath)
+func readLogs(path string) ([]string, error) {
+	if path == "" {
+		return nil, nil
+	}
+	logResult, err := parse.GetLogs(path, []parse.Position{}, false, true)
+	if err != nil {
+		return nil, err
+	}
+	return logResult.Logs, nil
+}
+
+func fetchLogs(baseURL string) ([]string, error) {
+	url := baseURL + "/api/logs/access"
+	body, err := httpGetAndReadBody(url)
+	if err != nil {
+		return nil, err
+	}
+
+	var result parse.LogResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return result.Logs, nil
+}
+
+func getLogsSizes(accessPath, serverURL string) parse.LogSizes {
+	var logSizes parse.LogSizes
+	var err error
+
+	if serverURL != "" {
+		logSizes, err = fetchLogsSizes(serverURL)
+	} else {
+		logSizes, err = readLogsSizes(accessPath)
+	}
+
 	if err != nil {
 		logger.Log.Printf("Error getting log sizes: %v", err)
 	}
+
 	return logSizes
+}
+
+func readLogsSizes(path string) (parse.LogSizes, error) {
+	logSizes, err := parse.GetLogSizes(path)
+	if err != nil {
+		return parse.LogSizes{}, err
+	}
+	return logSizes, nil
+}
+
+func fetchLogsSizes(baseURL string) (parse.LogSizes, error) {
+	url := baseURL + "/api/system/logs"
+	body, err := httpGetAndReadBody(url)
+	if err != nil {
+		return parse.LogSizes{}, err
+	}
+
+	var result parse.LogSizes
+	if err := json.Unmarshal(body, &result); err != nil {
+		return parse.LogSizes{}, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return result, nil
+}
+
+// Helper to do HTTP GET and read body with error handling
+func httpGetAndReadBody(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request to %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body from %s: %w", url, err)
+	}
+
+	return body, nil
 }
 
 func createCards(currentLogs []nginx.NGINXLog, p period.Period, logSizes parse.LogSizes) map[string]*cards.Card {
@@ -221,26 +310,52 @@ type UpdateSystemDataMsg struct {
 }
 
 func (m Model) Init() tea.Cmd {
-	return periodicSystemInfoCmd(0)
+	return periodicSystemInfoCmd(0, m.ServerURL)
 }
 
-func periodicSystemInfoCmd(d time.Duration) tea.Cmd {
+func periodicSystemInfoCmd(d time.Duration, serverURL string) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg {
 		logger.Log.Println("Checking system resources...")
-		sysInfo, err := system.MeasureSystem()
+
+		var sysInfo system.SystemInfo
+		var err error
+
+		if serverURL != "" {
+			sysInfo, err = fetchSystemInfo(serverURL)
+		} else {
+			sysInfo, err = system.MeasureSystem()
+		}
+
 		if err != nil {
 			logger.Log.Printf("Error measuring system: %v", err)
 			return nil
 		}
+
 		return UpdateSystemDataMsg{SysInfo: sysInfo}
 	})
+}
+
+// fetchSystemInfo fetches system info JSON from the remote server
+func fetchSystemInfo(baseURL string) (system.SystemInfo, error) {
+	url := baseURL + "/api/system"
+	body, err := httpGetAndReadBody(url)
+	if err != nil {
+		return system.SystemInfo{}, err
+	}
+
+	var sysInfo system.SystemInfo
+	if err := json.Unmarshal(body, &sysInfo); err != nil {
+		return system.SystemInfo{}, fmt.Errorf("failed to parse system info JSON: %w", err)
+	}
+
+	return sysInfo, nil
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case UpdateSystemDataMsg:
 		m.updateSystemCardData(msg.SysInfo)
-		return m, periodicSystemInfoCmd(time.Second * 2)
+		return m, periodicSystemInfoCmd(time.Second * 2, m.ServerURL)
 
 	case tea.KeyMsg:
 		switch {
@@ -528,17 +643,4 @@ func (m Model) ViewCompact() string {
 // GetSelectedPeriod returns the currently selected period
 func (m Model) GetSelectedPeriod() period.Period {
 	return m.Periods[m.SelectedPeriod]
-}
-
-func getLogs(path string) ([]string, error) {
-	if path == "" {
-		return []string{}, nil
-	}
-
-	logResult, err := parse.GetLogs(path, []parse.Position{}, false, true)
-	if err != nil {
-		return []string{}, err
-	}
-
-	return logResult.Logs, nil
 }

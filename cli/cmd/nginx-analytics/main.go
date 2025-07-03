@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
+	"github.com/tom-draper/nginx-analytics/cli/internal/env"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/model"
 )
@@ -14,9 +15,10 @@ import (
 func main() {
 	logger.Log.Println("Starting Nginx Analytics CLI...")
 	cfg := config.LoadConfig()
+	e := env.LoadEnv()
 
 	// Create the model with the dashboard
-	m := model.New(cfg)
+	m := model.New(cfg, e.ServerURL)
 
 	// Create the program
 	p := tea.NewProgram(m, tea.WithAltScreen())

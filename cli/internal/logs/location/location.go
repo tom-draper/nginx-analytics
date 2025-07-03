@@ -1,8 +1,12 @@
 package location
 
 import (
+	"encoding/json"
+	"net/http"
 	"sort"
+	"strings"
 
+	"github.com/tom-draper/nginx-analytics/agent/pkg/location"
 	loc "github.com/tom-draper/nginx-analytics/agent/pkg/location"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 )
@@ -17,12 +21,12 @@ type Locations struct {
 	cache     map[string]loc.Location
 }
 
-func (l *Locations) UpdateLocations(logs []nginx.NGINXLog) {
+func (l *Locations) UpdateLocations(logs []nginx.NGINXLog, serverURL string) {
 	if !loc.LocationsEnabled() {
 		return
 	}
 
-	l.maintainCache(logs)
+	l.maintainCache(logs, serverURL)
 	l.updateLocations(logs)
 }
 
@@ -50,24 +54,59 @@ func (l *Locations) updateLocations(logs []nginx.NGINXLog) {
 	l.Locations = locations
 }
 
-func (l *Locations) maintainCache(logs []nginx.NGINXLog) {
+func (l *Locations) maintainCache(logs []nginx.NGINXLog, serverURL string) {
 	ipAddresses := getIPAddresses(logs)
 	if len(ipAddresses) == 0 {
 		return
 	}
 
 	filterCached := filterCached(ipAddresses, l.cache)
-	if len(filterCached) > 0 {
-		locations, err := loc.ResolveLocations(filterCached)
+	if len(filterCached) == 0 {
+		return
+	}
+
+	if serverURL != "" {
+		// Prepare JSON body with filtered IPs
+		reqBody, err := json.Marshal(filterCached)
+		if err != nil {
+			return
+		}
+
+		url := serverURL + "/api/location"
+		resp, err := http.Post(url, "application/json", strings.NewReader(string(reqBody)))
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return
+		}
+
+		var locations []location.Location
+		err = json.NewDecoder(resp.Body).Decode(&locations)
 		if err != nil {
 			return
 		}
 
 		l.updateCache(locations, filterCached)
+	} else {
+		// fallback to local resolution
+		locationsPtr, err := loc.ResolveLocations(filterCached)
+		if err != nil {
+			return
+		}
+		locations := make([]loc.Location, len(locationsPtr))
+		for i, locPtr := range locationsPtr {
+			if locPtr != nil {
+				locations[i] = locPtr
+			}
+		}
+		l.updateCache(locations, filterCached)
 	}
 }
 
-func (l *Locations) updateCache(locations []*loc.Location, ipAddresses []string) {
+func (l *Locations) updateCache(locations []loc.Location, ipAddresses []string) {
 	if len(locations) == 0 || (len(locations) != len(ipAddresses)) {
 		return
 	}
@@ -79,7 +118,7 @@ func (l *Locations) updateCache(locations []*loc.Location, ipAddresses []string)
 	for i, location := range locations {
 		ip := ipAddresses[i]
 		if _, exists := l.cache[ip]; !exists {
-			l.cache[ip] = *location
+			l.cache[ip] = location
 		}
 	}
 }
