@@ -92,15 +92,9 @@ func (l *Locations) maintainCache(logs []nginx.NGINXLog, serverURL string) {
 		l.updateCache(locations, filterCached)
 	} else {
 		// fallback to local resolution
-		locationsPtr, err := loc.ResolveLocations(filterCached)
+		locations, err := loc.ResolveLocations(filterCached)
 		if err != nil {
 			return
-		}
-		locations := make([]loc.Location, len(locationsPtr))
-		for i, locPtr := range locationsPtr {
-			if locPtr != nil {
-				locations[i] = locPtr
-			}
 		}
 		l.updateCache(locations, filterCached)
 	}

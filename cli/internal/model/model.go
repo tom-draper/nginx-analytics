@@ -73,7 +73,7 @@ func NewModel(cfg config.Config, serverURL string) Model {
 
 	currentLogs := l.FilterLogs(parsedLogs, p)
 
-	cardInstances := createCards(currentLogs, p, logSizes)
+	cardInstances := createCards(currentLogs, p, logSizes, serverURL)
 	grid := setupGrid(cardInstances)
 
 	calculatable, systemCalculatable := collectCalculatableCards(cardInstances)
@@ -195,14 +195,14 @@ func httpGetAndReadBody(url string) ([]byte, error) {
 	return body, nil
 }
 
-func createCards(currentLogs []nginx.NGINXLog, p period.Period, logSizes parse.LogSizes) map[string]*cards.Card {
+func createCards(currentLogs []nginx.NGINXLog, p period.Period, logSizes parse.LogSizes, serverURL string) map[string]*cards.Card {
 	// Create specific card instances
 	successRateCard := cards.NewSuccessRateCard(currentLogs, p)
 	requestsCard := cards.NewRequestsCard(currentLogs, p)
 	usersCard := cards.NewUsersCard(currentLogs, p)
 	endpointsCard := cards.NewEndpointsCard(currentLogs, p)
 	versionsCard := cards.NewVersionCard(currentLogs, p)
-	locationsCard := cards.NewLocationsCard(currentLogs, p)
+	locationsCard := cards.NewLocationsCard(currentLogs, p, serverURL)
 	devicesCard := cards.NewDeviceCard(currentLogs, p)
 	activitiesCard := cards.NewActivityCard(currentLogs, p)
 	cpusCard := cards.NewCPUCard()
