@@ -35,9 +35,9 @@ func NewLogService(serverURL string) *LogService {
 }
 
 // LoadLogs loads and parses nginx logs from either local file or remote server
-func (ls *LogService) LoadLogs(accessPath string) ([]nginx.NGINXLog, error) {
-	result := ls.getLogs(accessPath, []parse.Position{}, false, true)
-	return l.ParseNginxLogs(result.Logs), nil
+func (ls *LogService) LoadLogs(accessPath string, positions []parse.Position, isErrorLog bool, includeCompressed bool) ([]nginx.NGINXLog, []parse.Position, error) {
+	result := ls.getLogs(accessPath, positions, isErrorLog, includeCompressed)
+	return l.ParseNginxLogs(result.Logs), result.Positions, nil
 }
 
 // LoadLogSizes loads log size information

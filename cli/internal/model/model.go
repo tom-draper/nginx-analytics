@@ -41,6 +41,7 @@ type DataManager struct {
 	currentLogs  []nginx.NGINXLog
 	calculatable []c.CalculatedCard
 	systemCards  []c.CalculatedSystemCard
+	positions    []parse.Position // Track the last log position for incremental loading
 }
 
 // UIManager handles UI rendering and layout
@@ -62,6 +63,10 @@ type NavigationManager struct {
 type UpdateDataMsg struct{}
 type UpdateSystemDataMsg struct {
 	SysInfo system.SystemInfo
+}
+type UpdateLogsMsg struct {
+	NewLogs      []nginx.NGINXLog
+	NewPositions []parse.Position
 }
 
 // New creates a new Model instance
@@ -100,7 +105,7 @@ func newDataManager(cfg config.Config, serverURL string) *DataManager {
 	logService := NewLogService(serverURL)
 
 	// Load initial logs
-	logs, err := logService.LoadLogs(cfg.AccessPath)
+	logs, positions, err := logService.LoadLogs(cfg.AccessPath, []parse.Position{}, false, true)
 	if err != nil {
 		logs = []nginx.NGINXLog{}
 	}
@@ -114,6 +119,7 @@ func newDataManager(cfg config.Config, serverURL string) *DataManager {
 		serverURL: serverURL,
 		logs:      logs,
 		logSizes:  logSizes,
+		positions: positions,
 	}
 }
 
@@ -185,6 +191,18 @@ func (dm *DataManager) updateSystemCardData(sysInfo system.SystemInfo) {
 	for _, card := range dm.systemCards {
 		card.UpdateCalculated(sysInfo)
 	}
+}
+
+// appendNewLogs appends new logs to the existing log list and updates the position
+func (dm *DataManager) appendNewLogs(newLogs []nginx.NGINXLog) {
+	if len(newLogs) > 0 {
+		dm.logs = append(dm.logs, newLogs...)
+	}
+}
+
+// getLastLogPosition returns the current log position for incremental loading
+func (dm *DataManager) getPositions() []parse.Position {
+	return dm.positions
 }
 
 // NavigationManager methods
@@ -320,14 +338,27 @@ func (um *UIManager) navigateDown() {
 
 // Main Model methods
 func (m Model) Init() tea.Cmd {
-	return periodicSystemInfoCmd(0, m.dataManager.serverURL)
+	return tea.Batch(
+		periodicSystemInfoCmd(0, m.dataManager.serverURL),
+		periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.getPositions()),
+	)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+
 	case UpdateSystemDataMsg:
 		m.dataManager.updateSystemCardData(msg.SysInfo)
 		return m, periodicSystemInfoCmd(time.Second*2, m.dataManager.serverURL)
+
+	case UpdateLogsMsg:
+		// Append new logs to existing logs
+		m.dataManager.appendNewLogs(msg.NewLogs)
+		m.dataManager.positions = msg.NewPositions
+		// Update current data to reflect new logs
+		m.updateCurrentData()
+		// Schedule next log refresh
+		return m, periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.getPositions())
 
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
@@ -515,5 +546,25 @@ func periodicSystemInfoCmd(d time.Duration, serverURL string) tea.Cmd {
 			return nil
 		}
 		return UpdateSystemDataMsg{SysInfo: sysInfo}
+	})
+}
+
+// periodicLogRefreshCmd creates a command that periodically fetches new logs
+func periodicLogRefreshCmd(d time.Duration, accessPath, serverURL string, positions []parse.Position) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		logService := NewLogService(serverURL)
+
+		// Load new logs starting from the last position
+		// You'll need to modify LoadLogsFromPosition to accept a position parameter
+		// and return only logs after that position
+		newLogs, newPositions, err := logService.LoadLogs(accessPath, positions, false, false)
+		if err != nil {
+			return nil
+		}
+
+		return UpdateLogsMsg{
+			NewLogs:      newLogs,
+			NewPositions: newPositions,
+		}
 	})
 }
