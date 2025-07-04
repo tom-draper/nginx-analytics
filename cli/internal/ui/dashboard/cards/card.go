@@ -143,6 +143,6 @@ type CalculatedCard interface {
 	UpdateCalculated(logs []nginx.NGINXLog, period p.Period)
 }
 
-type CalclatedSystemCard interface {
+type CalculatedSystemCard interface {
 	UpdateCalculated(sysInfo system.SystemInfo)
 }

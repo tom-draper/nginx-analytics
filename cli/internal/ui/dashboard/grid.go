@@ -107,6 +107,10 @@ func (d *DashboardGrid) AddCard(card *cards.Card, position CardPosition) error {
 	return nil
 }
 
+func (d DashboardGrid) GetAllCards() []Card {
+	return d.allCards
+}
+
 // Navigation and utility methods
 
 // SetActiveCard sets the currently active card across all cards.
