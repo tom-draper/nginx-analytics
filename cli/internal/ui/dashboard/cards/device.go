@@ -37,7 +37,7 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 			Bold(true)
 
 		// Show empty message if no clients
-		lines := []string{"", faintStyle.Render("No clients found")}
+		lines := []string{"", "", "", "", faintStyle.Render("No clients found")}
 
 		for i, line := range lines {
 			if len(line) > 0 {
@@ -85,10 +85,9 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
 
-	// Define bar style (using blue for devices/clients)
 	barStyle := lipgloss.NewStyle().
-		Background(styles.Green).   // Blue background
-		Foreground(styles.Black)   // Black text
+		Background(styles.Green). 
+		Foreground(styles.Black)
 
 	var lines []string
 

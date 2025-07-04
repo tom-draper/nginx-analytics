@@ -28,6 +28,10 @@ func (c *UsageTimeCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Pe
 }
 
 func (c UsageTimeCard) calculateUsageTimePointsBucketed(logs []nginx.NGINXLog, bucketMinutes int) []point[int] {
+	if len(logs) == 0 {
+		return nil
+	}
+
 	// Create a map to count requests per time bucket
 	bucketCounts := make(map[time.Time]int)
 
@@ -259,6 +263,10 @@ func (a *UsageTimeCard) convertCanvasToBraille(chartGrid [][]string, canvas [][]
 }
 
 func (c *UsageTimeCard) RenderContent(width, height int) string {
+	if c.usageTimes == nil {
+		return c.renderEmptyState(width)
+	}
+
 	// Reserve space for x-axis labels (1 row)
 	chartHeight := max(height-1, 1)
 	
@@ -270,6 +278,21 @@ func (c *UsageTimeCard) RenderContent(width, height int) string {
 	
 	// Combine chart and labels
 	return chartLines + "\n" + timeLabels
+}
+
+func (r *UsageTimeCard) renderEmptyState(width int) string {
+	faintStyle := lipgloss.NewStyle().Foreground(styles.LightGray)
+	line := "No usage found"
+	return r.centerText(line, width, faintStyle)
+}
+
+func (r *UsageTimeCard) centerText(text string, width int, style lipgloss.Style) string {
+	displayWidth := lipgloss.Width(text)
+	padding := (width - displayWidth) / 2
+	if padding > 0 {
+		text = strings.Repeat(" ", padding) + text
+	}
+	return "\n" + style.Render(text)
 }
 
 func (c *UsageTimeCard) renderTimeLabels(width int) string {
@@ -330,5 +353,8 @@ func (c *UsageTimeCard) renderTimeLabels(width int) string {
 }
 
 func (c *UsageTimeCard) GetRequiredHeight(width int) int {
+	if c.usageTimes == nil {
+		return 3
+	}
 	return 8
 }

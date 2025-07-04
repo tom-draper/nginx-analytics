@@ -152,7 +152,7 @@ func (a *ActivityCard) renderNoData(width, height int) string {
 		lines[i] = ""
 	}
 
-	noDataMessage := a.styles.faint.Render("No activity data available")
+	noDataMessage := a.styles.faint.Render("No activity found")
 	displayLine := (height - 1) / 2 // Center vertically
 	if displayLine >= 0 && displayLine < height {
 		displayWidth := lipgloss.Width(noDataMessage)

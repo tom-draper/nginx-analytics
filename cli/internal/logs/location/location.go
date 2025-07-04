@@ -1,10 +1,11 @@
 package location
 
 import (
+	"fmt"
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"sort"
-	"strings"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/location"
 	loc "github.com/tom-draper/nginx-analytics/agent/pkg/location"
@@ -65,39 +66,43 @@ func (l *Locations) maintainCache(logs []nginx.NGINXLog, serverURL string) {
 		return
 	}
 
+	var locations []location.Location
+	var err error
 	if serverURL != "" {
-		// Prepare JSON body with filtered IPs
-		reqBody, err := json.Marshal(filterCached)
+		locations, err = fetchLocations(serverURL)
 		if err != nil {
 			return
 		}
-
-		url := serverURL + "/api/location"
-		resp, err := http.Post(url, "application/json", strings.NewReader(string(reqBody)))
-		if err != nil {
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return
-		}
-
-		var locations []location.Location
-		err = json.NewDecoder(resp.Body).Decode(&locations)
-		if err != nil {
-			return
-		}
-
-		l.updateCache(locations, filterCached)
 	} else {
-		// fallback to local resolution
-		locations, err := loc.ResolveLocations(filterCached)
+		locations, err = loc.ResolveLocations(filterCached)
 		if err != nil {
 			return
 		}
-		l.updateCache(locations, filterCached)
 	}
+	
+	l.updateCache(locations, filterCached)
+}
+
+func fetchLocations(serverURL string) ([]location.Location, error) {
+	reqBody, err := json.Marshal(filterCached)
+	if err != nil {
+		return nil, err
+	}
+
+	url := serverURL + "/api/location"
+	resp, err := http.Post(url, "application/json", bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	var locations []location.Location
+	err = json.NewDecoder(resp.Body).Decode(&locations)
+	return locations, err
 }
 
 func (l *Locations) updateCache(locations []loc.Location, ipAddresses []string) {
