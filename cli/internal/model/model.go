@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -48,6 +49,7 @@ type Model struct {
 	systemCalculatable []cards.CalclatedSystemCard
 
 	logs       []string
+	positions  []parse.Position
 	parsedLogs []nginx.NGINXLog // Parsed logs for card updates
 
 	currentLogs []nginx.NGINXLog
@@ -58,7 +60,11 @@ func New(cfg config.Config, serverURL string) Model {
 }
 
 func NewModel(cfg config.Config, serverURL string) Model {
-	logs, parsedLogs := getLogs(cfg.AccessPath, serverURL)
+	result := getLogs(cfg.AccessPath, serverURL, []parse.Position{}, false, true)
+	logs := result.Logs
+	positions := result.Positions
+	parsedLogs := l.ParseNginxLogs(logs)
+
 	logSizes := getLogsSizes(cfg.AccessPath, serverURL)
 
 	periods := []period.Period{
@@ -91,52 +97,83 @@ func NewModel(cfg config.Config, serverURL string) Model {
 		calculatable:       calculatable,
 		systemCalculatable: systemCalculatable,
 		logs:               logs,
+		positions:          positions,
 		parsedLogs:         parsedLogs,
 		currentLogs:        currentLogs,
 	}
 }
 
-func getLogs(accessPath, serverURL string) ([]string, []nginx.NGINXLog) {
-	var logs []string
+func getLogs(accessPath, serverURL string, positions []parse.Position, isErrorLog bool, includeCompressed bool) parse.LogResult {
+	var logs parse.LogResult
 	var err error
 
 	if serverURL != "" {
-		logs, err = fetchLogs(serverURL)
+		logs, err = fetchLogs(serverURL, positions, isErrorLog, includeCompressed)
 	} else {
-		logs, err = readLogs(accessPath)
+		logs, err = readLogs(accessPath, positions, isErrorLog, includeCompressed)
 	}
 
 	if err != nil {
 		logger.Log.Printf("Error getting logs: %v", err)
 	}
 
-	return logs, l.ParseNginxLogs(logs)
+	return logs
 }
 
-func readLogs(path string) ([]string, error) {
+func readLogs(path string, positions []parse.Position, isErrorLog bool, includeCompressed bool) (parse.LogResult, error) {
 	if path == "" {
-		return nil, nil
+		return parse.LogResult{}, nil
 	}
-	logResult, err := parse.GetLogs(path, []parse.Position{}, false, true)
+	logResult, err := parse.GetLogs(path, positions, isErrorLog, includeCompressed)
 	if err != nil {
-		return nil, err
+		return parse.LogResult{}, err
 	}
-	return logResult.Logs, nil
+	return logResult, nil
 }
 
-func fetchLogs(baseURL string) ([]string, error) {
-	url := baseURL + "/api/logs/access"
-	body, err := httpGetAndReadBody(url)
+func fetchLogs(baseURL string, positions []parse.Position, isErrorLog bool, includeCompressed bool) (parse.LogResult, error) {
+	var path string
+	if isErrorLog {
+		path = "/api/logs/error"
+	} else {
+		path = "/api/logs/access"
+	}
+	endpoint, err := url.Parse(baseURL + path)
 	if err != nil {
-		return nil, err
+		return parse.LogResult{}, fmt.Errorf("invalid base URL: %w", err)
+	}
+
+	params := url.Values{}
+	params.Add("includeCompressed", fmt.Sprintf("%t", includeCompressed))
+	if len(positions) > 0 {
+		jsonStr, err := positionsToJSON(positions)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return parse.LogResult{}, err
+		}
+		params.Add("positions", jsonStr)
+	}
+	endpoint.RawQuery = params.Encode()
+
+	body, err := httpGetAndReadBody(endpoint.String())
+	if err != nil {
+		return parse.LogResult{}, err
 	}
 
 	var result parse.LogResult
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		return parse.LogResult{}, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
-	return result.Logs, nil
+	return result, nil
+}
+
+func positionsToJSON(positions []parse.Position) (string, error) {
+	bytes, err := json.Marshal(positions)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal positions: %w", err)
+	}
+	return string(bytes), nil
 }
 
 func getLogsSizes(accessPath, serverURL string) parse.LogSizes {
@@ -355,7 +392,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case UpdateSystemDataMsg:
 		m.updateSystemCardData(msg.SysInfo)
-		return m, periodicSystemInfoCmd(time.Second * 2, m.ServerURL)
+		return m, periodicSystemInfoCmd(time.Second*2, m.ServerURL)
 
 	case tea.KeyMsg:
 		switch {
