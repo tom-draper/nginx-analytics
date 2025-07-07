@@ -3,16 +3,25 @@ package cards
 import (
 	"fmt"
 	"strings"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/guptarohit/asciigraph"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
+type memory struct {
+	used       uint64
+	free       uint64
+	available  uint64
+	total      uint64
+	percentage float64
+}
+
 type MemoryCard struct {
-	memoryPercentage float64
-	history        []float64 // Store historical average CPU usage
-	maxHistory     int       // Maximum number of historical points to keep
+	memory     memory
+	history    []float64 // Store historical average CPU usage
+	maxHistory int       // Maximum number of historical points to keep
 }
 
 func NewMemoryCard() *MemoryCard {
@@ -22,65 +31,99 @@ func NewMemoryCard() *MemoryCard {
 }
 
 func (c *MemoryCard) RenderContent(width, height int) string {
-	if c.memoryPercentage == 0 {
+	if c.memory.percentage == 0 {
 		return c.renderEmptyState(width)
 	}
 
-	// Calculate available height for grid vs plot
-	gridHeight := height / 2
-	plotHeight := height - gridHeight - 3 // Reserve 3 lines for spacing and title
+	// Calculate available height for bar vs plot
+	barHeight := 8                       // Fixed height for the memory bar section
+	plotHeight := height - barHeight - 2 // Reserve 2 lines for spacing
 
-	// Render the CPU grid
-	gridContent := c.renderMemory(width, gridHeight)
-	
+	barContent := c.renderMemoryBar(width)
+
 	// Render the historical plot
 	plotContent := c.renderHistoryPlot(width, plotHeight)
-	
+
 	// Combine both with spacing
-	return lipgloss.JoinVertical(lipgloss.Left, 
-		gridContent,
+	return lipgloss.JoinVertical(lipgloss.Left,
+		barContent,
 		"", // Empty line for spacing
 		plotContent,
 	)
 }
 
-func (c *MemoryCard) renderMemory(width, height int) string {
-	var rows []string
-	squareSize := 5 // Adjust as needed for square dimensions
-	
-	// Calculate how many squares fit per row
-	squaresPerRow := width / squareSize
-	if squaresPerRow == 0 {
-		squaresPerRow = 1
+func (c *MemoryCard) renderMemoryBar(width int) string {
+	// Calculate proportions
+	usedPct := float64(c.memory.used) / float64(c.memory.total)
+	freePct := float64(c.memory.free) / float64(c.memory.total)
+	availablePct := float64(c.memory.available) / float64(c.memory.total)
+
+	// Calculate bar widths (subtract 2 for border padding)
+	barWidth := max(width - 2, 10)
+
+	usedWidth := int(usedPct * float64(barWidth))
+	freeWidth := int(freePct * float64(barWidth))
+	// availableWidth := int(availablePct * float64(barWidth))
+	availableWidth := barWidth - usedWidth - freeWidth
+
+	// Ensure we don't exceed total width
+	if usedWidth+availableWidth+freeWidth > barWidth {
+		freeWidth = barWidth - usedWidth - availableWidth
+	}
+	if freeWidth < 0 {
+		freeWidth = 0
 	}
 
-	var currentRow []string
-	color := c.getColorForCPUUsage(c.memoryPercentage)
-	text := fmt.Sprintf("%.0f%%", c.memoryPercentage)
-	square := lipgloss.NewStyle().
-		Width(squareSize).
-		Height(3).
-		Background(color).
-		Foreground(lipgloss.Color("0")).
-		Align(lipgloss.Center).
-		AlignVertical(lipgloss.Center).
-		Render(text)
+	// Create the bar segments
+	usedBar := strings.Repeat("█", usedWidth)
+	availableBar := strings.Repeat("█", availableWidth)
+	freeBar := strings.Repeat("█", freeWidth)
 
-	currentRow = append(currentRow, square)
+	// Style each segment
+	usedStyle := lipgloss.NewStyle().Foreground(c.getColorForMemoryUsage(availablePct * 100))
+	availableStyle := lipgloss.NewStyle().Faint(true).Foreground(c.getColorForMemoryUsage(availablePct * 100))
+	freeStyle := lipgloss.NewStyle().Foreground(styles.DarkGray)
 
-	rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, currentRow...))
+	// Combine the bar
+	bar := usedStyle.Render(usedBar) + availableStyle.Render(availableBar) + freeStyle.Render(freeBar)
 
-	return lipgloss.NewStyle().Width(width).Align(lipgloss.Left).Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+	// Create labels
+	usedLabel := fmt.Sprintf("Used: %s (%.0f%%)", c.formatBytes(c.memory.used), usedPct*100)
+	availableLabel := fmt.Sprintf("Available: %s (%.0f%%)", c.formatBytes(c.memory.available), availablePct*100)
+
+	// Style labels
+	usedLabelStyled := usedStyle.Render("■ ") + usedLabel
+	availableLabelStyled := availableStyle.Render("■ ") + availableLabel
+
+	// Create the complete memory bar display
+	return lipgloss.JoinVertical(lipgloss.Left,
+		bar,
+		usedLabelStyled,
+		availableLabelStyled,
+	)
+}
+
+func (c *MemoryCard) formatBytes(bytes uint64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 func (c *MemoryCard) renderHistoryPlot(width, plotHeight int) string {
 	// Always render a plot, even with minimal data
 	data := c.getPlotData()
-	
+
 	if len(data) == 0 {
-		// If no history yet, use current CPU average as single data point
-		if c.memoryPercentage > 0 {
-			data = []float64{c.memoryPercentage}
+		// If no history yet, use current memory percentage as single data point
+		if c.memory.percentage > 0 {
+			data = []float64{c.memory.percentage}
 		} else {
 			data = []float64{0}
 		}
@@ -92,34 +135,36 @@ func (c *MemoryCard) renderHistoryPlot(width, plotHeight int) string {
 	}
 
 	// Calculate chart dimensions
-	chartWidth := width - 8 // Small padding
-	chartHeight := plotHeight // Reserve 1 line for title
+	chartWidth := max(width-8, 20)   // Minimum width for readable plot
+	chartHeight := 3                 // Fixed height of 4 rows
+
+	// Create the plot using asciigraph with no axis labels
+	plot := asciigraph.Plot(data, 
+		asciigraph.Width(chartWidth), 
+		asciigraph.Height(chartHeight))
+
+	// Count actual plot lines
+	plotLines := strings.Split(plot, "\n")
+	actualHeight := len(plotLines)
+
+	// Calculate padding needed to position at bottom
+	paddingNeeded := plotHeight - actualHeight
 	
-	if chartWidth < 10 {
-		chartWidth = 10
+	// Add padding above the plot to push it to the bottom
+	var paddedLines []string
+	for i := 0; i < paddingNeeded; i++ {
+		paddedLines = append(paddedLines, "")
 	}
-	if chartHeight < 4 {
-		chartHeight = 4
-	}
+	paddedLines = append(paddedLines, plotLines...)
 
-	// Create the plot using asciigraph
-	plot := asciigraph.Plot(data, asciigraph.Width(chartWidth), asciigraph.Height(chartHeight))
-
-	plotLines := len(strings.Split(plot, "\n"))
-
-	for range chartHeight - plotLines {
-		plot = "\n" + plot
-	}
+	// Join all lines
+	paddedPlot := strings.Join(paddedLines, "\n")
 
 	// Style the plot
 	plotStyle := lipgloss.NewStyle().
 		Foreground(c.getPlotColor())
-		// Width(width).
-		// Align(lipgloss.Left)
 
-	return lipgloss.JoinVertical(lipgloss.Left, 
-		plotStyle.Render(plot),
-	)
+	return plotStyle.Render(paddedPlot)
 }
 
 func (c *MemoryCard) getPlotData() []float64 {
@@ -131,12 +176,12 @@ func (c *MemoryCard) getPlotData() []float64 {
 }
 
 func (c *MemoryCard) getPlotColor() lipgloss.Color {
-	// Choose plot color based on current average CPU usage
-	if c.memoryPercentage == 0 {
+	// Choose plot color based on current memory usage
+	if c.memory.percentage == 0 {
 		return styles.LightGray
 	}
 
-	usage := c.memoryPercentage
+	usage := c.memory.percentage
 
 	switch {
 	case usage <= 30:
@@ -166,10 +211,28 @@ func (c *MemoryCard) centerText(text string, width int, style lipgloss.Style) st
 }
 
 func (c *MemoryCard) UpdateCalculated(sysInfo system.SystemInfo) {
-	c.memoryPercentage = (float64(sysInfo.Memory.Used) / float64(sysInfo.Memory.Total)) * 100
+	c.memory.percentage = (float64(sysInfo.Memory.Used) / float64(sysInfo.Memory.Total)) * 100
+	c.memory.used = sysInfo.Memory.Used
+	c.memory.free = sysInfo.Memory.Free
+	c.memory.available = sysInfo.Memory.Available
+	c.memory.total = sysInfo.Memory.Total
+	
+	// Add current memory usage to history
+	c.addToHistory(c.memory.percentage)
 }
 
-func (c *MemoryCard) getColorForCPUUsage(usage float64) lipgloss.Color {
+// Add this method to properly manage history
+func (c *MemoryCard) addToHistory(percentage float64) {
+	// Add the new percentage to history
+	c.history = append(c.history, percentage)
+	
+	// Keep only the last maxHistory points
+	if len(c.history) > c.maxHistory {
+		c.history = c.history[1:]
+	}
+}
+
+func (c *MemoryCard) getColorForMemoryUsage(usage float64) lipgloss.Color {
 	switch {
 	case usage <= 30:
 		return styles.Green // Best: Green
@@ -185,5 +248,24 @@ func (c *MemoryCard) getColorForCPUUsage(usage float64) lipgloss.Color {
 		return lipgloss.Color("202") // Dark Orange/Reddish-Orange
 	default:
 		return styles.Red // Worst: Red
+	}
+}
+
+func (c *MemoryCard) getFaintColorForMemoryUsage(usage float64) lipgloss.Color {
+	switch {
+	case usage <= 30:
+		return lipgloss.Color("152")
+	case usage <= 40:
+		return lipgloss.Color("157") // Light Green/Chartreuse
+	case usage <= 50:
+		return lipgloss.Color("229")
+	case usage <= 60:
+		return lipgloss.Color("215")
+	case usage <= 70:
+		return lipgloss.Color("216")
+	case usage <= 80:
+		return lipgloss.Color("209") // Dark Orange/Reddish-Orange
+	default:
+		return lipgloss.Color("131")
 	}
 }
