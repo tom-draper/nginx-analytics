@@ -5,6 +5,9 @@ A log analytics dashboard TUI app, built with Go.
 ## Deployment Guide
 
 ```bash
+git clone https://github.com/tom-draper/nginx-analytics.git
+cd cli
+
 make
 # or...
 go build -o bin/nginx-analytics ./cmd/nginx-analytics
