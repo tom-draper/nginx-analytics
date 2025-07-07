@@ -23,9 +23,6 @@ npm start
 Or use Docker if preferred.
 
 ```bash
-git clone https://github.com/tom-draper/nginx-analytics.git
-cd nginx-analytics/dashboard
-
 docker build -t nginx-analytics .
 docker run -d -p 3000:3000 nginx-analytics
 ```
