@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
 
 type Env struct {

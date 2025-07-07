@@ -3,10 +3,10 @@ package routes
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 	logs "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 )
 
@@ -37,7 +37,7 @@ func ServeLogs(w http.ResponseWriter, r *http.Request, path string, positions []
 func serveLogs(w http.ResponseWriter, dirPath string, positions []logs.Position, isErrorLog bool, includeCompressed bool) {
 	// Check if file exists
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		log.Println("File not found")
+		logger.Log.Println("File not found")
 		respondWithError(w, "file not found", http.StatusNotFound)
 		return
 	}
@@ -55,7 +55,7 @@ func serveLogs(w http.ResponseWriter, dirPath string, positions []logs.Position,
 func serveLog(w http.ResponseWriter, filePath string, position int64) {
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		log.Println("File not found")
+		logger.Log.Println("File not found")
 		respondWithError(w, "file not found", http.StatusNotFound)
 		return
 	}

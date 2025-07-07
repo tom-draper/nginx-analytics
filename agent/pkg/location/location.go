@@ -1,11 +1,11 @@
 package location
 
 import (
-	"log"
 	"net"
 	"sync"
 
 	"github.com/oschwald/geoip2-golang"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
 
 // Location represents geolocation information for an IP address
@@ -39,14 +39,14 @@ func InitializeLookups() error {
 			var countryErr error
 			countryReader, countryErr = geoip2.Open("GeoLite2-Country.mmdb")
 			if countryErr != nil {
-				log.Println("Failed to load GeoLite2 City database:", cityErr)
-				log.Println("Failed to load GeoLite2 Country database:", countryErr)
+				logger.Log.Println("Failed to load GeoLite2 City database:", cityErr)
+				logger.Log.Println("Failed to load GeoLite2 Country database:", countryErr)
 				initErr = countryErr
 			} else {
-				log.Println("GeoLite2 Country database loaded successfully")
+				logger.Log.Println("GeoLite2 Country database loaded successfully")
 			}
 		} else {
-			log.Println("GeoLite2 City database loaded successfully")
+			logger.Log.Println("GeoLite2 City database loaded successfully")
 		}
 		close(initDone)
 	})

@@ -1,10 +1,10 @@
 package env
 
 import (
-	"log"
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
 
 type Env struct {
@@ -19,7 +19,7 @@ type Env struct {
 func LoadEnv() Env {
 	// Load .env file if present
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+		logger.Log.Println("No .env file found, using system environment variables")
 	}
 
 	return Env{

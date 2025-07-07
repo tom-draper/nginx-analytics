@@ -2,7 +2,6 @@ package system
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
 
 type SystemInfo struct {
@@ -138,19 +138,19 @@ func getCPUInfo() (CPUInfo, error) {
 	// Try gopsutil first
 	cpuInfo, err := cpu.Info()
 	if err != nil {
-		log.Printf("gopsutil cpu.Info() failed: %v, trying OS-specific fallback", err)
+		logger.Log.Printf("gopsutil cpu.Info() failed: %v, trying OS-specific fallback", err)
 		return getCPUInfoFallback()
 	}
 
 	if len(cpuInfo) == 0 {
-		log.Printf("gopsutil returned empty CPU info, trying OS-specific fallback")
+		logger.Log.Printf("gopsutil returned empty CPU info, trying OS-specific fallback")
 		return getCPUInfoFallback()
 	}
 
 	// Get per-CPU usage (set percpu=true)
 	cpuUsage, err := cpu.Percent(time.Second, true) // true = per CPU
 	if err != nil {
-		log.Printf("Warning: Could not get CPU usage: %v", err)
+		logger.Log.Printf("Warning: Could not get CPU usage: %v", err)
 		cpuUsage = make([]float64, len(cpuInfo)) // Default to zeros
 	}
 
@@ -341,7 +341,7 @@ func getDiskInfo() ([]DiskInfo, error) {
 	for _, partition := range partitions {
 		usage, err := disk.Usage(partition.Mountpoint)
 		if err != nil {
-			log.Printf("Error getting disk usage for %s: %v", partition.Mountpoint, err)
+			logger.Log.Printf("Error getting disk usage for %s: %v", partition.Mountpoint, err)
 			continue // Skip this partition if there's an error
 		}
 

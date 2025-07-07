@@ -12,9 +12,9 @@ import (
 	"github.com/charmbracelet/x/term"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 	parse "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
 	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
@@ -22,12 +22,10 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
 )
 
-// LogService handles all log-related operations
 type LogService struct {
 	serverURL string
 }
 
-// NewLogService creates a new LogService instance
 func NewLogService(serverURL string) *LogService {
 	return &LogService{
 		serverURL: serverURL,
@@ -48,7 +46,6 @@ func (ls *LogService) LoadLogSizes(accessPath string) (parse.LogSizes, error) {
 	return ls.readLogsSizes(accessPath)
 }
 
-// FilterLogsByPeriod filters logs based on the given period
 func (ls *LogService) FilterLogsByPeriod(logs []nginx.NGINXLog, period period.Period) []nginx.NGINXLog {
 	return l.FilterLogs(logs, period)
 }
@@ -154,19 +151,16 @@ func (ls *LogService) httpGetAndReadBody(url string) ([]byte, error) {
 	return body, nil
 }
 
-// SystemService handles system information operations
 type SystemService struct {
 	serverURL string
 }
 
-// NewSystemService creates a new SystemService instance
 func NewSystemService(serverURL string) *SystemService {
 	return &SystemService{
 		serverURL: serverURL,
 	}
 }
 
-// GetSystemInfo retrieves system information from either local system or remote server
 func (ss *SystemService) GetSystemInfo() (system.SystemInfo, error) {
 	if ss.serverURL != "" {
 		return ss.fetchSystemInfo()

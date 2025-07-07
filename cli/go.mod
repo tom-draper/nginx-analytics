@@ -10,7 +10,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/term v0.2.1
 	github.com/guptarohit/asciigraph v0.7.3
-	github.com/tom-draper/nginx-analytics/agent v0.0.0-20250629101824-40b91fb64e16
+	github.com/tom-draper/nginx-analytics/agent v0.0.0-20250707093923-f27379d5e1c5
 )
 
 require (

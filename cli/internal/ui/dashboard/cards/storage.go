@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	sys "github.com/tom-draper/nginx-analytics/agent/pkg/system"
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
-	"github.com/tom-draper/nginx-analytics/cli/internal/logger"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
 
 // StorageCard shows storage usage with ASCII bar chart

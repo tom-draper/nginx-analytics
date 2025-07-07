@@ -66,7 +66,7 @@ func (l *Locations) maintainCache(logs []nginx.NGINXLog, serverURL string) {
 		return
 	}
 
-	var locations []location.Location
+	var locations []loc.Location
 	var err error
 	if serverURL != "" {
 		locations, err = fetchLocations(serverURL)

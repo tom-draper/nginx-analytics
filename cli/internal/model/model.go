@@ -74,7 +74,6 @@ func New(cfg config.Config, serverURL string) Model {
 	return NewModel(cfg, serverURL)
 }
 
-// NewModel creates and initializes a new Model
 func NewModel(cfg config.Config, serverURL string) Model {
 	// Initialize data manager
 	dataManager := newDataManager(cfg, serverURL)
@@ -100,7 +99,6 @@ func NewModel(cfg config.Config, serverURL string) Model {
 	}
 }
 
-// newDataManager creates a new DataManager
 func newDataManager(cfg config.Config, serverURL string) *DataManager {
 	logService := NewLogService(serverURL)
 
@@ -159,7 +157,6 @@ func newUIManager(currentLogs []nginx.NGINXLog, period period.Period,
 	}
 }
 
-// DataManager methods
 func (dm *DataManager) getCurrentLogs(period period.Period) []nginx.NGINXLog {
 	return l.FilterLogs(dm.logs, period)
 }
@@ -193,19 +190,16 @@ func (dm *DataManager) updateSystemCardData(sysInfo system.SystemInfo) {
 	}
 }
 
-// appendNewLogs appends new logs to the existing log list and updates the position
 func (dm *DataManager) appendNewLogs(newLogs []nginx.NGINXLog) {
 	if len(newLogs) > 0 {
 		dm.logs = append(dm.logs, newLogs...)
 	}
 }
 
-// getLastLogPosition returns the current log position for incremental loading
 func (dm *DataManager) getPositions() []parse.Position {
 	return dm.positions
 }
 
-// NavigationManager methods
 func (nm *NavigationManager) getCurrentPeriod() period.Period {
 	return nm.periods[nm.selectedPeriod]
 }
@@ -336,7 +330,6 @@ func (um *UIManager) navigateDown() {
 	}
 }
 
-// Main Model methods
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		periodicSystemInfoCmd(0, m.dataManager.serverURL),
@@ -518,12 +511,10 @@ func (m Model) getHelpText() string {
 	return "← → ↑ ↓    [p] switch period    [q] quit  "
 }
 
-// GetSelectedPeriod returns the currently selected period
 func (m Model) GetSelectedPeriod() period.Period {
 	return m.navManager.getCurrentPeriod()
 }
 
-// Helper functions
 func calculateInitialPeriod(periods []period.Period, logs []nginx.NGINXLog) int {
 	logStart, _ := period.LogRange(logs)
 	selectedPeriod := 2 // Default to 1 month

@@ -4,10 +4,11 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
 
 type Position struct {
@@ -46,7 +47,7 @@ func GetLogs(path string, positions []Position, isErrorLog bool, includeCompress
 func GetLog(filePath string, position int64) (LogResult, error) {
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		log.Println("File not found")
+		logger.Log.Println("File not found")
 		return LogResult{}, fmt.Errorf("file not found: %s", filePath)
 	}
 
@@ -272,7 +273,7 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 		}
 
 		if err != nil {
-			log.Printf("Error reading file %s: %v", fullPath, err)
+			logger.Log.Printf("Error reading file %s: %v", fullPath, err)
 			continue
 		}
 
