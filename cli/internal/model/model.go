@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
+	"github.com/tom-draper/nginx-analytics/cli/internal/config"
 	parse "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
 	l "github.com/tom-draper/nginx-analytics/cli/internal/logs"

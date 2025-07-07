@@ -5,7 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
+	"github.com/tom-draper/nginx-analytics/cli/internal/config"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 	"github.com/tom-draper/nginx-analytics/cli/internal/env"
 	"github.com/tom-draper/nginx-analytics/cli/internal/model"

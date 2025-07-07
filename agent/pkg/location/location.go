@@ -57,10 +57,10 @@ func InitializeLookups() error {
 }
 
 // LocationLookup returns geolocation information for a single IP address
-func LocationLookup(ipAddress string) (*Location, error) {
+func LocationLookup(ipAddress string) (Location, error) {
 	// Ensure databases are initialized
 	if err := InitializeLookups(); err != nil && cityReader == nil && countryReader == nil {
-		return &Location{
+		return Location{
 			IPAddress: ipAddress,
 			Country:   "",
 			City:      "",
@@ -70,14 +70,14 @@ func LocationLookup(ipAddress string) (*Location, error) {
 	// Parse the IP address
 	ip := net.ParseIP(ipAddress)
 	if ip == nil {
-		return &Location{
+		return Location{
 			IPAddress: ipAddress,
 			Country:   "",
 			City:      "",
 		}, nil
 	}
 
-	location := &Location{
+	location := Location{
 		IPAddress: ipAddress,
 	}
 
@@ -107,13 +107,13 @@ func LocationLookup(ipAddress string) (*Location, error) {
 }
 
 // GetLocations performs geolocation lookups for multiple IP addresses
-func ResolveLocations(ipAddresses []string) ([]*Location, error) {
+func ResolveLocations(ipAddresses []string) ([]Location, error) {
 	// Ensure databases are initialized
 	if err := InitializeLookups(); err != nil && cityReader == nil && countryReader == nil {
 		// Return empty locations if neither database is available
-		locations := make([]*Location, len(ipAddresses))
+		locations := make([]Location, len(ipAddresses))
 		for i, ip := range ipAddresses {
-			locations[i] = &Location{
+			locations[i] = Location{
 				IPAddress: ip,
 				Country:   "",
 				City:      "",
@@ -124,7 +124,7 @@ func ResolveLocations(ipAddresses []string) ([]*Location, error) {
 
 	// Use a wait group to track parallel lookups
 	var wg sync.WaitGroup
-	locations := make([]*Location, len(ipAddresses))
+	locations := make([]Location, len(ipAddresses))
 
 	// Perform lookups in parallel
 	for i, ip := range ipAddresses {

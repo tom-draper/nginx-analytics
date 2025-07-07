@@ -53,47 +53,90 @@ func (c *MemoryCard) RenderContent(width, height int) string {
 }
 
 func (c *MemoryCard) renderMemoryBar(width int) string {
+	// 	usedPct := float64(c.memory.used) / float64(c.memory.total)
+	// freePct := float64(c.memory.free) / float64(c.memory.total)
+	// availablePct := float64(c.memory.available) / float64(c.memory.total)
+
+	// barWidth := max(width-2, 10)
+
+	// usedWidth := int(usedPct * float64(barWidth))
+	// freeWidth := int(freePct * float64(barWidth))
+	// availableWidth := barWidth - usedWidth - freeWidth
 	// Calculate proportions
-	usedPct := float64(c.memory.used) / float64(c.memory.total)
-	freePct := float64(c.memory.free) / float64(c.memory.total)
-	availablePct := float64(c.memory.available) / float64(c.memory.total)
+	// usedPct := float64(c.memory.used) / float64(c.memory.total)
+	// freePct := float64(c.memory.free) / float64(c.memory.total)
+	// availablePct := float64(c.memory.available) / float64(c.memory.total)
 
-	// Calculate bar widths (subtract 2 for border padding)
-	barWidth := max(width - 2, 10)
+	// // Calculate bar widths (subtract 2 for border padding)
+	// barWidth := max(width-2, 10)
 
+	// usedWidth := int(usedPct * float64(barWidth))
+	// freeWidth := int(freePct * float64(barWidth))
+	// // availableWidth := int(availablePct * float64(barWidth))
+	// availableWidth := barWidth - usedWidth - freeWidth
+
+	// // Ensure we don't exceed total width
+	// if usedWidth+availableWidth+freeWidth > barWidth {
+	// 	freeWidth = barWidth - usedWidth - availableWidth
+	// }
+	// if freeWidth < 0 {
+	// 	freeWidth = 0
+	// }
+
+	total := float64(c.memory.total)
+	used := float64(c.memory.used)
+	free := float64(c.memory.free)
+	available := float64(c.memory.available)
+
+	cache := available - free
+	if cache < 0 {
+		cache = 0 // safety
+	}
+
+	// Ensure mutually exclusive segments
+	usedApp := used - cache
+	if usedApp < 0 {
+		usedApp = 0
+	}
+
+	usedPct := usedApp / total
+	cachePct := cache / total
+	// freePct := free / total
+
+	barWidth := max(width, 10)
 	usedWidth := int(usedPct * float64(barWidth))
-	freeWidth := int(freePct * float64(barWidth))
-	// availableWidth := int(availablePct * float64(barWidth))
-	availableWidth := barWidth - usedWidth - freeWidth
-
-	// Ensure we don't exceed total width
-	if usedWidth+availableWidth+freeWidth > barWidth {
-		freeWidth = barWidth - usedWidth - availableWidth
-	}
-	if freeWidth < 0 {
-		freeWidth = 0
-	}
-
-	// Create the bar segments
+	cacheWidth := int(cachePct * float64(barWidth))
+	freeWidth := max(barWidth - usedWidth - cacheWidth, 0)
 	usedBar := strings.Repeat("█", usedWidth)
-	availableBar := strings.Repeat("█", availableWidth)
-	freeBar := strings.Repeat("█", freeWidth)
+	cacheBar := strings.Repeat("▒", cacheWidth)
+	freeBar := strings.Repeat("░", freeWidth)
 
-	// Style each segment
-	usedStyle := lipgloss.NewStyle().Foreground(c.getColorForMemoryUsage(availablePct * 100))
-	availableStyle := lipgloss.NewStyle().Faint(true).Foreground(c.getColorForMemoryUsage(availablePct * 100))
+	// usedStyle := lipgloss.NewStyle().Foreground(styles.Red)
+	// cacheStyle := lipgloss.NewStyle().Foreground(styles.Yellow)
+	// freeStyle := lipgloss.NewStyle().Foreground(styles.DarkGray)
+	usedStyle := lipgloss.NewStyle().Foreground(c.getColorForMemoryUsage(usedPct))
+	cacheStyle := lipgloss.NewStyle().Faint(true).Foreground(c.getColorForMemoryUsage(usedPct))
 	freeStyle := lipgloss.NewStyle().Foreground(styles.DarkGray)
 
-	// Combine the bar
-	bar := usedStyle.Render(usedBar) + availableStyle.Render(availableBar) + freeStyle.Render(freeBar)
+	bar := usedStyle.Render(usedBar) + cacheStyle.Render(cacheBar) + freeStyle.Render(freeBar)
+
+	// Create the bar segments
+	// usedBar := strings.Repeat("█", usedWidth)
+	// availableBar := strings.Repeat("█", availableWidth)
+	// freeBar := strings.Repeat("█", freeWidth)
+
+	// // Style each segment
+
+	// // Combine the bar
+	// bar := usedStyle.Render(usedBar) + availableStyle.Render(availableBar) + freeStyle.Render(freeBar)
 
 	// Create labels
-	usedLabel := fmt.Sprintf("Used: %s (%.0f%%)", c.formatBytes(c.memory.used), usedPct*100)
-	availableLabel := fmt.Sprintf("Available: %s (%.0f%%)", c.formatBytes(c.memory.available), availablePct*100)
+	usedLabel := fmt.Sprintf("Used: %s (%.0f%%)", c.formatBytes(uint64(usedApp)), usedPct*100)
+	availableLabel := fmt.Sprintf("Cache: %s (%.0f%%)", c.formatBytes(uint64(cache)), cachePct*100)
 
 	// Style labels
 	usedLabelStyled := usedStyle.Render("■ ") + usedLabel
-	availableLabelStyled := availableStyle.Render("■ ") + availableLabel
+	availableLabelStyled := cacheStyle.Render("■ ") + availableLabel
 
 	// Create the complete memory bar display
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -135,12 +178,12 @@ func (c *MemoryCard) renderHistoryPlot(width, plotHeight int) string {
 	}
 
 	// Calculate chart dimensions
-	chartWidth := max(width-8, 20)   // Minimum width for readable plot
-	chartHeight := 3                 // Fixed height of 4 rows
+	chartWidth := max(width-8, 20) // Minimum width for readable plot
+	chartHeight := 3               // Fixed height of 4 rows
 
 	// Create the plot using asciigraph with no axis labels
-	plot := asciigraph.Plot(data, 
-		asciigraph.Width(chartWidth), 
+	plot := asciigraph.Plot(data,
+		asciigraph.Width(chartWidth),
 		asciigraph.Height(chartHeight))
 
 	// Count actual plot lines
@@ -149,7 +192,7 @@ func (c *MemoryCard) renderHistoryPlot(width, plotHeight int) string {
 
 	// Calculate padding needed to position at bottom
 	paddingNeeded := plotHeight - actualHeight
-	
+
 	// Add padding above the plot to push it to the bottom
 	var paddedLines []string
 	for i := 0; i < paddingNeeded; i++ {
@@ -216,7 +259,7 @@ func (c *MemoryCard) UpdateCalculated(sysInfo system.SystemInfo) {
 	c.memory.free = sysInfo.Memory.Free
 	c.memory.available = sysInfo.Memory.Available
 	c.memory.total = sysInfo.Memory.Total
-	
+
 	// Add current memory usage to history
 	c.addToHistory(c.memory.percentage)
 }
@@ -225,7 +268,7 @@ func (c *MemoryCard) UpdateCalculated(sysInfo system.SystemInfo) {
 func (c *MemoryCard) addToHistory(percentage float64) {
 	// Add the new percentage to history
 	c.history = append(c.history, percentage)
-	
+
 	// Keep only the last maxHistory points
 	if len(c.history) > c.maxHistory {
 		c.history = c.history[1:]

@@ -11,7 +11,7 @@ import (
 
 	"github.com/charmbracelet/x/term"
 
-	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
+	"github.com/tom-draper/nginx-analytics/cli/internal/config"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 	parse "github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
