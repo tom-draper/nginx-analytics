@@ -12,7 +12,7 @@ import (
 
 	"github.com/tom-draper/nginx-analytics/agent/internal/auth"
 	"github.com/tom-draper/nginx-analytics/agent/internal/utils"
-	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
+	"github.com/tom-draper/nginx-analytics/agent/internal/config"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 	"github.com/tom-draper/nginx-analytics/agent/internal/routes"
 )
