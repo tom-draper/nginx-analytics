@@ -8,7 +8,7 @@ import (
 )
 
 type Env struct {
-	Port             string
+	ServerURL        string
 	AccessPath       string
 	ErrorPath        string
 	SystemMonitoring bool
@@ -23,7 +23,7 @@ func LoadEnv() Env {
 	}
 
 	return Env{
-		Port:             os.Getenv("PORT"),
+		ServerURL:        os.Getenv("NGINX_ANALYTICS_SERVER_URL"),
 		AccessPath:       os.Getenv("NGINX_ANALYTICS_ACCESS_PATH"),
 		ErrorPath:        os.Getenv("NGINX_ANALYTICS_ERROR_PATH"),
 		SystemMonitoring: os.Getenv("NGINX_ANALYTICS_SYSTEM_MONITORING") == "true",

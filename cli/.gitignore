@@ -1,0 +1,5 @@
+*.log
+.env
+*.mmdb
+bin/
+.vscode

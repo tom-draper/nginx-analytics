@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/tom-draper/nginx-analytics/agent/internal/auth"
-	"github.com/tom-draper/nginx-analytics/agent/internal/utils"
-	"github.com/tom-draper/nginx-analytics/agent/pkg/config"
-	"github.com/tom-draper/nginx-analytics/agent/pkg/logs"
+	"github.com/tom-draper/nginx-analytics/agent/internal/config"
 	"github.com/tom-draper/nginx-analytics/agent/internal/routes"
+	"github.com/tom-draper/nginx-analytics/agent/internal/utils"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logs"
 )
 
 var startTime = time.Now()
@@ -27,7 +28,7 @@ func main() {
 	setupRoute := func(path string, method string, logMessage string, handler func(http.ResponseWriter, *http.Request)) {
 		http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 			if logMessage != "" {
-				log.Println(logMessage)
+				logger.Log.Println(logMessage)
 			}
 
 			// Check HTTP method
@@ -38,7 +39,7 @@ func main() {
 
 			// Check authentication
 			if !auth.IsAuthenticated(r, cfg.AuthToken) {
-				log.Println("Forbidden: Invalid auth token")
+				logger.Log.Println("Forbidden: Invalid auth token")
 				http.Error(w, "Forbidden: Invalid auth token", http.StatusForbidden)
 				return
 			}
@@ -48,7 +49,7 @@ func main() {
 	}
 
 	setupRoute("/api/logs/access", http.MethodGet, "", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Polling access logs")
+		logger.Log.Println("Polling access logs")
 
 		includeCompressed := r.URL.Query().Get("includeCompressed") == "true"
 
@@ -82,7 +83,7 @@ func main() {
 			}
 		}
 
-		log.Println("Polling error logs")
+		logger.Log.Println("Polling error logs")
 		logPath := cfg.ErrorPath
 		if logPath == "" && utils.IsDir(cfg.AccessPath) {
 			logPath = cfg.AccessPath
@@ -94,7 +95,7 @@ func main() {
 
 	setupRoute("/api/system/logs", http.MethodGet, "Checking log size", func(w http.ResponseWriter, r *http.Request) {
 		if !cfg.SystemMonitoring {
-			log.Println("Forbidden: System monitoring disabled")
+			logger.Log.Println("Forbidden: System monitoring disabled")
 			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)
 			return
 		}
@@ -111,7 +112,7 @@ func main() {
 
 	setupRoute("/api/location", http.MethodPost, "", func(w http.ResponseWriter, r *http.Request) {
 		if !routes.LocationsEnabled() {
-			log.Println("Forbidden: Location lookup not configured")
+			logger.Log.Println("Forbidden: Location lookup not configured")
 			http.Error(w, "Forbidden: Location lookup not configured", http.StatusForbidden)
 			return
 		}
@@ -125,7 +126,7 @@ func main() {
 
 	setupRoute("/api/system", http.MethodGet, "Checking system resources", func(w http.ResponseWriter, r *http.Request) {
 		if !cfg.SystemMonitoring {
-			log.Println("Forbidden: System monitoring disabled")
+			logger.Log.Println("Forbidden: System monitoring disabled")
 			http.Error(w, "Forbidden: System monitoring disabled", http.StatusForbidden)
 			return
 		}
@@ -135,7 +136,7 @@ func main() {
 
 	// Handle graceful shutdown
 	go func() {
-		log.Printf("Agent running on port %s...\n", cfg.Port)
+		logger.Log.Printf("Agent running on port %s...\n", cfg.Port)
 		if err := http.ListenAndServe(":"+cfg.Port, nil); err != nil {
 			log.Fatalf("Server failed: %v", err)
 		}
@@ -146,19 +147,19 @@ func main() {
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigchan
 
-	log.Println("Shutting down...")
+	logger.Log.Println("Shutting down...")
 }
 
 func logConfig(cfg config.Config) {
 	if cfg.AuthToken == "" {
-		log.Println("Auth token not set in environment or command line argument. Access may be insecure.")
+		logger.Log.Println("Auth token not set in environment or command line argument. Access may be insecure.")
 	}
-	log.Println("Using NGINX access log path:", cfg.AccessPath)
-	log.Println("Using NGINX error log path:", cfg.ErrorPath)
+	logger.Log.Println("Using NGINX access log path:", cfg.AccessPath)
+	logger.Log.Println("Using NGINX error log path:", cfg.ErrorPath)
 
 	if cfg.SystemMonitoring {
-		log.Println("System monitoring enabled")
+		logger.Log.Println("System monitoring enabled")
 	} else {
-		log.Println("System monitoring disabled")
+		logger.Log.Println("System monitoring disabled")
 	}
 }

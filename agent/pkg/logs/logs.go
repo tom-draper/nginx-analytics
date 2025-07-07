@@ -4,25 +4,23 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
 
-// Position represents a file's current read position
 type Position struct {
 	Position int64  `json:"position"`
 	Filename string `json:"filename,omitempty"`
 }
 
-// LogResult represents the response structure for log requests
 type LogResult struct {
 	Logs      []string   `json:"logs"`
 	Positions []Position `json:"positions,omitempty"`
 }
 
-// ServeLogs handles requests for logs, supporting multiple files and positions
 func GetLogs(path string, positions []Position, isErrorLog bool, includeCompressed bool) (LogResult, error) {
 	// Check if we're serving a directory or a single file
 	fileInfo, err := os.Stat(path)
@@ -46,11 +44,10 @@ func GetLogs(path string, positions []Position, isErrorLog bool, includeCompress
 	return result, err
 }
 
-// serveSingleLog serves logs from a single file
 func GetLog(filePath string, position int64) (LogResult, error) {
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		log.Println("File not found")
+		logger.Log.Println("File not found")
 		return LogResult{}, fmt.Errorf("file not found: %s", filePath)
 	}
 
@@ -73,7 +70,6 @@ func GetLog(filePath string, position int64) (LogResult, error) {
 	return result, nil
 }
 
-// readLogFile reads content from a normal log file starting at the given position
 func readLogFile(filePath string, position int64) (LogResult, error) {
 	// Get file info
 	fileInfo, err := os.Stat(filePath)
@@ -144,12 +140,11 @@ func readLogFile(filePath string, position int64) (LogResult, error) {
 	newPosition := fileSize
 
 	return LogResult{
-		Logs: logs, 
+		Logs:      logs,
 		Positions: []Position{{Position: newPosition}},
 	}, nil
 }
 
-// readErrorLogDirectly handles special case for error logs that report size 0 but contain data
 func readErrorLogDirectly(filePath string, position int64) (LogResult, error) {
 	// Read file content directly
 	content, err := os.ReadFile(filePath)
@@ -182,7 +177,6 @@ func readErrorLogDirectly(filePath string, position int64) (LogResult, error) {
 	}, nil
 }
 
-// readCompressedLogFile reads and decompresses a gzipped log file
 func readCompressedLogFile(filePath string) (LogResult, error) {
 	// Open file
 	file, err := os.Open(filePath)
@@ -218,7 +212,6 @@ func readCompressedLogFile(filePath string) (LogResult, error) {
 	}, nil
 }
 
-// serveDirectoryLogs serves logs from a directory containing multiple log files
 func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, includeCompressed bool) (LogResult, error) {
 	// Read directory entries
 	entries, err := os.ReadDir(dirPath)
@@ -280,7 +273,7 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 		}
 
 		if err != nil {
-			log.Printf("Error reading file %s: %v", fullPath, err)
+			logger.Log.Printf("Error reading file %s: %v", fullPath, err)
 			continue
 		}
 
@@ -300,10 +293,6 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 				Position: position,
 			})
 		}
-	}
-
-	if len(allLogs) > 0 {
-		log.Printf("Returning %d lines\n", len(allLogs))
 	}
 
 	// Respond with combined results
