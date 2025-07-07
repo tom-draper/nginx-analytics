@@ -8,7 +8,7 @@ Deploy the Next.js dashboard on the same server as NGINX.
 
 ```bash
 git clone https://github.com/tom-draper/nginx-analytics.git
-cd dashboard
+cd nginx-analytics/dashboard
 
 npm install
 npm run build
