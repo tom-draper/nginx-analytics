@@ -7,7 +7,7 @@ A lightweight agent to securely expose log files and monitor system resources, w
 ```bash
 make
 # or...
-go build -o bin/agent cmd/agent
+go build -o bin/agent ./cmd/agent
 
 scp bin/agent user@yourserver:/usr/local/bin/
 ssh user@yourserver
