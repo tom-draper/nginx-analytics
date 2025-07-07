@@ -11,7 +11,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.1
 	github.com/guptarohit/asciigraph v0.7.3
 	github.com/joho/godotenv v1.5.1
-	github.com/tom-draper/nginx-analytics/agent v0.0.0-20250707155744-63a8025425b4
+	github.com/tom-draper/nginx-analytics/agent v0.0.0-20250707162058-c1988ab90e1d
 )
 
 require (

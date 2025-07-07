@@ -29,7 +29,7 @@ func ServeLocations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var locations []*location.Location
+	var locations []location.Location
 	if len(ipAddresses) > 0 {
 		logger.Log.Printf("Resolving %d locations\n", len(ipAddresses))
 		locations, err = location.ResolveLocations(ipAddresses)
