@@ -5,9 +5,12 @@ A lightweight agent to securely expose log files and monitor system resources, w
 ## Deployment Guide
 
 ```bash
+git clone https://github.com/tom-draper/nginx-analytics.git
+cd nginx-analytics/agent
+
 make
 # or...
-go build -o bin/agent cmd/agent
+go build -o bin/agent ./cmd/agent
 
 scp bin/agent user@yourserver:/usr/local/bin/
 ssh user@yourserver
