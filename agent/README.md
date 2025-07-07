@@ -98,19 +98,19 @@ curl https://yourdomain.com/api/logs/status
 
 ### Dashboard
 
-Host the dashboard on your preferred platform, with environment variables set pointing to the agent's endpoints.
+Host the dashboard on your preferred platform, with an environment variable set pointing to the agent's endpoint.
 
 ```env
 NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 ```
 
-<!-- ### CLI -->
-<!---->
-<!-- Run the CLI from anywhere, with environment variables set pointing to the agent's endpoints. -->
-<!---->
-<!-- ```env -->
-<!-- NGINX_ANALYTICS_SERVER_URL=https://yourserver.com -->
-<!-- ``` -->
+### CLI
+
+Run the CLI from anywhere, with an environment variable set pointing to the agent's endpoint.
+
+```env
+NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
+```
 
 ## Configuration
 
