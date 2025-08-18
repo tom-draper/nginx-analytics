@@ -1,12 +1,42 @@
 import { Period } from "../period";
 
-export function Navigation({ filterPeriod, setFilterPeriod, setShowSettings }: { filterPeriod: Period, setFilterPeriod: (period: Period) => void, setShowSettings: any }) {
+export function Navigation({ filterPeriod, setFilterPeriod, setShowSettings, isDemo }: { filterPeriod: Period, setFilterPeriod: (period: Period) => void, setShowSettings: any, isDemo: boolean }) {
     const showSettings = () => {
         setShowSettings(true);
     }
 
     return (
-        <nav className="mb-1">
+        <nav className="mb-1 flex">
+
+            <div className="flex flex-grow">
+                {isDemo && (
+                    <div className="hidden min-[750px]:flex border rounded-[var(--border-radius)] border-[var(--border-color)] text-[0.9em] text-[var(--text-muted3)] overflow-hidden ml-3">
+                        <a
+                            href="https://github.com/tom-draper/nginx-analytics"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group px-3 py-1 hover:text-[var(--text)] cursor-pointer transition-colors duration-200 ease-in-out flex items-center"
+                        >
+                            Get started
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth="1.5"
+                                stroke="currentColor"
+                                className="size-6 h-[18px] my-auto ml-[6px] 
+                           transition-transform duration-300 ease-in-out 
+                           transition-colors delay-300 
+                           group-hover:translate-x-[2px] 
+                           group-hover:stroke-[var(--highlight)]"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path>
+                            </svg>
+                        </a>
+                    </div>
+                )}
+            </div>
+
             <div className="mx-3 flex flex-end justify-end">
                 <div className="text-sm grid place-items-center text-[var(--text-muted3)] px-2 font-semibold">
                     <a

@@ -222,26 +222,51 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         setFilteredData(filteredData);
     }, [logs, filter, settings, locationMap]);
 
+
     if (fileUpload && accessLogs.length === 0) {
-        return (
-            <div className="relative w-full h-screen bg-[var(--background)]">
-                <NetworkBackground />
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-                    <FileUpload setAccessLogs={setAccessLogs} setErrorLogs={setErrorLogs} />
-                    <div className="absolute w-full bottom-6 text-center z-20 pointer-events-auto font-normal text-sm">
-                        <a href="/dashboard/demo" target="_blank" className="text-[var(--text-muted3)] hover:text-[var(--text)] cursor-pointer transition-colors duration-100 ease-in-out">Try the demo</a>
-                    </div>
+    return (
+        <div className="relative w-full h-screen bg-[var(--background)]">
+            <NetworkBackground />
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none text-[#99a1af]">
+                <FileUpload setAccessLogs={setAccessLogs} setErrorLogs={setErrorLogs} />
+                
+                <div className="max-w-md bg-y-80 backdrop-blur-sm border border-[var(--border-color)] rounded shadow-lg overflow-hidden mt-[6vh] w-fit">
+                    <a 
+                        href="https://github.com/tom-draper/nginx-analytics" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="group pointer-events-auto flex items-center px-[2rem] py-[1rem] cursor-pointer" 
+                    >
+                        <p className="transition-colors duration-300 group-hover:text-[var(--text)]">
+                            Get started with self-hosting
+                        </p>
+                        <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            strokeWidth="1.5" 
+                            stroke="currentColor" 
+                            className="size-6 h-[20px] ml-[10px] transition-all duration-300 ease-in-out group-hover:translate-x-[3px] group-hover:stroke-[var(--highlight)] group-hover:delay-500"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path>
+                        </svg>
+                    </a>
+                </div>
+
+                <div className="absolute w-full bottom-6 text-center z-20 pointer-events-auto font-normal text-sm">
+                    <a href="/dashboard/demo" target="_blank" className="text-[var(--text-muted3)] hover:text-[var(--text)] cursor-pointer transition-colors duration-100 ease-in-out">Try the demo</a>
                 </div>
             </div>
-        )
-    }
+        </div>
+    )
+}
 
     return (
-        <div className="">
+        <div>
             <main className="sm:p-12 !pt-7">
                 <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => { exportCSV(logs) }} />
 
-                <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} />
+                <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} isDemo={demo} />
 
                 <div className="flex max-[950px]:flex-col">
                     {/* Left */}
