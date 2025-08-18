@@ -1,6 +1,6 @@
 # NGINX Analytics
 
-A flexible, self-hosted and privacy-focused analytics solution for NGINX.
+A self-hosted, flexible and privacy-focused analytics solution for NGINX.
 
 Transform your existing NGINX logs into a clean, real-time analytics dashboard.
 
