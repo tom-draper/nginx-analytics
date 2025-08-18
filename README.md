@@ -1,4 +1,4 @@
-# API Analytics | NGINX
+# NGINX Analytics
 
 A modern, flexible and privacy-focused analytics solution for NGINX.
 
