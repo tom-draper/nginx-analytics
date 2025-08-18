@@ -2,7 +2,7 @@
 
 A flexible, self-hosted and privacy-focused analytics solution for NGINX.
 
-Transform your existing raw NGINX logs into a clean, real-time analytics dashboard.
+Transform your existing NGINX logs into a clean, real-time analytics dashboard.
 
 ![NGINX Analytics](https://github.com/user-attachments/assets/b0fc1334-22e0-4d2c-9219-29d69a86a679)
 
