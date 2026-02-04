@@ -262,7 +262,8 @@ func (um *UIManager) navigateUp() {
 
 	switch position {
 	case "main":
-		row, col := um.grid.GetMainGridPosition(um.grid.ActiveCard)
+		localIndex := um.grid.GetActiveCardIndexInArea()
+		row, col := um.grid.GetMainGridPosition(localIndex)
 		if row > 0 {
 			newIndex := um.grid.GetMainGridCardIndex(row-1, col)
 			if newIndex >= 0 {
@@ -275,20 +276,29 @@ func (um *UIManager) navigateUp() {
 			um.grid.SetActiveCard(newIndex)
 		}
 	case "middle":
-		newIndex := um.grid.GetMainGridCardIndex(1, 0)
+		// From Endpoints, go up to bottom of main grid (left column)
+		newIndex := um.grid.GetMainGridCardIndex(um.grid.Rows-1, 0)
 		if newIndex >= 0 {
 			um.grid.SetActiveCard(newIndex)
 		}
-	case "bottom":
+	case "version":
+		// From Version, go up to Endpoints (middle)
 		middleIndex := um.grid.GetMiddleCardIndex()
 		if middleIndex >= 0 {
 			um.grid.SetActiveCard(middleIndex)
-		} else {
-			sidebarIndex := um.grid.GetSidebarCardIndex()
-			if sidebarIndex >= 0 {
-				um.grid.SetActiveCard(sidebarIndex)
-			}
 		}
+	case "sidebar-bottom":
+		// From Location, go up to Sidebar
+		sidebarIndex := um.grid.GetSidebarCardIndex()
+		if sidebarIndex >= 0 {
+			um.grid.SetActiveCard(sidebarIndex)
+		}
+	case "sidebar-subgrid":
+		// From CPU area, go up to Location (sidebar-bottom)
+		um.grid.MoveUp()
+	case "sidebar-footer":
+		// Go up to system subgrid
+		um.grid.MoveUp()
 	}
 }
 
@@ -297,7 +307,8 @@ func (um *UIManager) navigateDown() {
 
 	switch position {
 	case "main":
-		row, col := um.grid.GetMainGridPosition(um.grid.ActiveCard)
+		localIndex := um.grid.GetActiveCardIndexInArea()
+		row, col := um.grid.GetMainGridPosition(localIndex)
 		if row < um.grid.Rows-1 {
 			newIndex := um.grid.GetMainGridCardIndex(row+1, col)
 			if newIndex >= 0 {
@@ -305,6 +316,7 @@ func (um *UIManager) navigateDown() {
 				return
 			}
 		}
+		// At bottom of main grid, go to middle (endpoints)
 		middleIndex := um.grid.GetMiddleCardIndex()
 		if middleIndex >= 0 {
 			um.grid.SetActiveCard(middleIndex)
@@ -315,17 +327,33 @@ func (um *UIManager) navigateDown() {
 			um.grid.SetActiveCard(bottomIndex)
 		}
 	case "middle":
-		bottomIndex := um.grid.GetSidebarBottomCardIndex(0)
-		if bottomIndex >= 0 {
-			um.grid.SetActiveCard(bottomIndex)
+		// From Endpoints, go down to Version
+		versionIndex := um.grid.GetVersionCardIndex()
+		if versionIndex >= 0 {
+			um.grid.SetActiveCard(versionIndex)
 		}
-	case "bottom":
-		cardIndex := um.grid.GetActiveCardIndexInArea()
-		if cardIndex == 0 {
-			secondBottomIndex := um.grid.GetSidebarBottomCardIndex(1)
-			if secondBottomIndex >= 0 {
-				um.grid.SetActiveCard(secondBottomIndex)
-			}
+	case "version":
+		// From Version, wrap to top of main grid
+		newIndex := um.grid.GetMainGridCardIndex(0, 0)
+		if newIndex >= 0 {
+			um.grid.SetActiveCard(newIndex)
+		}
+	case "sidebar-bottom":
+		// From sidebar-bottom (Location/Device), go down to system subgrid (CPU/Memory)
+		// Maintain column alignment
+		currentCol := um.grid.GetActiveCardIndexInArea()
+		subGridIndex := um.grid.GetSidebarSubGridCardIndex(currentCol)
+		if subGridIndex >= 0 {
+			um.grid.SetActiveCard(subGridIndex)
+		}
+	case "sidebar-subgrid":
+		// Move down within system subgrid or to footer
+		um.grid.MoveDown()
+	case "sidebar-footer":
+		// Wrap to top
+		newIndex := um.grid.GetMainGridCardIndex(0, 0)
+		if newIndex >= 0 {
+			um.grid.SetActiveCard(newIndex)
 		}
 	}
 }
