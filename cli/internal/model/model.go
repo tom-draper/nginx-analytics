@@ -44,6 +44,13 @@ type DataManager struct {
 	positions      []parse.Position // Track the last log position for incremental loading
 	endpointFilter *l.EndpointFilter
 	referrerFilter *l.ReferrerFilter
+	locationFilter *l.LocationFilter
+	deviceFilter   *l.DeviceFilter
+	versionFilter  *l.VersionFilter
+	// Lookup functions for filtering
+	locationLookup func(string) string
+	deviceLookup   func(string) string
+	versionLookup  func(string) string
 }
 
 // UIManager handles UI rendering and layout
@@ -167,6 +174,15 @@ func (dm *DataManager) getCurrentLogs(period period.Period) []nginx.NGINXLog {
 	if dm.referrerFilter != nil {
 		logs = l.FilterByReferrer(logs, dm.referrerFilter)
 	}
+	if dm.locationFilter != nil && dm.locationLookup != nil {
+		logs = l.FilterByLocation(logs, dm.locationFilter, dm.locationLookup)
+	}
+	if dm.deviceFilter != nil && dm.deviceLookup != nil {
+		logs = l.FilterByDevice(logs, dm.deviceFilter, dm.deviceLookup)
+	}
+	if dm.versionFilter != nil && dm.versionLookup != nil {
+		logs = l.FilterByVersion(logs, dm.versionFilter, dm.versionLookup)
+	}
 	return logs
 }
 
@@ -174,33 +190,39 @@ func (dm *DataManager) setEndpointFilter(filter *l.EndpointFilter) {
 	dm.endpointFilter = filter
 }
 
-func (dm *DataManager) clearEndpointFilter() {
-	dm.endpointFilter = nil
-}
-
-func (dm *DataManager) hasEndpointFilter() bool {
-	return dm.endpointFilter != nil
-}
-
 func (dm *DataManager) setReferrerFilter(filter *l.ReferrerFilter) {
 	dm.referrerFilter = filter
 }
 
-func (dm *DataManager) clearReferrerFilter() {
-	dm.referrerFilter = nil
+func (dm *DataManager) setLocationFilter(filter *l.LocationFilter, lookup func(string) string) {
+	dm.locationFilter = filter
+	dm.locationLookup = lookup
 }
 
-func (dm *DataManager) hasReferrerFilter() bool {
-	return dm.referrerFilter != nil
+func (dm *DataManager) setDeviceFilter(filter *l.DeviceFilter, lookup func(string) string) {
+	dm.deviceFilter = filter
+	dm.deviceLookup = lookup
+}
+
+func (dm *DataManager) setVersionFilter(filter *l.VersionFilter, lookup func(string) string) {
+	dm.versionFilter = filter
+	dm.versionLookup = lookup
 }
 
 func (dm *DataManager) hasAnyFilter() bool {
-	return dm.endpointFilter != nil || dm.referrerFilter != nil
+	return dm.endpointFilter != nil || dm.referrerFilter != nil ||
+		dm.locationFilter != nil || dm.deviceFilter != nil || dm.versionFilter != nil
 }
 
 func (dm *DataManager) clearAllFilters() {
 	dm.endpointFilter = nil
 	dm.referrerFilter = nil
+	dm.locationFilter = nil
+	dm.deviceFilter = nil
+	dm.versionFilter = nil
+	dm.locationLookup = nil
+	dm.deviceLookup = nil
+	dm.versionLookup = nil
 }
 
 // clearAllFilteredStates clears the filtered state on all cards
@@ -589,6 +611,33 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 						m.dataManager.setReferrerFilter(&l.ReferrerFilter{
 							Referrer: filter.Referrer,
 						})
+						activeCard.SetFiltered(true)
+						drillable.ExitDrillMode()
+						m.updateCurrentData()
+					}
+				} else if locationsCard, ok := activeCard.Renderer.(*c.LocationsCard); ok {
+					if filter := locationsCard.GetSelectedLocation(); filter != nil {
+						m.dataManager.setLocationFilter(&l.LocationFilter{
+							Location: filter.Location,
+						}, locationsCard.GetLocationLookup())
+						activeCard.SetFiltered(true)
+						drillable.ExitDrillMode()
+						m.updateCurrentData()
+					}
+				} else if deviceCard, ok := activeCard.Renderer.(*c.DeviceCard); ok {
+					if filter := deviceCard.GetSelectedDevice(); filter != nil {
+						m.dataManager.setDeviceFilter(&l.DeviceFilter{
+							Device: filter.Device,
+						}, deviceCard.GetDeviceLookup())
+						activeCard.SetFiltered(true)
+						drillable.ExitDrillMode()
+						m.updateCurrentData()
+					}
+				} else if versionCard, ok := activeCard.Renderer.(*c.VersionCard); ok {
+					if filter := versionCard.GetSelectedVersion(); filter != nil {
+						m.dataManager.setVersionFilter(&l.VersionFilter{
+							Version: filter.Version,
+						}, versionCard.GetVersionLookup())
 						activeCard.SetFiltered(true)
 						drillable.ExitDrillMode()
 						m.updateCurrentData()

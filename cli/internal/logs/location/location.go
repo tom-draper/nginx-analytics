@@ -143,3 +143,14 @@ func filterCached(ipAddresses []string, cache map[string]loc.Location) []string 
 
 	return filtered
 }
+
+// GetLocationForIP returns the country for a given IP address
+func (l *Locations) GetLocationForIP(ip string) string {
+	if l.cache == nil {
+		return ""
+	}
+	if location, ok := l.cache[ip]; ok {
+		return location.Country
+	}
+	return ""
+}

@@ -181,3 +181,18 @@ type EndpointFilter struct {
 type ReferrerFilter struct {
 	Referrer string
 }
+
+// LocationFilter represents a filter for location data
+type LocationFilter struct {
+	Location string
+}
+
+// DeviceFilter represents a filter for device/client data
+type DeviceFilter struct {
+	Device string
+}
+
+// VersionFilter represents a filter for version data
+type VersionFilter struct {
+	Version string
+}

@@ -18,8 +18,10 @@ type versionEntry struct {
 }
 
 type VersionCard struct {
-	detector version.InlineVersionDetector
-	versions map[string]int
+	detector      version.InlineVersionDetector
+	versions      map[string]int
+	drillMode     bool
+	selectedIndex int
 }
 
 const maxVersions = 35 // Maximum number of versions to display
@@ -85,10 +87,18 @@ func (p *VersionCard) RenderContent(width, height int) string {
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
 
-	// Define bar style (using purple for versions)
 	barStyle := lipgloss.NewStyle().
-		Background(styles.Green).  // Purple background
-		Foreground(styles.Black)    // Black text
+		Background(styles.Green).
+		Foreground(styles.Black)
+
+	selectedBarStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("15")).
+		Foreground(styles.Black).
+		Bold(true)
+
+	selectedTextStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).
+		Bold(true)
 
 	var lines []string
 
@@ -97,6 +107,8 @@ func (p *VersionCard) RenderContent(width, height int) string {
 		if i >= height {
 			break // Don't exceed available height
 		}
+
+		isSelected := p.drillMode && i == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -108,7 +120,12 @@ func (p *VersionCard) RenderContent(width, height int) string {
 		}
 
 		// Create the text to overlay: "count version_name"
-		overlayText := fmt.Sprintf("%d %s", ver.count, ver.name)
+		var overlayText string
+		if isSelected {
+			overlayText = fmt.Sprintf("> %d %s", ver.count, ver.name)
+		} else {
+			overlayText = fmt.Sprintf("%d %s", ver.count, ver.name)
+		}
 
 		// Truncate overlay text if it's longer than the card width
 		if len(overlayText) > width {
@@ -119,6 +136,13 @@ func (p *VersionCard) RenderContent(width, height int) string {
 			}
 		}
 
+		currentBarStyle := barStyle
+		textStyle := normalTextStyle
+		if isSelected {
+			currentBarStyle = selectedBarStyle
+			textStyle = selectedTextStyle
+		}
+
 		// Build the line using lipgloss styles
 		var lineParts []string
 
@@ -126,20 +150,16 @@ func (p *VersionCard) RenderContent(width, height int) string {
 			if j < len(overlayText) {
 				// Text character position
 				char := string(overlayText[j])
-				if j < barLength {
-					// Text over purple bar - use bar style
-					lineParts = append(lineParts, barStyle.Render(char))
+				if j < barLength || isSelected {
+					lineParts = append(lineParts, currentBarStyle.Render(char))
 				} else {
-					// Text over empty space - use normal text style
-					lineParts = append(lineParts, normalTextStyle.Render(char))
+					lineParts = append(lineParts, textStyle.Render(char))
 				}
 			} else {
 				// No text character at this position
-				if j < barLength {
-					// Purple bar space
-					lineParts = append(lineParts, barStyle.Render(" "))
+				if j < barLength || isSelected {
+					lineParts = append(lineParts, currentBarStyle.Render(" "))
 				} else {
-					// Empty space
 					lineParts = append(lineParts, " ")
 				}
 			}
@@ -178,4 +198,74 @@ func (c *VersionCard) GetRequiredHeight(width int) int {
 
 	// Each version needs one line
 	return min(len(c.versions), maxVersions)
+}
+
+// DrillableCard interface implementation
+
+func (c *VersionCard) EnterDrillMode() {
+	c.drillMode = true
+	c.selectedIndex = 0
+}
+
+func (c *VersionCard) ExitDrillMode() {
+	c.drillMode = false
+}
+
+func (c *VersionCard) IsInDrillMode() bool {
+	return c.drillMode
+}
+
+func (c *VersionCard) SelectUp() {
+	if c.selectedIndex > 0 {
+		c.selectedIndex--
+	}
+}
+
+func (c *VersionCard) SelectDown() {
+	maxIndex := min(len(c.versions), maxVersions) - 1
+	if c.selectedIndex < maxIndex {
+		c.selectedIndex++
+	}
+}
+
+func (c *VersionCard) HasSelection() bool {
+	return c.drillMode && c.selectedIndex >= 0 && c.selectedIndex < len(c.versions)
+}
+
+func (c *VersionCard) ClearSelection() {
+	c.selectedIndex = 0
+	c.drillMode = false
+}
+
+// GetSelectedVersion returns the currently selected version filter
+func (c *VersionCard) GetSelectedVersion() *VersionFilter {
+	if !c.HasSelection() {
+		return nil
+	}
+
+	// Get sorted versions (same as in RenderContent)
+	var sortedVersions []versionEntry
+	for name, count := range c.versions {
+		sortedVersions = append(sortedVersions, versionEntry{name: name, count: count})
+	}
+
+	sort.Slice(sortedVersions, func(i, j int) bool {
+		if sortedVersions[i].count != sortedVersions[j].count {
+			return sortedVersions[i].count > sortedVersions[j].count
+		}
+		return sortedVersions[i].name < sortedVersions[j].name
+	})
+
+	if c.selectedIndex >= len(sortedVersions) {
+		return nil
+	}
+
+	return &VersionFilter{
+		Version: sortedVersions[c.selectedIndex].name,
+	}
+}
+
+// GetVersionLookup returns the version lookup function for filtering
+func (c *VersionCard) GetVersionLookup() func(string) string {
+	return c.detector.GetVersion
 }

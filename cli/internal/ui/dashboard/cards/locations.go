@@ -13,8 +13,10 @@ import (
 )
 
 type LocationsCard struct {
-	locations loc.Locations
-	serverURL string
+	locations     loc.Locations
+	serverURL     string
+	drillMode     bool
+	selectedIndex int
 }
 
 func NewLocationsCard(logs []nginx.NGINXLog, period period.Period, serverURL string) *LocationsCard {
@@ -96,6 +98,7 @@ func (r *LocationsCard) getMaxCount(locations []loc.Location) int {
 
 func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeight, width int) []string {
 	barStyle := lipgloss.NewStyle().Foreground(styles.Green)
+	selectedBarStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
 	lines := make([]string, chartHeight)
 
 	// Build chart from top to bottom
@@ -105,6 +108,8 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 			if i > 0 {
 				line += " " // Space between bars
 			}
+
+			isSelected := r.drillMode && i == r.selectedIndex
 
 			// Calculate the target height for this bar (in eighths)
 			targetHeightFloat := float64(loc.Count) / float64(maxCount) * float64(chartHeight) * 8
@@ -126,15 +131,22 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 				char = "  " // Two spaces
 			}
 
-			line += char
+			if isSelected {
+				line += selectedBarStyle.Render(char)
+			} else {
+				line += barStyle.Render(char)
+			}
 		}
-		lines[row] = barStyle.Render(line)
+		lines[row] = line
 	}
 
 	return lines
 }
 
 func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
+	normalStyle := lipgloss.NewStyle()
+	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
+
 	labelLine := ""
 	for i, l := range locations {
 		var displayStr string
@@ -146,7 +158,12 @@ func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
 			displayStr = "??"
 		}
 
-		labelLine += displayStr
+		isSelected := r.drillMode && i == r.selectedIndex
+		if isSelected {
+			labelLine += selectedStyle.Render(displayStr)
+		} else {
+			labelLine += normalStyle.Render(displayStr)
+		}
 
 		if i < len(locations)-1 {
 			labelLine += " "
@@ -197,4 +214,63 @@ func (r *LocationsCard) padToHeight(lines []string, targetHeight int) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// DrillableCard interface implementation
+
+func (r *LocationsCard) EnterDrillMode() {
+	r.drillMode = true
+	r.selectedIndex = 0
+}
+
+func (r *LocationsCard) ExitDrillMode() {
+	r.drillMode = false
+}
+
+func (r *LocationsCard) IsInDrillMode() bool {
+	return r.drillMode
+}
+
+func (r *LocationsCard) SelectUp() {
+	// For locations, left/right makes more sense, but up can work as left
+	if r.selectedIndex > 0 {
+		r.selectedIndex--
+	}
+}
+
+func (r *LocationsCard) SelectDown() {
+	// For locations, left/right makes more sense, but down can work as right
+	maxIndex := len(r.locations.Locations) - 1
+	if r.selectedIndex < maxIndex {
+		r.selectedIndex++
+	}
+}
+
+func (r *LocationsCard) HasSelection() bool {
+	return r.drillMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.locations.Locations)
+}
+
+func (r *LocationsCard) ClearSelection() {
+	r.selectedIndex = 0
+	r.drillMode = false
+}
+
+// GetSelectedLocation returns the currently selected location filter
+func (r *LocationsCard) GetSelectedLocation() *LocationFilter {
+	if !r.HasSelection() {
+		return nil
+	}
+
+	if r.selectedIndex >= len(r.locations.Locations) {
+		return nil
+	}
+
+	return &LocationFilter{
+		Location: r.locations.Locations[r.selectedIndex].Location,
+	}
+}
+
+// GetLocationLookup returns the location lookup function for filtering
+func (r *LocationsCard) GetLocationLookup() func(string) string {
+	return r.locations.GetLocationForIP
 }

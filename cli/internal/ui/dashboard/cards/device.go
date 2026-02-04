@@ -18,8 +18,10 @@ type client struct {
 }
 
 type DeviceCard struct {
-	detector useragent.UserAgentDetector
-	clients  map[string]int
+	detector      useragent.UserAgentDetector
+	clients       map[string]int
+	drillMode     bool
+	selectedIndex int
 }
 
 const maxClients = 35 // Maximum number of clients to display
@@ -86,8 +88,17 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 		Foreground(lipgloss.Color("15")) // White/default text
 
 	barStyle := lipgloss.NewStyle().
-		Background(styles.Green). 
+		Background(styles.Green).
 		Foreground(styles.Black)
+
+	selectedBarStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("15")).
+		Foreground(styles.Black).
+		Bold(true)
+
+	selectedTextStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).
+		Bold(true)
 
 	var lines []string
 
@@ -96,6 +107,8 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 		if i >= height {
 			break // Don't exceed available height
 		}
+
+		isSelected := p.drillMode && i == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -107,7 +120,12 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 		}
 
 		// Create the text to overlay: "count client_name"
-		overlayText := fmt.Sprintf("%d %s", cl.count, cl.name)
+		var overlayText string
+		if isSelected {
+			overlayText = fmt.Sprintf("> %d %s", cl.count, cl.name)
+		} else {
+			overlayText = fmt.Sprintf("%d %s", cl.count, cl.name)
+		}
 
 		// Truncate overlay text if it's longer than the card width
 		if len(overlayText) > width {
@@ -118,6 +136,13 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 			}
 		}
 
+		currentBarStyle := barStyle
+		textStyle := normalTextStyle
+		if isSelected {
+			currentBarStyle = selectedBarStyle
+			textStyle = selectedTextStyle
+		}
+
 		// Build the line using lipgloss styles
 		var lineParts []string
 
@@ -125,20 +150,16 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 			if j < len(overlayText) {
 				// Text character position
 				char := string(overlayText[j])
-				if j < barLength {
-					// Text over blue bar - use bar style
-					lineParts = append(lineParts, barStyle.Render(char))
+				if j < barLength || isSelected {
+					lineParts = append(lineParts, currentBarStyle.Render(char))
 				} else {
-					// Text over empty space - use normal text style
-					lineParts = append(lineParts, normalTextStyle.Render(char))
+					lineParts = append(lineParts, textStyle.Render(char))
 				}
 			} else {
 				// No text character at this position
-				if j < barLength {
-					// Blue bar space
-					lineParts = append(lineParts, barStyle.Render(" "))
+				if j < barLength || isSelected {
+					lineParts = append(lineParts, currentBarStyle.Render(" "))
 				} else {
-					// Empty space
 					lineParts = append(lineParts, " ")
 				}
 			}
@@ -177,4 +198,74 @@ func (c *DeviceCard) GetRequiredHeight(width int) int {
 
 	// Each client needs one line
 	return min(len(c.clients), maxClients)
+}
+
+// DrillableCard interface implementation
+
+func (c *DeviceCard) EnterDrillMode() {
+	c.drillMode = true
+	c.selectedIndex = 0
+}
+
+func (c *DeviceCard) ExitDrillMode() {
+	c.drillMode = false
+}
+
+func (c *DeviceCard) IsInDrillMode() bool {
+	return c.drillMode
+}
+
+func (c *DeviceCard) SelectUp() {
+	if c.selectedIndex > 0 {
+		c.selectedIndex--
+	}
+}
+
+func (c *DeviceCard) SelectDown() {
+	maxIndex := min(len(c.clients), maxClients) - 1
+	if c.selectedIndex < maxIndex {
+		c.selectedIndex++
+	}
+}
+
+func (c *DeviceCard) HasSelection() bool {
+	return c.drillMode && c.selectedIndex >= 0 && c.selectedIndex < len(c.clients)
+}
+
+func (c *DeviceCard) ClearSelection() {
+	c.selectedIndex = 0
+	c.drillMode = false
+}
+
+// GetSelectedDevice returns the currently selected device filter
+func (c *DeviceCard) GetSelectedDevice() *DeviceFilter {
+	if !c.HasSelection() {
+		return nil
+	}
+
+	// Get sorted clients (same as in RenderContent)
+	var sortedClients []client
+	for name, count := range c.clients {
+		sortedClients = append(sortedClients, client{name: name, count: count})
+	}
+
+	sort.Slice(sortedClients, func(i, j int) bool {
+		if sortedClients[i].count != sortedClients[j].count {
+			return sortedClients[i].count > sortedClients[j].count
+		}
+		return sortedClients[i].name < sortedClients[j].name
+	})
+
+	if c.selectedIndex >= len(sortedClients) {
+		return nil
+	}
+
+	return &DeviceFilter{
+		Device: sortedClients[c.selectedIndex].name,
+	}
+}
+
+// GetDeviceLookup returns the device lookup function for filtering
+func (c *DeviceCard) GetDeviceLookup() func(string) string {
+	return c.detector.GetClient
 }
