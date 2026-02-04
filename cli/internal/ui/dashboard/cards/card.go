@@ -18,11 +18,12 @@ type CardRenderer interface {
 
 // Card provides the generic card structure and rendering
 type Card struct {
-	Title    string
-	Width    int
-	Height   int
-	IsActive bool
-	Renderer CardRenderer
+	Title      string
+	Width      int
+	Height     int
+	IsActive   bool
+	IsFiltered bool
+	Renderer   CardRenderer
 }
 
 // NewBaseCard creates a new base card with a renderer
@@ -77,6 +78,11 @@ func (c *Card) SetActive(active bool) {
 	c.IsActive = active
 }
 
+// SetFiltered sets the filtered state of the card
+func (c *Card) SetFiltered(filtered bool) {
+	c.IsFiltered = filtered
+}
+
 // SetSize sets the card dimensions
 func (c *Card) SetSize(width, height int) {
 	c.Width = width
@@ -108,7 +114,13 @@ func (c *Card) addTitleOverlay(card string) string {
 		rawTopLine := l.StripANSI(originalTopLine)
 		rawTopLineRunes := []rune(rawTopLine)
 
-		styledTitleContent := " " + c.Title + " "
+		// Add asterisk if card has active filter
+		titleText := c.Title
+		if c.IsFiltered {
+			titleText = c.Title + "*"
+		}
+
+		styledTitleContent := " " + titleText + " "
 		renderedTitle := styledTitleContent
 		renderedTitleVisualWidth := lipgloss.Width(borderStyle.Render(renderedTitle))
 
@@ -145,4 +157,27 @@ type CalculatedCard interface {
 
 type CalculatedSystemCard interface {
 	UpdateCalculated(sysInfo system.SystemInfo)
+}
+
+// DrillableCard interface for cards that support drill-in mode with row selection
+type DrillableCard interface {
+	EnterDrillMode()
+	ExitDrillMode()
+	IsInDrillMode() bool
+	SelectUp()
+	SelectDown()
+	HasSelection() bool
+	ClearSelection()
+}
+
+// EndpointFilter represents a filter for endpoint data
+type EndpointFilter struct {
+	Path   string
+	Method string
+	Status int
+}
+
+// ReferrerFilter represents a filter for referrer data
+type ReferrerFilter struct {
+	Referrer string
 }

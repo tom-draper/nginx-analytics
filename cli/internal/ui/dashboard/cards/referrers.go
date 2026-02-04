@@ -25,7 +25,9 @@ type referrerID struct {
 }
 
 type ReferrersCard struct {
-	referrers []referrer
+	referrers     []referrer
+	drillMode     bool
+	selectedIndex int
 }
 
 const maxReferrers = 16 // Maximum number of referrers to display
@@ -96,11 +98,21 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 
 	// Define lipgloss styles for the bars
 	barStyle := lipgloss.NewStyle().
-		Background(styles.Green). // Green background
-		Foreground(styles.Black)  // Black text
+		Background(styles.Green).
+		Foreground(styles.Black)
 
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
+
+	// Style for selected row in drill mode
+	selectedBarStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("15")). // White
+		Foreground(styles.Black).
+		Bold(true)
+
+	selectedTextStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")). // White
+		Bold(true)
 
 	var lines []string
 
@@ -110,6 +122,7 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 	// Render each referrer as a horizontal bar with overlaid text
 	for i := range maxDisplayReferrers {
 		ep := referrers[i]
+		isSelected := p.drillMode && i == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -121,7 +134,12 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 		}
 
 		// Create the text to overlay: "count path"
-		overlayText := fmt.Sprintf("%d %s", ep.count, ep.path)
+		var overlayText string
+		if isSelected {
+			overlayText = fmt.Sprintf("> %d %s", ep.count, ep.path)
+		} else {
+			overlayText = fmt.Sprintf("%d %s", ep.count, ep.path)
+		}
 
 		// Truncate overlay text if it's longer than the card width
 		if len(overlayText) > width {
@@ -132,6 +150,14 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 			}
 		}
 
+		// Choose styles based on selection
+		currentBarStyle := barStyle
+		textStyle := normalTextStyle
+		if isSelected {
+			currentBarStyle = selectedBarStyle
+			textStyle = selectedTextStyle
+		}
+
 		// Build the line using lipgloss styles
 		var lineParts []string
 
@@ -139,18 +165,18 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 			if j < len(overlayText) {
 				// Text character position
 				char := string(overlayText[j])
-				if j < barLength {
-					// Text over green bar - use bar style
-					lineParts = append(lineParts, barStyle.Render(char))
+				if j < barLength || isSelected {
+					// Text over bar - use bar style (full width highlight when selected)
+					lineParts = append(lineParts, currentBarStyle.Render(char))
 				} else {
 					// Text over empty space - use normal text style
-					lineParts = append(lineParts, normalTextStyle.Render(char))
+					lineParts = append(lineParts, textStyle.Render(char))
 				}
 			} else {
 				// No text character at this position
-				if j < barLength {
-					// Green bar space
-					lineParts = append(lineParts, barStyle.Render(" "))
+				if j < barLength || isSelected {
+					// Bar space (full width highlight when selected)
+					lineParts = append(lineParts, currentBarStyle.Render(" "))
 				} else {
 					// Empty space
 					lineParts = append(lineParts, " ")
@@ -204,4 +230,74 @@ func (r *ReferrersCard) GetRequiredHeight(width int) int {
 
 	// Each referrer needs one line
 	return min(len(r.referrers), maxReferrers)
+}
+
+// DrillableCard interface implementation
+
+func (r *ReferrersCard) EnterDrillMode() {
+	r.drillMode = true
+	r.selectedIndex = 0
+}
+
+func (r *ReferrersCard) ExitDrillMode() {
+	r.drillMode = false
+}
+
+func (r *ReferrersCard) IsInDrillMode() bool {
+	return r.drillMode
+}
+
+func (r *ReferrersCard) SelectUp() {
+	if r.selectedIndex > 0 {
+		r.selectedIndex--
+	}
+}
+
+func (r *ReferrersCard) SelectDown() {
+	maxIndex := min(len(r.referrers), maxReferrers) - 1
+	if r.selectedIndex < maxIndex {
+		r.selectedIndex++
+	}
+}
+
+func (r *ReferrersCard) HasSelection() bool {
+	return r.drillMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.referrers)
+}
+
+func (r *ReferrersCard) ClearSelection() {
+	r.selectedIndex = 0
+	r.drillMode = false
+}
+
+// GetSelectedReferrer returns the currently selected referrer filter, or nil if none selected
+func (r *ReferrersCard) GetSelectedReferrer() *ReferrerFilter {
+	if !r.HasSelection() {
+		return nil
+	}
+
+	// Get sorted referrers (same as in RenderContent)
+	sortedReferrers := make([]referrer, len(r.referrers))
+	copy(sortedReferrers, r.referrers)
+
+	sort.Slice(sortedReferrers, func(i, j int) bool {
+		if sortedReferrers[i].count != sortedReferrers[j].count {
+			return sortedReferrers[i].count > sortedReferrers[j].count
+		}
+		if sortedReferrers[i].path != sortedReferrers[j].path {
+			return sortedReferrers[i].path < sortedReferrers[j].path
+		}
+		if sortedReferrers[i].method != sortedReferrers[j].method {
+			return sortedReferrers[i].method < sortedReferrers[j].method
+		}
+		return sortedReferrers[i].status < sortedReferrers[j].status
+	})
+
+	if r.selectedIndex >= len(sortedReferrers) {
+		return nil
+	}
+
+	ref := sortedReferrers[r.selectedIndex]
+	return &ReferrerFilter{
+		Referrer: ref.path,
+	}
 }

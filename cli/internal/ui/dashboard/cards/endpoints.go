@@ -25,7 +25,9 @@ type endpointID struct {
 }
 
 type EndpointsCard struct {
-	endpoints []endpoint
+	endpoints     []endpoint
+	drillMode     bool
+	selectedIndex int
 }
 
 const maxEndpoints = 35 // Maximum number of endpoints to display
@@ -99,6 +101,16 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
 
+	// Style for selected row in drill mode
+	selectedBarStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("15")). // White
+		Foreground(styles.Black).
+		Bold(true)
+
+	selectedTextStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")). // White
+		Bold(true)
+
 	var lines []string
 
 	// Render each endpoint as a horizontal bar with overlaid text
@@ -106,6 +118,8 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		if i >= height {
 			break // Don't exceed available height
 		}
+
+		isSelected := p.drillMode && i == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -117,7 +131,12 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		}
 
 		// Create the text to overlay: "count path"
-		overlayText := fmt.Sprintf("%d %s", ep.count, ep.path)
+		var overlayText string
+		if isSelected {
+			overlayText = fmt.Sprintf("> %d %s", ep.count, ep.path)
+		} else {
+			overlayText = fmt.Sprintf("%d %s", ep.count, ep.path)
+		}
 
 		// Truncate overlay text if it's longer than the card width
 		if len(overlayText) > width {
@@ -129,51 +148,55 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		}
 
 		var barStyle lipgloss.Style
-		if ep.status >= 200 && ep.status <= 299 {
-			// Define lipgloss styles for the bars
+		if isSelected {
+			// Use highlight style for selected row
+			barStyle = selectedBarStyle
+		} else if ep.status >= 200 && ep.status <= 299 {
 			barStyle = lipgloss.NewStyle().
-				Background(styles.Green). // Green background
-				Foreground(styles.Black)  // Black text
+				Background(styles.Green).
+				Foreground(styles.Black)
 		} else if ep.status >= 300 && ep.status <= 399 {
-			// Define lipgloss styles for the bars
 			barStyle = lipgloss.NewStyle().
-				Background(styles.Blue). // Green background
-				Foreground(styles.Black)  // Black text
+				Background(styles.Blue).
+				Foreground(styles.Black)
 		} else if ep.status >= 400 && ep.status <= 499 {
-			// Define lipgloss styles for the bars
 			barStyle = lipgloss.NewStyle().
-				Background(styles.Yellow). // Green background
-				Foreground(styles.Black)  // Black text
+				Background(styles.Yellow).
+				Foreground(styles.Black)
 		} else if ep.status >= 500 && ep.status <= 599 {
-			// Define lipgloss styles for the bars
 			barStyle = lipgloss.NewStyle().
-				Background(styles.Red). // Green background
-				Foreground(styles.Black)  // Black text
+				Background(styles.Red).
+				Foreground(styles.Black)
 		} else {
-			// Define lipgloss styles for the bars
 			barStyle = lipgloss.NewStyle().
-				Background(styles.Gray). // Green background
-				Foreground(styles.Black)  // Black text
+				Background(styles.Gray).
+				Foreground(styles.Black)
 		}
 
 		// Build the line using lipgloss styles
 		var lineParts []string
 
+		// Use different text style for selected row
+		textStyle := normalTextStyle
+		if isSelected {
+			textStyle = selectedTextStyle
+		}
+
 		for j := range width {
 			if j < len(overlayText) {
 				// Text character position
 				char := string(overlayText[j])
-				if j < barLength {
-					// Text over green bar - use bar style
+				if j < barLength || isSelected {
+					// Text over bar - use bar style (full width highlight when selected)
 					lineParts = append(lineParts, barStyle.Render(char))
 				} else {
 					// Text over empty space - use normal text style
-					lineParts = append(lineParts, normalTextStyle.Render(char))
+					lineParts = append(lineParts, textStyle.Render(char))
 				}
 			} else {
 				// No text character at this position
-				if j < barLength {
-					// Green bar space
+				if j < barLength || isSelected {
+					// Bar space (full width highlight when selected)
 					lineParts = append(lineParts, barStyle.Render(" "))
 				} else {
 					// Empty space
@@ -227,4 +250,76 @@ func (r *EndpointsCard) GetRequiredHeight(width int) int {
 
 	// Each endpoint needs one line, plus some padding
 	return min(len(r.endpoints), maxEndpoints) // +2 for padding/borders
+}
+
+// DrillableCard interface implementation
+
+func (r *EndpointsCard) EnterDrillMode() {
+	r.drillMode = true
+	r.selectedIndex = 0
+}
+
+func (r *EndpointsCard) ExitDrillMode() {
+	r.drillMode = false
+}
+
+func (r *EndpointsCard) IsInDrillMode() bool {
+	return r.drillMode
+}
+
+func (r *EndpointsCard) SelectUp() {
+	if r.selectedIndex > 0 {
+		r.selectedIndex--
+	}
+}
+
+func (r *EndpointsCard) SelectDown() {
+	maxIndex := min(len(r.endpoints), maxEndpoints) - 1
+	if r.selectedIndex < maxIndex {
+		r.selectedIndex++
+	}
+}
+
+func (r *EndpointsCard) HasSelection() bool {
+	return r.drillMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.endpoints)
+}
+
+func (r *EndpointsCard) ClearSelection() {
+	r.selectedIndex = 0
+	r.drillMode = false
+}
+
+// GetSelectedEndpoint returns the currently selected endpoint filter, or nil if none selected
+func (r *EndpointsCard) GetSelectedEndpoint() *EndpointFilter {
+	if !r.HasSelection() {
+		return nil
+	}
+
+	// Get sorted endpoints (same as in RenderContent)
+	sortedEndpoints := make([]endpoint, len(r.endpoints))
+	copy(sortedEndpoints, r.endpoints)
+
+	sort.Slice(sortedEndpoints, func(i, j int) bool {
+		if sortedEndpoints[i].count != sortedEndpoints[j].count {
+			return sortedEndpoints[i].count > sortedEndpoints[j].count
+		}
+		if sortedEndpoints[i].path != sortedEndpoints[j].path {
+			return sortedEndpoints[i].path < sortedEndpoints[j].path
+		}
+		if sortedEndpoints[i].method != sortedEndpoints[j].method {
+			return sortedEndpoints[i].method < sortedEndpoints[j].method
+		}
+		return sortedEndpoints[i].status < sortedEndpoints[j].status
+	})
+
+	if r.selectedIndex >= len(sortedEndpoints) {
+		return nil
+	}
+
+	ep := sortedEndpoints[r.selectedIndex]
+	return &EndpointFilter{
+		Path:   ep.path,
+		Method: ep.method,
+		Status: ep.status,
+	}
 }

@@ -35,13 +35,15 @@ type Model struct {
 
 // DataManager handles all data operations
 type DataManager struct {
-	serverURL    string
-	logs         []nginx.NGINXLog
-	logSizes     parse.LogSizes
-	currentLogs  []nginx.NGINXLog
-	calculatable []c.CalculatedCard
-	systemCards  []c.CalculatedSystemCard
-	positions    []parse.Position // Track the last log position for incremental loading
+	serverURL      string
+	logs           []nginx.NGINXLog
+	logSizes       parse.LogSizes
+	currentLogs    []nginx.NGINXLog
+	calculatable   []c.CalculatedCard
+	systemCards    []c.CalculatedSystemCard
+	positions      []parse.Position // Track the last log position for incremental loading
+	endpointFilter *l.EndpointFilter
+	referrerFilter *l.ReferrerFilter
 }
 
 // UIManager handles UI rendering and layout
@@ -158,7 +160,54 @@ func newUIManager(currentLogs []nginx.NGINXLog, period period.Period,
 }
 
 func (dm *DataManager) getCurrentLogs(period period.Period) []nginx.NGINXLog {
-	return l.FilterLogs(dm.logs, period)
+	logs := l.FilterLogs(dm.logs, period)
+	if dm.endpointFilter != nil {
+		logs = l.FilterByEndpoint(logs, dm.endpointFilter)
+	}
+	if dm.referrerFilter != nil {
+		logs = l.FilterByReferrer(logs, dm.referrerFilter)
+	}
+	return logs
+}
+
+func (dm *DataManager) setEndpointFilter(filter *l.EndpointFilter) {
+	dm.endpointFilter = filter
+}
+
+func (dm *DataManager) clearEndpointFilter() {
+	dm.endpointFilter = nil
+}
+
+func (dm *DataManager) hasEndpointFilter() bool {
+	return dm.endpointFilter != nil
+}
+
+func (dm *DataManager) setReferrerFilter(filter *l.ReferrerFilter) {
+	dm.referrerFilter = filter
+}
+
+func (dm *DataManager) clearReferrerFilter() {
+	dm.referrerFilter = nil
+}
+
+func (dm *DataManager) hasReferrerFilter() bool {
+	return dm.referrerFilter != nil
+}
+
+func (dm *DataManager) hasAnyFilter() bool {
+	return dm.endpointFilter != nil || dm.referrerFilter != nil
+}
+
+func (dm *DataManager) clearAllFilters() {
+	dm.endpointFilter = nil
+	dm.referrerFilter = nil
+}
+
+// clearAllFilteredStates clears the filtered state on all cards
+func (um *UIManager) clearAllFilteredStates() {
+	for _, card := range um.grid.GetAllCards() {
+		card.Card.SetFiltered(false)
+	}
 }
 
 func (dm *DataManager) getLogSizes() parse.LogSizes {
@@ -246,15 +295,103 @@ func (um *UIManager) setWidth(width int) {
 }
 
 func (um *UIManager) navigateLeft() {
-	totalCards := um.grid.GetTotalCardCount()
-	newIndex := (um.grid.ActiveCard - 1 + totalCards) % totalCards
-	um.grid.SetActiveCard(newIndex)
+	position := um.grid.GetActiveCardPosition()
+
+	switch position {
+	case "main":
+		localIndex := um.grid.GetActiveCardIndexInArea()
+		row, col := um.grid.GetMainGridPosition(localIndex)
+		if col > 0 {
+			newIndex := um.grid.GetMainGridCardIndex(row, col-1)
+			if newIndex >= 0 {
+				um.grid.SetActiveCard(newIndex)
+			}
+		}
+	case "sidebar":
+		// From sidebar, go to right edge of main grid (top row)
+		newIndex := um.grid.GetMainGridCardIndex(0, um.grid.Cols-1)
+		if newIndex >= 0 {
+			um.grid.SetActiveCard(newIndex)
+		}
+	case "sidebar-bottom":
+		// From sidebar-bottom, go to Version (or Endpoints if no Version)
+		currentIndex := um.grid.GetActiveCardIndexInArea()
+		if currentIndex > 0 {
+			// Move left within sidebar-bottom
+			prevIndex := um.grid.GetSidebarBottomCardIndex(currentIndex - 1)
+			if prevIndex >= 0 {
+				um.grid.SetActiveCard(prevIndex)
+			}
+		} else {
+			// At leftmost sidebar-bottom, go to Version
+			versionIndex := um.grid.GetVersionCardIndex()
+			if versionIndex >= 0 {
+				um.grid.SetActiveCard(versionIndex)
+			} else {
+				middleIndex := um.grid.GetMiddleCardIndex()
+				if middleIndex >= 0 {
+					um.grid.SetActiveCard(middleIndex)
+				}
+			}
+		}
+	case "sidebar-subgrid":
+		um.grid.MoveLeft()
+	case "sidebar-footer":
+		currentIndex := um.grid.GetActiveCardIndexInArea()
+		if currentIndex > 0 {
+			prevIndex := um.grid.GetSidebarFooterCardIndex(currentIndex - 1)
+			if prevIndex >= 0 {
+				um.grid.SetActiveCard(prevIndex)
+			}
+		}
+	}
 }
 
 func (um *UIManager) navigateRight() {
-	totalCards := um.grid.GetTotalCardCount()
-	newIndex := (um.grid.ActiveCard + 1) % totalCards
-	um.grid.SetActiveCard(newIndex)
+	position := um.grid.GetActiveCardPosition()
+
+	switch position {
+	case "main":
+		localIndex := um.grid.GetActiveCardIndexInArea()
+		row, col := um.grid.GetMainGridPosition(localIndex)
+		if col < um.grid.Cols-1 {
+			newIndex := um.grid.GetMainGridCardIndex(row, col+1)
+			if newIndex >= 0 {
+				um.grid.SetActiveCard(newIndex)
+			}
+		} else {
+			// At right edge of main grid, go to sidebar
+			sidebarIndex := um.grid.GetSidebarCardIndex()
+			if sidebarIndex >= 0 {
+				um.grid.SetActiveCard(sidebarIndex)
+			}
+		}
+	case "middle", "version":
+		// From left column cards (Endpoints, Version), go to sidebar-bottom (Location)
+		bottomIndex := um.grid.GetSidebarBottomCardIndex(0)
+		if bottomIndex >= 0 {
+			um.grid.SetActiveCard(bottomIndex)
+		}
+	case "sidebar-bottom":
+		// Move right within sidebar-bottom
+		currentIndex := um.grid.GetActiveCardIndexInArea()
+		if currentIndex == 0 {
+			nextIndex := um.grid.GetSidebarBottomCardIndex(1)
+			if nextIndex >= 0 {
+				um.grid.SetActiveCard(nextIndex)
+			}
+		}
+	case "sidebar-subgrid":
+		um.grid.MoveRight()
+	case "sidebar-footer":
+		currentIndex := um.grid.GetActiveCardIndexInArea()
+		if currentIndex == 0 {
+			nextIndex := um.grid.GetSidebarFooterCardIndex(1)
+			if nextIndex >= 0 {
+				um.grid.SetActiveCard(nextIndex)
+			}
+		}
+	}
 }
 
 func (um *UIManager) navigateUp() {
@@ -268,6 +405,19 @@ func (um *UIManager) navigateUp() {
 			newIndex := um.grid.GetMainGridCardIndex(row-1, col)
 			if newIndex >= 0 {
 				um.grid.SetActiveCard(newIndex)
+			}
+		} else {
+			// At top row of main grid, wrap to footer (referrers area)
+			// Go to last footer card (rightmost, which is referrers)
+			footerIndex := um.grid.GetSidebarFooterCardIndex(1) // Index 1 is referrers
+			if footerIndex >= 0 {
+				um.grid.SetActiveCard(footerIndex)
+			} else {
+				// Fallback to first footer card
+				footerIndex = um.grid.GetSidebarFooterCardIndex(0)
+				if footerIndex >= 0 {
+					um.grid.SetActiveCard(footerIndex)
+				}
 			}
 		}
 	case "sidebar":
@@ -395,9 +545,60 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Check if active card is in drill mode
+	activeCard := m.uiManager.grid.GetActiveCard()
+	var drillable c.DrillableCard
+	if activeCard != nil {
+		drillable, _ = activeCard.Renderer.(c.DrillableCard)
+	}
+	inDrillMode := drillable != nil && drillable.IsInDrillMode()
+
 	switch {
 	case key.Matches(msg, m.uiManager.keys.Quit):
+		// If in drill mode, exit drill mode instead of quitting
+		if inDrillMode {
+			drillable.ExitDrillMode()
+			return m, nil
+		}
+		// If any filter is active, clear all filters instead of quitting
+		if m.dataManager.hasAnyFilter() {
+			m.dataManager.clearAllFilters()
+			m.uiManager.clearAllFilteredStates()
+			m.updateCurrentData()
+			return m, nil
+		}
 		return m, tea.Quit
+
+	case msg.String() == "enter":
+		if drillable != nil {
+			if inDrillMode {
+				// Select the item and apply filter based on card type
+				if endpointsCard, ok := activeCard.Renderer.(*c.EndpointsCard); ok {
+					if filter := endpointsCard.GetSelectedEndpoint(); filter != nil {
+						m.dataManager.setEndpointFilter(&l.EndpointFilter{
+							Path:   filter.Path,
+							Method: filter.Method,
+							Status: filter.Status,
+						})
+						activeCard.SetFiltered(true)
+						drillable.ExitDrillMode()
+						m.updateCurrentData()
+					}
+				} else if referrersCard, ok := activeCard.Renderer.(*c.ReferrersCard); ok {
+					if filter := referrersCard.GetSelectedReferrer(); filter != nil {
+						m.dataManager.setReferrerFilter(&l.ReferrerFilter{
+							Referrer: filter.Referrer,
+						})
+						activeCard.SetFiltered(true)
+						drillable.ExitDrillMode()
+						m.updateCurrentData()
+					}
+				}
+			} else {
+				// Enter drill mode
+				drillable.EnterDrillMode()
+			}
+		}
 
 	case msg.String() == "tab":
 		m.navManager.toggleNavigationMode()
@@ -414,7 +615,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.navManager.isTabNavigationMode() {
 			m.navManager.navigatePeriodsLeft()
 			m.updateCurrentData()
-		} else {
+		} else if !inDrillMode {
 			m.uiManager.navigateLeft()
 		}
 
@@ -422,17 +623,21 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.navManager.isTabNavigationMode() {
 			m.navManager.navigatePeriodsRight()
 			m.updateCurrentData()
-		} else {
+		} else if !inDrillMode {
 			m.uiManager.navigateRight()
 		}
 
 	case key.Matches(msg, m.uiManager.keys.Up):
-		if !m.navManager.isTabNavigationMode() {
+		if inDrillMode {
+			drillable.SelectUp()
+		} else if !m.navManager.isTabNavigationMode() {
 			m.uiManager.navigateUp()
 		}
 
 	case key.Matches(msg, m.uiManager.keys.Down):
-		if !m.navManager.isTabNavigationMode() {
+		if inDrillMode {
+			drillable.SelectDown()
+		} else if !m.navManager.isTabNavigationMode() {
 			m.uiManager.navigateDown()
 		}
 	}
