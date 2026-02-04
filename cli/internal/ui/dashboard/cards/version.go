@@ -120,12 +120,7 @@ func (p *VersionCard) RenderContent(width, height int) string {
 		}
 
 		// Create the text to overlay: "count version_name"
-		var overlayText string
-		if isSelected {
-			overlayText = fmt.Sprintf("> %d %s", ver.count, ver.name)
-		} else {
-			overlayText = fmt.Sprintf("%d %s", ver.count, ver.name)
-		}
+		overlayText := fmt.Sprintf("%d %s", ver.count, ver.name)
 
 		// Truncate overlay text if it's longer than the card width
 		if len(overlayText) > width {

@@ -120,12 +120,7 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 		}
 
 		// Create the text to overlay: "count client_name"
-		var overlayText string
-		if isSelected {
-			overlayText = fmt.Sprintf("> %d %s", cl.count, cl.name)
-		} else {
-			overlayText = fmt.Sprintf("%d %s", cl.count, cl.name)
-		}
+		overlayText := fmt.Sprintf("%d %s", cl.count, cl.name)
 
 		// Truncate overlay text if it's longer than the card width
 		if len(overlayText) > width {

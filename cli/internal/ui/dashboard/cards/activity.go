@@ -109,9 +109,22 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 		return a.renderNoData(width, height)
 	}
 
-	// Sort data for consistent chart rendering
-	sortedRequests := sortPoints(a.requests)
-	sortedUsers := sortPoints(a.users)
+	// Determine time range based on period
+	var startTime, endTime time.Time
+	if a.period == period.PeriodAllTime {
+		// For all-time, use the actual data range
+		sortedTemp := sortPoints(a.requests)
+		startTime = sortedTemp[0].timestamp
+		endTime = sortedTemp[len(sortedTemp)-1].timestamp
+	} else {
+		// For other periods, use the full period range
+		startTime = a.period.Start()
+		endTime = time.Now()
+	}
+
+	// Sort and fill data for consistent chart rendering
+	sortedRequests := fillTimeRange(sortPoints(a.requests), startTime, endTime, 0)
+	sortedUsers := fillTimeRange(sortPoints(a.users), startTime, endTime, 0)
 
 	// Calculate chart dimensions
 	usableWidth := width
@@ -167,15 +180,18 @@ func (a *ActivityCard) renderNoData(width, height int) string {
 }
 
 func (a *ActivityCard) renderTimeRange(sortedRequests []point[int], usableWidth int) string {
-	if len(sortedRequests) == 0 {
-		return ""
-	}
+	var firstTime, lastTime time.Time
 
-	firstTime := sortedRequests[0].timestamp.Local()
-	var lastTime time.Time
 	if a.period == period.PeriodAllTime {
+		// For all-time, use the actual log range
+		if len(sortedRequests) == 0 {
+			return ""
+		}
+		firstTime = sortedRequests[0].timestamp.Local()
 		lastTime = sortedRequests[len(sortedRequests)-1].timestamp.Local()
 	} else {
+		// For other periods, use the full period range (e.g., -24h to now)
+		firstTime = a.period.Start().Local()
 		lastTime = time.Now().Local()
 	}
 
@@ -436,7 +452,18 @@ func (a *ActivityCard) generateSuccessRateGraph(width int) []string {
 		return []string{"", ""} // Return empty lines if no success rate data
 	}
 
-	sortedSuccessRate := sortPoints(a.successRate)
+	// Determine time range based on period
+	var startTime, endTime time.Time
+	if a.period == period.PeriodAllTime {
+		sortedTemp := sortPoints(a.successRate)
+		startTime = sortedTemp[0].timestamp
+		endTime = sortedTemp[len(sortedTemp)-1].timestamp
+	} else {
+		startTime = a.period.Start()
+		endTime = time.Now()
+	}
+
+	sortedSuccessRate := fillTimeRange(sortPoints(a.successRate), startTime, endTime, -1.0) // -1 means no data
 
 	leftPadding := 4
 	rightPadding := 2
@@ -591,4 +618,33 @@ func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
 
 func nearestHour(timestamp time.Time) time.Time {
 	return timestamp.Truncate(time.Hour)
+}
+
+// fillTimeRange fills in missing hours with zero values for complete time coverage
+func fillTimeRange[T ~int | ~float64](points []point[T], startTime, endTime time.Time, defaultValue T) []point[T] {
+	if len(points) == 0 && startTime.IsZero() {
+		return points
+	}
+
+	// Create a map of existing points
+	pointMap := make(map[time.Time]T)
+	for _, p := range points {
+		pointMap[nearestHour(p.timestamp)] = p.value
+	}
+
+	// Determine start and end times
+	start := nearestHour(startTime)
+	end := nearestHour(endTime)
+
+	// Generate all hours in the range
+	var filledPoints []point[T]
+	for t := start; !t.After(end); t = t.Add(time.Hour) {
+		if val, exists := pointMap[t]; exists {
+			filledPoints = append(filledPoints, point[T]{timestamp: t, value: val})
+		} else {
+			filledPoints = append(filledPoints, point[T]{timestamp: t, value: defaultValue})
+		}
+	}
+
+	return filledPoints
 }

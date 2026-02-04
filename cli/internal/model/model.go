@@ -582,10 +582,24 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			drillable.ExitDrillMode()
 			return m, nil
 		}
-		// If any filter is active, clear all filters instead of quitting
-		if m.dataManager.hasAnyFilter() {
-			m.dataManager.clearAllFilters()
-			m.uiManager.clearAllFilteredStates()
+		// If the active card has a filter, clear only that filter
+		if activeCard != nil && activeCard.IsFiltered {
+			switch activeCard.Renderer.(type) {
+			case *c.EndpointsCard:
+				m.dataManager.endpointFilter = nil
+			case *c.ReferrersCard:
+				m.dataManager.referrerFilter = nil
+			case *c.LocationsCard:
+				m.dataManager.locationFilter = nil
+				m.dataManager.locationLookup = nil
+			case *c.DeviceCard:
+				m.dataManager.deviceFilter = nil
+				m.dataManager.deviceLookup = nil
+			case *c.VersionCard:
+				m.dataManager.versionFilter = nil
+				m.dataManager.versionLookup = nil
+			}
+			activeCard.SetFiltered(false)
 			m.updateCurrentData()
 			return m, nil
 		}
