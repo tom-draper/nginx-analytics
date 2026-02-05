@@ -7,9 +7,9 @@ import (
 
 func FilterLogs(logs []nginx.NGINXLog, period period.Period) []nginx.NGINXLog {
 	periodStart := period.Start()
-	filteredLogs := make([]nginx.NGINXLog, 0)
+	filteredLogs := make([]nginx.NGINXLog, 0, len(logs))
 	for _, log := range logs {
-		if log.Timestamp.After(periodStart) {
+		if log.Timestamp != nil && log.Timestamp.After(periodStart) {
 			filteredLogs = append(filteredLogs, log)
 		}
 	}

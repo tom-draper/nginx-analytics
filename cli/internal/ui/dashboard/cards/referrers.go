@@ -204,7 +204,7 @@ func getReferrers(logs []nginx.NGINXLog) []referrer {
 
 	for _, log := range logs {
 		// Filter out empty referrers and "-" referrers
-		if log.Referrer == "" || log.Referrer == "-" {
+		if log.Referrer == "" || log.Referrer == "-" || log.Status == nil {
 			continue
 		}
 		id := referrerID{

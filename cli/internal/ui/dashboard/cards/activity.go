@@ -548,6 +548,9 @@ func sortPoints[T ~int | ~float32 | ~float64](points []point[T]) []point[T] {
 func getRequests(logs []nginx.NGINXLog) []point[int] {
 	requestBuckets := make(map[time.Time]int)
 	for _, log := range logs {
+		if log.Timestamp == nil {
+			continue
+		}
 		timeBucket := nearestHour(*log.Timestamp)
 		requestBuckets[timeBucket]++
 	}
@@ -563,6 +566,9 @@ func getRequests(logs []nginx.NGINXLog) []point[int] {
 func getUsers(logs []nginx.NGINXLog) []point[int] {
 	userBuckets := make(map[time.Time]map[string]struct{})
 	for _, log := range logs {
+		if log.Timestamp == nil {
+			continue
+		}
 		timeBucket := nearestHour(*log.Timestamp)
 		userID := u.UserID(log)
 		if userBuckets[timeBucket] == nil {
@@ -587,11 +593,12 @@ func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
 	})
 
 	for _, log := range logs {
+		if log.Timestamp == nil || log.Status == nil {
+			continue
+		}
 		t := nearestHour(*log.Timestamp)
 		bucket := successRateBuckets[t]
 
-		// NGINX status codes: 2xx are success, 3xx are redirection, 4xx are client errors, 5xx are server errors.
-		// A common definition of success is 2xx and 3xx. Let's stick to the current [200, 400) logic.
 		success := *log.Status >= 200 && *log.Status < 400
 		if success {
 			bucket.success++

@@ -32,7 +32,10 @@ func (r *SuccessRateCard) UpdateCalculated(logs []nginx.NGINXLog, period period.
 	totalCountMap := make(map[time.Time]int)
 
 	for _, log := range logs {
-		timeBucket := nearestHour(*log.Timestamp) // Reuse nearestHour from activity.go
+		if log.Timestamp == nil || log.Status == nil {
+			continue
+		}
+		timeBucket := nearestHour(*log.Timestamp)
 		totalCountMap[timeBucket]++
 		if *log.Status >= 200 && *log.Status < 400 {
 			successCountMap[timeBucket]++
@@ -90,6 +93,9 @@ func (r *SuccessRateCard) UpdateCalculated(logs []nginx.NGINXLog, period period.
 
 				// Aggregate logs that fall into this specific time bucket
 				for _, log := range logs {
+					if log.Timestamp == nil || log.Status == nil {
+						continue
+					}
 					logTime := *log.Timestamp
 					if (logTime.Equal(bucketStartTime) || logTime.After(bucketStartTime)) && logTime.Before(bucketEndTime) {
 						totalInBucket++
@@ -127,7 +133,7 @@ func (r *SuccessRateCard) UpdateCalculated(logs []nginx.NGINXLog, period period.
 func successCount(logs []nginx.NGINXLog) int {
 	count := 0
 	for _, log := range logs {
-		if *log.Status >= 200 && *log.Status < 400 {
+		if log.Status != nil && *log.Status >= 200 && *log.Status < 400 {
 			count++
 		}
 	}

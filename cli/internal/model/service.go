@@ -522,7 +522,7 @@ func (mc *MetricsCollector) CollectRequestMetrics(logs []nginx.NGINXLog) map[str
 	successfulRequests := 0
 
 	for _, log := range logs {
-		if *log.Status >= 200 && *log.Status < 400 {
+		if log.Status != nil && *log.Status >= 200 && *log.Status < 400 {
 			successfulRequests++
 		}
 	}

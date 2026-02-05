@@ -33,9 +33,9 @@ func (r *UsersCard) UpdateCalculated(logs []nginx.NGINXLog, period p.Period) {
 }
 
 func getUserEvents(logs []nginx.NGINXLog) []plot.UserEvent {
-	events := make([]plot.UserEvent, 0)
+	events := make([]plot.UserEvent, 0, len(logs))
 	for _, log := range logs {
-		if log.Timestamp.IsZero() {
+		if log.Timestamp == nil {
 			continue
 		}
 		userID := user.UserID(log)

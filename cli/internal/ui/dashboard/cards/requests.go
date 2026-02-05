@@ -34,8 +34,11 @@ func (r *RequestsCard) UpdateCalculated(logs []nginx.NGINXLog, period p.Period) 
 }
 
 func getTimestamps(logs []nginx.NGINXLog) []time.Time {
-	timestamps := make([]time.Time, 0)
+	timestamps := make([]time.Time, 0, len(logs))
 	for _, log := range logs {
+		if log.Timestamp == nil {
+			continue
+		}
 		timestamps = append(timestamps, *log.Timestamp)
 	}
 

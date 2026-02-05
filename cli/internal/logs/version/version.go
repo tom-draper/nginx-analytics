@@ -231,29 +231,14 @@ func (d *InlineVersionDetector) GetVersion(path string) string {
 }
 
 func (d *InlineVersionDetector) extractAdvancedVersion(path string) string {
-	// Handle decimal versions
-	patterns := []string{
-		"/api/v1.0/", "/api/v1.1/", "/api/v2.0/", "/api/v2.1/", "/api/v3.0/",
-		"/v1.0/", "/v1.1/", "/v2.0/", "/v2.1/", "/v3.0/",
-	}
-	
-	for _, pattern := range patterns {
-		if strings.Contains(path, pattern) {
-			// Extract version from pattern
-			start := strings.Index(pattern, "v") + 1
-			end := strings.LastIndex(pattern, "/")
-			return "v" + pattern[start:end]
-		}
-	}
-	
-	// Dynamic extraction for uncommon versions
+	// Dynamic extraction handles all version patterns (including decimals)
 	if idx := strings.Index(path, "/api/v"); idx != -1 {
 		return d.extractVersionFromPos(path, idx+5)
 	}
 	if idx := strings.Index(path, "/v"); idx != -1 {
 		return d.extractVersionFromPos(path, idx+2)
 	}
-	
+
 	return ""
 }
 
@@ -261,23 +246,17 @@ func (d *InlineVersionDetector) extractVersionFromPos(path string, pos int) stri
 	if pos >= len(path) {
 		return ""
 	}
-	
+
 	end := pos
-	for end < len(path) && path[end] != '/' {
+	for end < len(path) && (path[end] >= '0' && path[end] <= '9' || path[end] == '.') {
 		end++
 	}
-	
+
 	if end == pos {
 		return ""
 	}
-	
-	version := path[pos:end]
-	// Basic validation - should start with digit
-	if len(version) > 0 && version[0] >= '0' && version[0] <= '9' {
-		return "v" + version
-	}
-	
-	return ""
+
+	return "v" + path[pos:end]
 }
 
 func (d *InlineVersionDetector) GetStats() map[string]uint64 {

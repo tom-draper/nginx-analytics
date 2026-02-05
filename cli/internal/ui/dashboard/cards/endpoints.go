@@ -241,7 +241,7 @@ func getEndpoints(logs []nginx.NGINXLog) []endpoint {
 	endpointMap := make(map[endpointID]int)
 
 	for _, log := range logs {
-		if log.Path == "" {
+		if log.Path == "" || log.Status == nil {
 			continue
 		}
 		id := endpointID{
