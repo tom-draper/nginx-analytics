@@ -159,14 +159,20 @@ func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
 		}
 
 		isSelected := r.drillMode && i == r.selectedIndex
+
+		// Add separator or selection indicator between bars
+		if i > 0 {
+			if isSelected {
+				labelLine += selectedStyle.Render(">")
+			} else {
+				labelLine += " "
+			}
+		}
+
 		if isSelected {
 			labelLine += selectedStyle.Render(displayStr)
 		} else {
 			labelLine += normalStyle.Render(displayStr)
-		}
-
-		if i < len(locations)-1 {
-			labelLine += " "
 		}
 	}
 	return labelLine

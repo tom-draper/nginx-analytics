@@ -100,7 +100,7 @@ func FilterByDevice(logs []nginx.NGINXLog, filter *DeviceFilter, deviceLookup fu
 
 	filteredLogs := make([]nginx.NGINXLog, 0)
 	for _, log := range logs {
-		device := deviceLookup(log.Path)
+		device := deviceLookup(log.UserAgent)
 		if device == filter.Device {
 			filteredLogs = append(filteredLogs, log)
 		}

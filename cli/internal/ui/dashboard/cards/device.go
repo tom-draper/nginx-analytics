@@ -17,17 +17,27 @@ type client struct {
 	count int
 }
 
+type DeviceMode int
+
+const (
+	ModeClient DeviceMode = iota
+	ModeOS
+	ModeDevice
+)
+
 type DeviceCard struct {
 	detector      useragent.UserAgentDetector
 	clients       map[string]int
 	drillMode     bool
 	selectedIndex int
+	mode          DeviceMode
+	logs          []nginx.NGINXLog
 }
 
 const maxClients = 35 // Maximum number of clients to display
 
 func NewDeviceCard(logs []nginx.NGINXLog, period period.Period) *DeviceCard {
-	card := &DeviceCard{detector: *useragent.NewUserAgentDetector()}
+	card := &DeviceCard{detector: *useragent.NewUserAgentDetector(), mode: ModeClient}
 	card.UpdateCalculated(logs, period)
 	return card
 }
@@ -120,7 +130,12 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 		}
 
 		// Create the text to overlay: "count client_name"
-		overlayText := fmt.Sprintf("%d %s", cl.count, cl.name)
+		var overlayText string
+		if isSelected {
+			overlayText = fmt.Sprintf("> %d %s", cl.count, cl.name)
+		} else {
+			overlayText = fmt.Sprintf("%d %s", cl.count, cl.name)
+		}
 
 		// Truncate overlay text if it's longer than the card width
 		if len(overlayText) > width {
@@ -172,13 +187,22 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 }
 
 func (c *DeviceCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
+	c.logs = logs
 	c.clients = c.getClients(logs)
 }
 
 func (c *DeviceCard) getClients(logs []nginx.NGINXLog) map[string]int {
 	clients := make(map[string]int)
 	for _, log := range logs {
-		v := c.detector.GetClient(log.Path)
+		var v string
+		switch c.mode {
+		case ModeOS:
+			v = c.detector.GetOS(log.UserAgent)
+		case ModeDevice:
+			v = c.detector.GetDevice(log.UserAgent)
+		default:
+			v = c.detector.GetClient(log.UserAgent)
+		}
 		if v != "" {
 			clients[v]++
 		}
@@ -260,7 +284,32 @@ func (c *DeviceCard) GetSelectedDevice() *DeviceFilter {
 	}
 }
 
+// CycleMode advances to the next display mode and recalculates data
+func (c *DeviceCard) CycleMode() {
+	c.mode = (c.mode + 1) % 3
+	c.clients = c.getClients(c.logs)
+}
+
+// GetTitle returns the display title based on current mode
+func (c *DeviceCard) GetTitle() string {
+	switch c.mode {
+	case ModeOS:
+		return "OS"
+	case ModeDevice:
+		return "Device"
+	default:
+		return "Client"
+	}
+}
+
 // GetDeviceLookup returns the device lookup function for filtering
 func (c *DeviceCard) GetDeviceLookup() func(string) string {
-	return c.detector.GetClient
+	switch c.mode {
+	case ModeOS:
+		return c.detector.GetOS
+	case ModeDevice:
+		return c.detector.GetDevice
+	default:
+		return c.detector.GetClient
+	}
 }

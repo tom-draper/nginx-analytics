@@ -606,6 +606,11 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case msg.String() == "enter":
+		// If active card is a DeviceCard and not in drill mode, cycle the display mode
+		if deviceCard, ok := activeCard.Renderer.(*c.DeviceCard); ok && !inDrillMode {
+			deviceCard.CycleMode()
+			return m, nil
+		}
 		if drillable != nil {
 			if inDrillMode {
 				// Select the item and apply filter based on card type

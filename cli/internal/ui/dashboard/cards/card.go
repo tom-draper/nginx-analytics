@@ -114,10 +114,13 @@ func (c *Card) addTitleOverlay(card string) string {
 		rawTopLine := l.StripANSI(originalTopLine)
 		rawTopLineRunes := []rune(rawTopLine)
 
-		// Add asterisk if card has active filter
+		// Use dynamic title if the renderer supports it
 		titleText := c.Title
+		if dt, ok := c.Renderer.(DynamicTitleCard); ok {
+			titleText = dt.GetTitle()
+		}
 		if c.IsFiltered {
-			titleText = c.Title + "*"
+			titleText = titleText + "*"
 		}
 
 		styledTitleContent := " " + titleText + " "
@@ -157,6 +160,11 @@ type CalculatedCard interface {
 
 type CalculatedSystemCard interface {
 	UpdateCalculated(sysInfo system.SystemInfo)
+}
+
+// DynamicTitleCard interface for cards whose title changes dynamically
+type DynamicTitleCard interface {
+	GetTitle() string
 }
 
 // DrillableCard interface for cards that support drill-in mode with row selection
