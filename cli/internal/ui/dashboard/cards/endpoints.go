@@ -131,7 +131,25 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		}
 
 		// Create the text to overlay: "count path"
-		overlayText := fmt.Sprintf("%d %s", ep.count, ep.path)
+		var overlayText string
+		if isSelected {
+			prefix := fmt.Sprintf("> %d %s", ep.count, ep.path)
+			suffix := fmt.Sprintf(" %d", ep.status)
+			gap := width - len(prefix) - len(suffix)
+			if gap >= 1 {
+				overlayText = prefix + strings.Repeat(" ", gap) + suffix
+			} else {
+				// Not enough room for the status code, truncate the path
+				maxPrefix := width - len(suffix) - 4 // 4 for "..."  + 1 space
+				if maxPrefix > 0 {
+					overlayText = prefix[:maxPrefix] + "..." + suffix
+				} else {
+					overlayText = prefix
+				}
+			}
+		} else {
+			overlayText = fmt.Sprintf("%d %s", ep.count, ep.path)
+		}
 
 		// Truncate overlay text if it's longer than the card width
 		if len(overlayText) > width {
@@ -146,6 +164,10 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		if isSelected {
 			// Use highlight style for selected row
 			barStyle = selectedBarStyle
+		} else if ep.status >= 100 && ep.status <= 199 {
+			barStyle = lipgloss.NewStyle().
+				Background(styles.Cyan).
+				Foreground(styles.Black)
 		} else if ep.status >= 200 && ep.status <= 299 {
 			barStyle = lipgloss.NewStyle().
 				Background(styles.Green).
