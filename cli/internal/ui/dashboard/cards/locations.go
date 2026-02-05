@@ -15,7 +15,7 @@ import (
 type LocationsCard struct {
 	locations     loc.Locations
 	serverURL     string
-	drillMode     bool
+	selectMode     bool
 	selectedIndex int
 }
 
@@ -109,7 +109,7 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 				line += " " // Space between bars
 			}
 
-			isSelected := r.drillMode && i == r.selectedIndex
+			isSelected := r.selectMode && i == r.selectedIndex
 
 			// Calculate the target height for this bar (in eighths)
 			targetHeightFloat := float64(loc.Count) / float64(maxCount) * float64(chartHeight) * 8
@@ -158,15 +158,11 @@ func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
 			displayStr = "??"
 		}
 
-		isSelected := r.drillMode && i == r.selectedIndex
+		isSelected := r.selectMode && i == r.selectedIndex
 
-		// Add separator or selection indicator between bars
+		// Add separator between bars
 		if i > 0 {
-			if isSelected {
-				labelLine += selectedStyle.Render(">")
-			} else {
-				labelLine += " "
-			}
+			labelLine += " "
 		}
 
 		if isSelected {
@@ -222,30 +218,38 @@ func (r *LocationsCard) padToHeight(lines []string, targetHeight int) string {
 	return strings.Join(lines, "\n")
 }
 
-// DrillableCard interface implementation
+// SelectableCard interface implementation
 
-func (r *LocationsCard) EnterDrillMode() {
-	r.drillMode = true
+func (r *LocationsCard) EnterSelectMode() {
+	r.selectMode = true
 	r.selectedIndex = 0
 }
 
-func (r *LocationsCard) ExitDrillMode() {
-	r.drillMode = false
+func (r *LocationsCard) ExitSelectMode() {
+	r.selectMode = false
 }
 
-func (r *LocationsCard) IsInDrillMode() bool {
-	return r.drillMode
+func (r *LocationsCard) IsInSelectMode() bool {
+	return r.selectMode
 }
 
 func (r *LocationsCard) SelectUp() {
-	// For locations, left/right makes more sense, but up can work as left
+	// No-op for locations card - use left/right instead
+}
+
+func (r *LocationsCard) SelectDown() {
+	// No-op for locations card - use left/right instead
+}
+
+func (r *LocationsCard) SelectLeft() {
+	// Navigate left through horizontal location bars
 	if r.selectedIndex > 0 {
 		r.selectedIndex--
 	}
 }
 
-func (r *LocationsCard) SelectDown() {
-	// For locations, left/right makes more sense, but down can work as right
+func (r *LocationsCard) SelectRight() {
+	// Navigate right through horizontal location bars
 	maxIndex := len(r.locations.Locations) - 1
 	if r.selectedIndex < maxIndex {
 		r.selectedIndex++
@@ -253,12 +257,12 @@ func (r *LocationsCard) SelectDown() {
 }
 
 func (r *LocationsCard) HasSelection() bool {
-	return r.drillMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.locations.Locations)
+	return r.selectMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.locations.Locations)
 }
 
 func (r *LocationsCard) ClearSelection() {
 	r.selectedIndex = 0
-	r.drillMode = false
+	r.selectMode = false
 }
 
 // GetSelectedLocation returns the currently selected location filter

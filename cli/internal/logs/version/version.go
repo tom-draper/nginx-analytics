@@ -62,13 +62,13 @@ func (d *VersionDetector) GetVersion(path string) string {
 		return ""
 	}
 
+	// Use write lock since we're updating match counts
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	for i := range d.candidates {
 		candidate := &d.candidates[i]
-		
-		var matched bool
+
 		if candidate.IsRegex {
 			matches := candidate.Regex.FindStringSubmatch(path)
 			if len(matches) > 1 {
@@ -81,8 +81,7 @@ func (d *VersionDetector) GetVersion(path string) string {
 				return version
 			}
 		} else {
-			matched = strings.Contains(path, candidate.Pattern)
-			if matched {
+			if strings.Contains(path, candidate.Pattern) {
 				candidate.Matches++
 				return candidate.Name
 			}
@@ -195,35 +194,52 @@ func (d *InlineVersionDetector) GetVersion(path string) string {
 		return ""
 	}
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	// Inline checks for maximum performance - most common first
+	// Check patterns without lock for better performance
+	var version string
+	var matchType int // 1-5 for v1-v5, 6 for other
+
 	if strings.Contains(path, "/api/v1/") || strings.Contains(path, "/v1/") {
-		d.v1Matches++
-		return "v1"
-	}
-	if strings.Contains(path, "/api/v2/") || strings.Contains(path, "/v2/") {
-		d.v2Matches++
-		return "v2"
-	}
-	if strings.Contains(path, "/api/v3/") || strings.Contains(path, "/v3/") {
-		d.v3Matches++
-		return "v3"
-	}
-	if strings.Contains(path, "/api/v4/") || strings.Contains(path, "/v4/") {
-		d.v4Matches++
-		return "v4"
-	}
-	if strings.Contains(path, "/api/v5/") || strings.Contains(path, "/v5/") {
-		d.v5Matches++
-		return "v5"
+		version = "v1"
+		matchType = 1
+	} else if strings.Contains(path, "/api/v2/") || strings.Contains(path, "/v2/") {
+		version = "v2"
+		matchType = 2
+	} else if strings.Contains(path, "/api/v3/") || strings.Contains(path, "/v3/") {
+		version = "v3"
+		matchType = 3
+	} else if strings.Contains(path, "/api/v4/") || strings.Contains(path, "/v4/") {
+		version = "v4"
+		matchType = 4
+	} else if strings.Contains(path, "/api/v5/") || strings.Contains(path, "/v5/") {
+		version = "v5"
+		matchType = 5
+	} else {
+		// Handle decimal versions and dynamic extraction
+		version = d.extractAdvancedVersion(path)
+		if version != "" {
+			matchType = 6
+		}
 	}
 
-	// Handle decimal versions and dynamic extraction
-	version := d.extractAdvancedVersion(path)
+	// Only lock for the counter increment
 	if version != "" {
-		d.otherStats[version]++
+		d.mu.Lock()
+		switch matchType {
+		case 1:
+			d.v1Matches++
+		case 2:
+			d.v2Matches++
+		case 3:
+			d.v3Matches++
+		case 4:
+			d.v4Matches++
+		case 5:
+			d.v5Matches++
+		case 6:
+			d.otherStats[version]++
+		}
+		d.mu.Unlock()
 		return version
 	}
 

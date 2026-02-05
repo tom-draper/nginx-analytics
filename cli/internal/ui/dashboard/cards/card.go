@@ -167,13 +167,15 @@ type DynamicTitleCard interface {
 	GetTitle() string
 }
 
-// DrillableCard interface for cards that support drill-in mode with row selection
-type DrillableCard interface {
-	EnterDrillMode()
-	ExitDrillMode()
-	IsInDrillMode() bool
+// SelectableCard interface for cards that support select mode with row selection
+type SelectableCard interface {
+	EnterSelectMode()
+	ExitSelectMode()
+	IsInSelectMode() bool
 	SelectUp()
 	SelectDown()
+	SelectLeft()
+	SelectRight()
 	HasSelection() bool
 	ClearSelection()
 }

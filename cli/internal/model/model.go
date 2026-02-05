@@ -21,6 +21,12 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
+const (
+	// maxStoredLogs limits memory usage by rotating old logs
+	// At ~500 bytes per log, 100k logs = ~50MB
+	maxStoredLogs = 100000
+)
+
 // Model represents the main application state
 type Model struct {
 	config      config.Config
@@ -262,8 +268,17 @@ func (dm *DataManager) updateSystemCardData(sysInfo system.SystemInfo) {
 }
 
 func (dm *DataManager) appendNewLogs(newLogs []nginx.NGINXLog) {
-	if len(newLogs) > 0 {
-		dm.logs = append(dm.logs, newLogs...)
+	if len(newLogs) == 0 {
+		return
+	}
+
+	dm.logs = append(dm.logs, newLogs...)
+
+	// Rotate logs if we exceed the maximum
+	if len(dm.logs) > maxStoredLogs {
+		// Keep the most recent logs, discard old ones
+		excess := len(dm.logs) - maxStoredLogs
+		dm.logs = dm.logs[excess:]
 	}
 }
 
@@ -364,6 +379,12 @@ func (um *UIManager) navigateLeft() {
 			prevIndex := um.grid.GetSidebarFooterCardIndex(currentIndex - 1)
 			if prevIndex >= 0 {
 				um.grid.SetActiveCard(prevIndex)
+			}
+		} else {
+			// At leftmost footer card (usage time), go to version card
+			versionIndex := um.grid.GetVersionCardIndex()
+			if versionIndex >= 0 {
+				um.grid.SetActiveCard(versionIndex)
 			}
 		}
 	}
@@ -567,19 +588,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Check if active card is in drill mode
+	// Check if active card is in select mode
 	activeCard := m.uiManager.grid.GetActiveCard()
-	var drillable c.DrillableCard
+	var selectable c.SelectableCard
 	if activeCard != nil {
-		drillable, _ = activeCard.Renderer.(c.DrillableCard)
+		selectable, _ = activeCard.Renderer.(c.SelectableCard)
 	}
-	inDrillMode := drillable != nil && drillable.IsInDrillMode()
+	inSelectMode := selectable != nil && selectable.IsInSelectMode()
 
 	switch {
 	case key.Matches(msg, m.uiManager.keys.Quit):
-		// If in drill mode, exit drill mode instead of quitting
-		if inDrillMode {
-			drillable.ExitDrillMode()
+		// If in select mode, exit select mode instead of quitting
+		if inSelectMode {
+			selectable.ExitSelectMode()
 			return m, nil
 		}
 		// If the active card has a filter, clear only that filter
@@ -605,14 +626,16 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 
-	case msg.String() == "enter":
-		// If active card is a DeviceCard and not in drill mode, cycle the display mode
-		if deviceCard, ok := activeCard.Renderer.(*c.DeviceCard); ok && !inDrillMode {
+	case msg.String() == "m":
+		// If active card is a DeviceCard, cycle the display mode
+		if deviceCard, ok := activeCard.Renderer.(*c.DeviceCard); ok {
 			deviceCard.CycleMode()
 			return m, nil
 		}
-		if drillable != nil {
-			if inDrillMode {
+
+	case msg.String() == "enter":
+		if selectable != nil {
+			if inSelectMode {
 				// Select the item and apply filter based on card type
 				if endpointsCard, ok := activeCard.Renderer.(*c.EndpointsCard); ok {
 					if filter := endpointsCard.GetSelectedEndpoint(); filter != nil {
@@ -622,7 +645,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 							Status: filter.Status,
 						})
 						activeCard.SetFiltered(true)
-						drillable.ExitDrillMode()
+						selectable.ExitSelectMode()
 						m.updateCurrentData()
 					}
 				} else if referrersCard, ok := activeCard.Renderer.(*c.ReferrersCard); ok {
@@ -631,7 +654,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 							Referrer: filter.Referrer,
 						})
 						activeCard.SetFiltered(true)
-						drillable.ExitDrillMode()
+						selectable.ExitSelectMode()
 						m.updateCurrentData()
 					}
 				} else if locationsCard, ok := activeCard.Renderer.(*c.LocationsCard); ok {
@@ -640,7 +663,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 							Location: filter.Location,
 						}, locationsCard.GetLocationLookup())
 						activeCard.SetFiltered(true)
-						drillable.ExitDrillMode()
+						selectable.ExitSelectMode()
 						m.updateCurrentData()
 					}
 				} else if deviceCard, ok := activeCard.Renderer.(*c.DeviceCard); ok {
@@ -649,7 +672,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 							Device: filter.Device,
 						}, deviceCard.GetDeviceLookup())
 						activeCard.SetFiltered(true)
-						drillable.ExitDrillMode()
+						selectable.ExitSelectMode()
 						m.updateCurrentData()
 					}
 				} else if versionCard, ok := activeCard.Renderer.(*c.VersionCard); ok {
@@ -658,13 +681,13 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 							Version: filter.Version,
 						}, versionCard.GetVersionLookup())
 						activeCard.SetFiltered(true)
-						drillable.ExitDrillMode()
+						selectable.ExitSelectMode()
 						m.updateCurrentData()
 					}
 				}
 			} else {
-				// Enter drill mode
-				drillable.EnterDrillMode()
+				// Enter select mode
+				selectable.EnterSelectMode()
 			}
 		}
 
@@ -683,7 +706,12 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.navManager.isTabNavigationMode() {
 			m.navManager.navigatePeriodsLeft()
 			m.updateCurrentData()
-		} else if !inDrillMode {
+		} else if inSelectMode {
+			// For LocationsCard in select mode, use left/right to select
+			if _, ok := activeCard.Renderer.(*c.LocationsCard); ok {
+				selectable.SelectLeft()
+			}
+		} else {
 			m.uiManager.navigateLeft()
 		}
 
@@ -691,20 +719,25 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.navManager.isTabNavigationMode() {
 			m.navManager.navigatePeriodsRight()
 			m.updateCurrentData()
-		} else if !inDrillMode {
+		} else if inSelectMode {
+			// For LocationsCard in select mode, use left/right to select
+			if _, ok := activeCard.Renderer.(*c.LocationsCard); ok {
+				selectable.SelectRight()
+			}
+		} else {
 			m.uiManager.navigateRight()
 		}
 
 	case key.Matches(msg, m.uiManager.keys.Up):
-		if inDrillMode {
-			drillable.SelectUp()
+		if inSelectMode {
+			selectable.SelectUp()
 		} else if !m.navManager.isTabNavigationMode() {
 			m.uiManager.navigateUp()
 		}
 
 	case key.Matches(msg, m.uiManager.keys.Down):
-		if inDrillMode {
-			drillable.SelectDown()
+		if inSelectMode {
+			selectable.SelectDown()
 		} else if !m.navManager.isTabNavigationMode() {
 			m.uiManager.navigateDown()
 		}
@@ -809,6 +842,32 @@ func (m Model) getHelpText() string {
 	if m.navManager.isTabNavigationMode() {
 		return "← → navigate tabs    [tab] switch to cards    [q] quit  "
 	}
+
+	// Check if we're in select mode
+	activeCard := m.uiManager.grid.GetActiveCard()
+	if activeCard != nil {
+		if selectable, ok := activeCard.Renderer.(c.SelectableCard); ok && selectable.IsInSelectMode() {
+			// In select mode - show select controls
+			if _, isLocation := activeCard.Renderer.(*c.LocationsCard); isLocation {
+				return "← → select    [enter] filter    [q] exit select mode  "
+			}
+			return "↑ ↓ select    [enter] filter    [q] exit select mode  "
+		}
+
+		// Not in select mode - check if it's a selectable card and show appropriate help
+		if _, ok := activeCard.Renderer.(c.SelectableCard); ok {
+			// Check specific card types for custom help text
+			if _, ok := activeCard.Renderer.(*c.DeviceCard); ok {
+				return "← → ↑ ↓    [enter] select    [m] cycle mode    [p] switch period    [q] quit  "
+			}
+			if _, ok := activeCard.Renderer.(*c.LocationsCard); ok {
+				return "← → ↑ ↓    [enter] select    [p] switch period    [q] quit  "
+			}
+			// For other selectable cards (endpoint, version, referrers)
+			return "← → ↑ ↓    [enter] select    [p] switch period    [q] quit  "
+		}
+	}
+
 	return "← → ↑ ↓    [p] switch period    [q] quit  "
 }
 

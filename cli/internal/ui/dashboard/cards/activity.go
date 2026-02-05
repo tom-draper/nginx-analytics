@@ -132,6 +132,15 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 	chartHeight := max(height-4, 3) // -4 for success rate (2 rows) + time range line + padding
 	chartWidth := max(usableWidth-2, 15)
 
+	// Calculate y-axis width for alignment
+	maxRequests := 0
+	for _, req := range sortedRequests {
+		if req.value > maxRequests {
+			maxRequests = req.value
+		}
+	}
+	yAxisWidth := len(fmt.Sprintf("%d", maxRequests)) + 1
+
 	var lines []string
 
 	// Generate and append the main chart
@@ -141,11 +150,12 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 	// Add time range info
 	lines = append(lines, a.renderTimeRange(sortedRequests, usableWidth))
 
-	// Add success rate label
-	lines = append(lines, a.styles.faint.Render("    Success Rate:"))
+	// Add success rate label (padded to align with y-axis)
+	successRateLabel := strings.Repeat(" ", yAxisWidth) + a.styles.faint.Render("Success Rate:")
+	lines = append(lines, successRateLabel)
 
-	// Generate and append success rate graph
-	successRateGraph := a.generateSuccessRateGraph(usableWidth)
+	// Generate and append success rate graph with matching y-axis alignment
+	successRateGraph := a.generateSuccessRateGraph(usableWidth, yAxisWidth)
 	lines = append(lines, successRateGraph...)
 
 	// Fill or trim lines to match the required height
@@ -447,7 +457,7 @@ func (a *ActivityCard) convertCanvasToBraille(chartGrid [][]string, canvas, user
 	}
 }
 
-func (a *ActivityCard) generateSuccessRateGraph(width int) []string {
+func (a *ActivityCard) generateSuccessRateGraph(width int, yAxisWidth int) []string {
 	if len(a.successRate) == 0 {
 		return []string{"", ""} // Return empty lines if no success rate data
 	}
@@ -465,7 +475,7 @@ func (a *ActivityCard) generateSuccessRateGraph(width int) []string {
 
 	sortedSuccessRate := fillTimeRange(sortPoints(a.successRate), startTime, endTime, -1.0) // -1 means no data
 
-	leftPadding := 4
+	leftPadding := yAxisWidth // Use calculated y-axis width for alignment
 	rightPadding := 2
 	graphWidth := width - leftPadding - rightPadding
 

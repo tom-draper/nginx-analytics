@@ -1,15 +1,24 @@
 package location
 
 import (
-	"fmt"
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/location"
 	loc "github.com/tom-draper/nginx-analytics/agent/pkg/location"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+)
+
+var (
+	// HTTP client with timeout for location fetching
+	locationClient = &http.Client{
+		Timeout: 10 * time.Second,
+	}
 )
 
 type Location struct {
@@ -69,7 +78,7 @@ func (l *Locations) maintainCache(logs []nginx.NGINXLog, serverURL string) {
 	var locations []loc.Location
 	var err error
 	if serverURL != "" {
-		locations, err = fetchLocations(serverURL)
+		locations, err = fetchLocations(serverURL, filterCached)
 		if err != nil {
 			return
 		}
@@ -83,26 +92,39 @@ func (l *Locations) maintainCache(logs []nginx.NGINXLog, serverURL string) {
 	l.updateCache(locations, filterCached)
 }
 
-func fetchLocations(serverURL string) ([]location.Location, error) {
-	reqBody, err := json.Marshal(filterCached)
+func fetchLocations(serverURL string, ipAddresses []string) ([]location.Location, error) {
+	reqBody, err := json.Marshal(ipAddresses)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal IP addresses: %w", err)
 	}
 
 	url := serverURL + "/api/location"
-	resp, err := http.Post(url, "application/json", bytes.NewReader(reqBody))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := locationClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch locations: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, resp.Status)
 	}
 
 	var locations []location.Location
-	err = json.NewDecoder(resp.Body).Decode(&locations)
-	return locations, err
+	if err := json.NewDecoder(resp.Body).Decode(&locations); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return locations, nil
 }
 
 func (l *Locations) updateCache(locations []loc.Location, ipAddresses []string) {

@@ -28,7 +28,7 @@ const (
 type DeviceCard struct {
 	detector      useragent.UserAgentDetector
 	clients       map[string]int
-	drillMode     bool
+	selectMode     bool
 	selectedIndex int
 	mode          DeviceMode
 	logs          []nginx.NGINXLog
@@ -118,7 +118,7 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 			break // Don't exceed available height
 		}
 
-		isSelected := p.drillMode && i == p.selectedIndex
+		isSelected := p.selectMode && i == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -219,19 +219,19 @@ func (c *DeviceCard) GetRequiredHeight(width int) int {
 	return min(len(c.clients), maxClients)
 }
 
-// DrillableCard interface implementation
+// SelectableCard interface implementation
 
-func (c *DeviceCard) EnterDrillMode() {
-	c.drillMode = true
+func (c *DeviceCard) EnterSelectMode() {
+	c.selectMode = true
 	c.selectedIndex = 0
 }
 
-func (c *DeviceCard) ExitDrillMode() {
-	c.drillMode = false
+func (c *DeviceCard) ExitSelectMode() {
+	c.selectMode = false
 }
 
-func (c *DeviceCard) IsInDrillMode() bool {
-	return c.drillMode
+func (c *DeviceCard) IsInSelectMode() bool {
+	return c.selectMode
 }
 
 func (c *DeviceCard) SelectUp() {
@@ -247,13 +247,21 @@ func (c *DeviceCard) SelectDown() {
 	}
 }
 
+func (c *DeviceCard) SelectLeft() {
+	// No-op for device card - uses up/down navigation
+}
+
+func (c *DeviceCard) SelectRight() {
+	// No-op for device card - uses up/down navigation
+}
+
 func (c *DeviceCard) HasSelection() bool {
-	return c.drillMode && c.selectedIndex >= 0 && c.selectedIndex < len(c.clients)
+	return c.selectMode && c.selectedIndex >= 0 && c.selectedIndex < len(c.clients)
 }
 
 func (c *DeviceCard) ClearSelection() {
 	c.selectedIndex = 0
-	c.drillMode = false
+	c.selectMode = false
 }
 
 // GetSelectedDevice returns the currently selected device filter

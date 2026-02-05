@@ -26,7 +26,7 @@ type referrerID struct {
 
 type ReferrersCard struct {
 	referrers     []referrer
-	drillMode     bool
+	selectMode     bool
 	selectedIndex int
 }
 
@@ -104,7 +104,7 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
 
-	// Style for selected row in drill mode
+	// Style for selected row in select mode
 	selectedBarStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color("15")). // White
 		Foreground(styles.Black).
@@ -122,7 +122,7 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 	// Render each referrer as a horizontal bar with overlaid text
 	for i := range maxDisplayReferrers {
 		ep := referrers[i]
-		isSelected := p.drillMode && i == p.selectedIndex
+		isSelected := p.selectMode && i == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -232,19 +232,19 @@ func (r *ReferrersCard) GetRequiredHeight(width int) int {
 	return min(len(r.referrers), maxReferrers)
 }
 
-// DrillableCard interface implementation
+// SelectableCard interface implementation
 
-func (r *ReferrersCard) EnterDrillMode() {
-	r.drillMode = true
+func (r *ReferrersCard) EnterSelectMode() {
+	r.selectMode = true
 	r.selectedIndex = 0
 }
 
-func (r *ReferrersCard) ExitDrillMode() {
-	r.drillMode = false
+func (r *ReferrersCard) ExitSelectMode() {
+	r.selectMode = false
 }
 
-func (r *ReferrersCard) IsInDrillMode() bool {
-	return r.drillMode
+func (r *ReferrersCard) IsInSelectMode() bool {
+	return r.selectMode
 }
 
 func (r *ReferrersCard) SelectUp() {
@@ -260,13 +260,21 @@ func (r *ReferrersCard) SelectDown() {
 	}
 }
 
+func (r *ReferrersCard) SelectLeft() {
+	// No-op for referrers card - uses up/down navigation
+}
+
+func (r *ReferrersCard) SelectRight() {
+	// No-op for referrers card - uses up/down navigation
+}
+
 func (r *ReferrersCard) HasSelection() bool {
-	return r.drillMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.referrers)
+	return r.selectMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.referrers)
 }
 
 func (r *ReferrersCard) ClearSelection() {
 	r.selectedIndex = 0
-	r.drillMode = false
+	r.selectMode = false
 }
 
 // GetSelectedReferrer returns the currently selected referrer filter, or nil if none selected

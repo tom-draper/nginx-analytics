@@ -26,7 +26,7 @@ type endpointID struct {
 
 type EndpointsCard struct {
 	endpoints     []endpoint
-	drillMode     bool
+	selectMode     bool
 	selectedIndex int
 }
 
@@ -101,7 +101,7 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
 
-	// Style for selected row in drill mode
+	// Style for selected row in select mode
 	selectedBarStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color("15")). // White
 		Foreground(styles.Black).
@@ -119,7 +119,7 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 			break // Don't exceed available height
 		}
 
-		isSelected := p.drillMode && i == p.selectedIndex
+		isSelected := p.selectMode && i == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -269,19 +269,19 @@ func (r *EndpointsCard) GetRequiredHeight(width int) int {
 	return min(len(r.endpoints), maxEndpoints) // +2 for padding/borders
 }
 
-// DrillableCard interface implementation
+// SelectableCard interface implementation
 
-func (r *EndpointsCard) EnterDrillMode() {
-	r.drillMode = true
+func (r *EndpointsCard) EnterSelectMode() {
+	r.selectMode = true
 	r.selectedIndex = 0
 }
 
-func (r *EndpointsCard) ExitDrillMode() {
-	r.drillMode = false
+func (r *EndpointsCard) ExitSelectMode() {
+	r.selectMode = false
 }
 
-func (r *EndpointsCard) IsInDrillMode() bool {
-	return r.drillMode
+func (r *EndpointsCard) IsInSelectMode() bool {
+	return r.selectMode
 }
 
 func (r *EndpointsCard) SelectUp() {
@@ -297,13 +297,21 @@ func (r *EndpointsCard) SelectDown() {
 	}
 }
 
+func (r *EndpointsCard) SelectLeft() {
+	// No-op for endpoints card - uses up/down navigation
+}
+
+func (r *EndpointsCard) SelectRight() {
+	// No-op for endpoints card - uses up/down navigation
+}
+
 func (r *EndpointsCard) HasSelection() bool {
-	return r.drillMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.endpoints)
+	return r.selectMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.endpoints)
 }
 
 func (r *EndpointsCard) ClearSelection() {
 	r.selectedIndex = 0
-	r.drillMode = false
+	r.selectMode = false
 }
 
 // GetSelectedEndpoint returns the currently selected endpoint filter, or nil if none selected

@@ -20,7 +20,7 @@ type versionEntry struct {
 type VersionCard struct {
 	detector      version.InlineVersionDetector
 	versions      map[string]int
-	drillMode     bool
+	selectMode     bool
 	selectedIndex int
 }
 
@@ -108,7 +108,7 @@ func (p *VersionCard) RenderContent(width, height int) string {
 			break // Don't exceed available height
 		}
 
-		isSelected := p.drillMode && i == p.selectedIndex
+		isSelected := p.selectMode && i == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -200,19 +200,19 @@ func (c *VersionCard) GetRequiredHeight(width int) int {
 	return min(len(c.versions), maxVersions)
 }
 
-// DrillableCard interface implementation
+// SelectableCard interface implementation
 
-func (c *VersionCard) EnterDrillMode() {
-	c.drillMode = true
+func (c *VersionCard) EnterSelectMode() {
+	c.selectMode = true
 	c.selectedIndex = 0
 }
 
-func (c *VersionCard) ExitDrillMode() {
-	c.drillMode = false
+func (c *VersionCard) ExitSelectMode() {
+	c.selectMode = false
 }
 
-func (c *VersionCard) IsInDrillMode() bool {
-	return c.drillMode
+func (c *VersionCard) IsInSelectMode() bool {
+	return c.selectMode
 }
 
 func (c *VersionCard) SelectUp() {
@@ -228,13 +228,21 @@ func (c *VersionCard) SelectDown() {
 	}
 }
 
+func (c *VersionCard) SelectLeft() {
+	// No-op for version card - uses up/down navigation
+}
+
+func (c *VersionCard) SelectRight() {
+	// No-op for version card - uses up/down navigation
+}
+
 func (c *VersionCard) HasSelection() bool {
-	return c.drillMode && c.selectedIndex >= 0 && c.selectedIndex < len(c.versions)
+	return c.selectMode && c.selectedIndex >= 0 && c.selectedIndex < len(c.versions)
 }
 
 func (c *VersionCard) ClearSelection() {
 	c.selectedIndex = 0
-	c.drillMode = false
+	c.selectMode = false
 }
 
 // GetSelectedVersion returns the currently selected version filter

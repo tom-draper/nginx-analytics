@@ -419,6 +419,12 @@ func (d *DashboardGrid) MoveLeft() {
 			if newSubIndex != -1 {
 				d.SetActiveCard(newSubIndex)
 			}
+		} else {
+			// At leftmost column, go to version card
+			versionIndex := d.GetVersionCardIndex()
+			if versionIndex != -1 {
+				d.SetActiveCard(versionIndex)
+			}
 		}
 
 	case "sidebar-footer":
@@ -426,6 +432,12 @@ func (d *DashboardGrid) MoveLeft() {
 			footerIndex := d.GetSidebarFooterCardIndex(0)
 			if footerIndex != -1 {
 				d.SetActiveCard(footerIndex)
+			}
+		} else {
+			// At leftmost footer card, go to version card
+			versionIndex := d.GetVersionCardIndex()
+			if versionIndex != -1 {
+				d.SetActiveCard(versionIndex)
 			}
 		}
 	}
