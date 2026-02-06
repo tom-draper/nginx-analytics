@@ -97,7 +97,7 @@ func detectToolClient(userAgent string) string {
 	if strings.Contains(userAgent, "Dart/") {
 		return "Dart"
 	}
-	if strings.Contains(userAgent, "OkHttp/") {
+	if strings.Contains(userAgent, "okhttp/") || strings.Contains(userAgent, "OkHttp/") {
 		return "OkHttp"
 	}
 	if strings.Contains(userAgent, "Uptime-Kuma/") {

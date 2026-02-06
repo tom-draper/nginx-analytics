@@ -103,10 +103,10 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 
 	// Build chart from top to bottom
 	for row := range chartHeight {
-		line := ""
+		var buf strings.Builder
 		for i, loc := range locations {
 			if i > 0 {
-				line += " " // Space between bars
+				buf.WriteByte(' ') // Space between bars
 			}
 
 			isSelected := r.selectMode && i == r.selectedIndex
@@ -132,12 +132,12 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 			}
 
 			if isSelected {
-				line += selectedBarStyle.Render(char)
+				buf.WriteString(selectedBarStyle.Render(char))
 			} else {
-				line += barStyle.Render(char)
+				buf.WriteString(barStyle.Render(char))
 			}
 		}
-		lines[row] = line
+		lines[row] = buf.String()
 	}
 
 	return lines
@@ -147,7 +147,7 @@ func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
 	normalStyle := lipgloss.NewStyle()
 	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
 
-	labelLine := ""
+	var buf strings.Builder
 	for i, l := range locations {
 		var displayStr string
 		if len(l.Location) >= 2 {
@@ -160,18 +160,17 @@ func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
 
 		isSelected := r.selectMode && i == r.selectedIndex
 
-		// Add separator between bars
 		if i > 0 {
-			labelLine += " "
+			buf.WriteByte(' ')
 		}
 
 		if isSelected {
-			labelLine += selectedStyle.Render(displayStr)
+			buf.WriteString(selectedStyle.Render(displayStr))
 		} else {
-			labelLine += normalStyle.Render(displayStr)
+			buf.WriteString(normalStyle.Render(displayStr))
 		}
 	}
-	return labelLine
+	return buf.String()
 }
 
 func (r *LocationsCard) addCountOverlay(line string, totalLocations, width int) string {
@@ -257,7 +256,8 @@ func (r *LocationsCard) SelectRight() {
 }
 
 func (r *LocationsCard) HasSelection() bool {
-	return r.selectMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.locations.Locations)
+	_, ok := selectedItem(r.selectMode, r.selectedIndex, r.locations.Locations)
+	return ok
 }
 
 func (r *LocationsCard) ClearSelection() {
@@ -267,17 +267,11 @@ func (r *LocationsCard) ClearSelection() {
 
 // GetSelectedLocation returns the currently selected location filter
 func (r *LocationsCard) GetSelectedLocation() *LocationFilter {
-	if !r.HasSelection() {
+	l, ok := selectedItem(r.selectMode, r.selectedIndex, r.locations.Locations)
+	if !ok {
 		return nil
 	}
-
-	if r.selectedIndex >= len(r.locations.Locations) {
-		return nil
-	}
-
-	return &LocationFilter{
-		Location: r.locations.Locations[r.selectedIndex].Location,
-	}
+	return &LocationFilter{Location: l.Location}
 }
 
 // GetLocationLookup returns the location lookup function for filtering

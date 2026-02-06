@@ -180,6 +180,15 @@ type SelectableCard interface {
 	ClearSelection()
 }
 
+// selectedItem returns the item at selectedIndex if selection is valid.
+func selectedItem[T any](selectMode bool, selectedIndex int, items []T) (T, bool) {
+	var zero T
+	if !selectMode || selectedIndex < 0 || selectedIndex >= len(items) {
+		return zero, false
+	}
+	return items[selectedIndex], true
+}
+
 // EndpointFilter represents a filter for endpoint data
 type EndpointFilter struct {
 	Path   string

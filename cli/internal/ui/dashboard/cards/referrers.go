@@ -26,6 +26,7 @@ type referrerID struct {
 
 type ReferrersCard struct {
 	referrers     []referrer
+	sorted        []referrer
 	selectMode     bool
 	selectedIndex int
 }
@@ -39,7 +40,7 @@ func NewReferrersCard(logs []nginx.NGINXLog, period period.Period) *ReferrersCar
 }
 
 func (p *ReferrersCard) RenderContent(width, height int) string {
-	if len(p.referrers) == 0 {
+	if len(p.sorted) == 0 {
 		faintStyle := lipgloss.NewStyle().
 			Foreground(styles.LightGray).
 			Bold(true)
@@ -65,36 +66,10 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 		return strings.Join(lines[:height], "\n")
 	}
 
-	// Sort referrers by count (descending)
-	sortedReferrers := make([]referrer, len(p.referrers))
-	copy(sortedReferrers, p.referrers)
-
-	sort.Slice(sortedReferrers, func(i, j int) bool {
-		if sortedReferrers[i].count != sortedReferrers[j].count {
-			return sortedReferrers[i].count > sortedReferrers[j].count
-		}
-		// Tie-breaker 1: path
-		if sortedReferrers[i].path != sortedReferrers[j].path {
-			return sortedReferrers[i].path < sortedReferrers[j].path
-		}
-		// Tie-breaker 2: method
-		if sortedReferrers[i].method != sortedReferrers[j].method {
-			return sortedReferrers[i].method < sortedReferrers[j].method
-		}
-		// Tie-breaker 3: status
-		return sortedReferrers[i].status < sortedReferrers[j].status
-	})
+	referrers := p.sorted
 
 	// Find max count for scaling bars
-	maxCount := sortedReferrers[0].count
-
-	var referrers []referrer
-	if len(sortedReferrers) > maxReferrers {
-		// Limit to maxReferrers if more than allowed
-		referrers = sortedReferrers[:maxReferrers]
-	} else {
-		referrers = sortedReferrers
-	}
+	maxCount := referrers[0].count
 
 	// Define lipgloss styles for the bars
 	barStyle := lipgloss.NewStyle().
@@ -114,13 +89,17 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 		Foreground(lipgloss.Color("15")). // White
 		Bold(true)
 
-	var lines []string
+	var buf strings.Builder
 
 	// Calculate how many referrers we can actually display
 	maxDisplayReferrers := min(len(referrers), height)
 
 	// Render each referrer as a horizontal bar with overlaid text
 	for i := range maxDisplayReferrers {
+		if i > 0 {
+			buf.WriteByte('\n')
+		}
+
 		ep := referrers[i]
 		isSelected := p.selectMode && i == p.selectedIndex
 
@@ -158,45 +137,56 @@ func (p *ReferrersCard) RenderContent(width, height int) string {
 			textStyle = selectedTextStyle
 		}
 
-		// Build the line using lipgloss styles
-		var lineParts []string
-
 		for j := range width {
 			if j < len(overlayText) {
-				// Text character position
-				char := string(overlayText[j])
+				char := overlayText[j : j+1]
 				if j < barLength || isSelected {
-					// Text over bar - use bar style (full width highlight when selected)
-					lineParts = append(lineParts, currentBarStyle.Render(char))
+					buf.WriteString(currentBarStyle.Render(char))
 				} else {
-					// Text over empty space - use normal text style
-					lineParts = append(lineParts, textStyle.Render(char))
+					buf.WriteString(textStyle.Render(char))
 				}
 			} else {
-				// No text character at this position
 				if j < barLength || isSelected {
-					// Bar space (full width highlight when selected)
-					lineParts = append(lineParts, currentBarStyle.Render(" "))
+					buf.WriteString(currentBarStyle.Render(" "))
 				} else {
-					// Empty space
-					lineParts = append(lineParts, " ")
+					buf.WriteByte(' ')
 				}
 			}
 		}
-
-		lines = append(lines, strings.Join(lineParts, ""))
 	}
 
 	// Fill remaining height with empty lines
-	for len(lines) < height {
-		lines = append(lines, "")
+	for i := maxDisplayReferrers; i < height; i++ {
+		buf.WriteByte('\n')
 	}
 
-	return strings.Join(lines[:height], "\n")
+	return buf.String()
 }
 
 func (r *ReferrersCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	r.referrers = getReferrers(logs)
+	r.sorted = r.sortReferrers()
+}
+
+func (r *ReferrersCard) sortReferrers() []referrer {
+	sorted := make([]referrer, len(r.referrers))
+	copy(sorted, r.referrers)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].count != sorted[j].count {
+			return sorted[i].count > sorted[j].count
+		}
+		if sorted[i].path != sorted[j].path {
+			return sorted[i].path < sorted[j].path
+		}
+		if sorted[i].method != sorted[j].method {
+			return sorted[i].method < sorted[j].method
+		}
+		return sorted[i].status < sorted[j].status
+	})
+	if len(sorted) > maxReferrers {
+		sorted = sorted[:maxReferrers]
+	}
+	return sorted
 }
 
 func getReferrers(logs []nginx.NGINXLog) []referrer {
@@ -224,12 +214,12 @@ func getReferrers(logs []nginx.NGINXLog) []referrer {
 }
 
 func (r *ReferrersCard) GetRequiredHeight(width int) int {
-	if len(r.referrers) == 0 {
+	if len(r.sorted) == 0 {
 		return 3 // Minimum height for "No referrers found" message
 	}
 
 	// Each referrer needs one line
-	return min(len(r.referrers), maxReferrers)
+	return len(r.sorted)
 }
 
 // SelectableCard interface implementation
@@ -254,8 +244,7 @@ func (r *ReferrersCard) SelectUp() {
 }
 
 func (r *ReferrersCard) SelectDown() {
-	maxIndex := min(len(r.referrers), maxReferrers) - 1
-	if r.selectedIndex < maxIndex {
+	if r.selectedIndex < len(r.sorted)-1 {
 		r.selectedIndex++
 	}
 }
@@ -269,7 +258,8 @@ func (r *ReferrersCard) SelectRight() {
 }
 
 func (r *ReferrersCard) HasSelection() bool {
-	return r.selectMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.referrers)
+	_, ok := selectedItem(r.selectMode, r.selectedIndex, r.sorted)
+	return ok
 }
 
 func (r *ReferrersCard) ClearSelection() {
@@ -279,33 +269,9 @@ func (r *ReferrersCard) ClearSelection() {
 
 // GetSelectedReferrer returns the currently selected referrer filter, or nil if none selected
 func (r *ReferrersCard) GetSelectedReferrer() *ReferrerFilter {
-	if !r.HasSelection() {
+	ref, ok := selectedItem(r.selectMode, r.selectedIndex, r.sorted)
+	if !ok {
 		return nil
 	}
-
-	// Get sorted referrers (same as in RenderContent)
-	sortedReferrers := make([]referrer, len(r.referrers))
-	copy(sortedReferrers, r.referrers)
-
-	sort.Slice(sortedReferrers, func(i, j int) bool {
-		if sortedReferrers[i].count != sortedReferrers[j].count {
-			return sortedReferrers[i].count > sortedReferrers[j].count
-		}
-		if sortedReferrers[i].path != sortedReferrers[j].path {
-			return sortedReferrers[i].path < sortedReferrers[j].path
-		}
-		if sortedReferrers[i].method != sortedReferrers[j].method {
-			return sortedReferrers[i].method < sortedReferrers[j].method
-		}
-		return sortedReferrers[i].status < sortedReferrers[j].status
-	})
-
-	if r.selectedIndex >= len(sortedReferrers) {
-		return nil
-	}
-
-	ref := sortedReferrers[r.selectedIndex]
-	return &ReferrerFilter{
-		Referrer: ref.path,
-	}
+	return &ReferrerFilter{Referrer: ref.path}
 }

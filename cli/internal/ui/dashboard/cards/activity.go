@@ -309,12 +309,17 @@ func (a *ActivityCard) generateBrailleBarChart(requests []point[int], users []po
 	a.convertCanvasToBraille(chartGrid, canvas, userCanvas, yAxisWidth, effectiveChartWidth, chartHeight, brailleHeight)
 
 	// Convert chart grid to string
-	lines := make([]string, chartHeight)
+	var buf strings.Builder
 	for i, row := range chartGrid {
-		lines[i] = strings.Join(row, "")
+		if i > 0 {
+			buf.WriteByte('\n')
+		}
+		for _, cell := range row {
+			buf.WriteString(cell)
+		}
 	}
 
-	return strings.Join(lines, "\n")
+	return buf.String()
 }
 
 func (a *ActivityCard) renderYAxisLabels(chartGrid [][]string, maxRequests, height, yAxisWidth int) {
@@ -483,8 +488,12 @@ func (a *ActivityCard) generateSuccessRateGraph(width int, yAxisWidth int) []str
 		return []string{"", ""}
 	}
 
-	topRow := make([]string, graphWidth)
-	bottomRow := make([]string, graphWidth)
+	leftPadStr := strings.Repeat(" ", leftPadding)
+	rightPadStr := strings.Repeat(" ", rightPadding)
+
+	var topBuf, bottomBuf strings.Builder
+	topBuf.WriteString(leftPadStr)
+	bottomBuf.WriteString(leftPadStr)
 
 	dataPoints := len(sortedSuccessRate)
 
@@ -495,20 +504,15 @@ func (a *ActivityCard) generateSuccessRateGraph(width int, yAxisWidth int) []str
 		}
 
 		successRate := sortedSuccessRate[dataIndex].value
-		color := lipgloss.NewStyle().Foreground(a.getSuccessRateColor(successRate))
-
-		coloredChar := color.Render("█")
-		topRow[i] = coloredChar
-		bottomRow[i] = coloredChar
+		coloredChar := lipgloss.NewStyle().Foreground(a.getSuccessRateColor(successRate)).Render("█")
+		topBuf.WriteString(coloredChar)
+		bottomBuf.WriteString(coloredChar)
 	}
 
-	leftPadStr := strings.Repeat(" ", leftPadding)
-	rightPadStr := strings.Repeat(" ", rightPadding)
+	topBuf.WriteString(rightPadStr)
+	bottomBuf.WriteString(rightPadStr)
 
-	return []string{
-		leftPadStr + strings.Join(topRow, "") + rightPadStr,
-		leftPadStr + strings.Join(bottomRow, "") + rightPadStr,
-	}
+	return []string{topBuf.String(), bottomBuf.String()}
 }
 
 func (a *ActivityCard) getSuccessRateColor(rate float64) lipgloss.Color {
@@ -561,7 +565,7 @@ func getRequests(logs []nginx.NGINXLog) []point[int] {
 		if log.Timestamp == nil {
 			continue
 		}
-		timeBucket := nearestHour(*log.Timestamp)
+		timeBucket := nearestBucket(*log.Timestamp)
 		requestBuckets[timeBucket]++
 	}
 
@@ -579,7 +583,7 @@ func getUsers(logs []nginx.NGINXLog) []point[int] {
 		if log.Timestamp == nil {
 			continue
 		}
-		timeBucket := nearestHour(*log.Timestamp)
+		timeBucket := nearestBucket(*log.Timestamp)
 		userID := u.UserID(log)
 		if userBuckets[timeBucket] == nil {
 			userBuckets[timeBucket] = make(map[string]struct{})
@@ -606,10 +610,10 @@ func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
 		if log.Timestamp == nil || log.Status == nil {
 			continue
 		}
-		t := nearestHour(*log.Timestamp)
+		t := nearestBucket(*log.Timestamp)
 		bucket := successRateBuckets[t]
 
-		success := *log.Status >= 200 && *log.Status < 400
+		success := *log.Status >= 100 && *log.Status < 400
 		if success {
 			bucket.success++
 		}
@@ -633,11 +637,13 @@ func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
 	return successRates
 }
 
-func nearestHour(timestamp time.Time) time.Time {
-	return timestamp.Truncate(time.Hour)
+const bucketInterval = 5 * time.Minute
+
+func nearestBucket(timestamp time.Time) time.Time {
+	return timestamp.Truncate(bucketInterval)
 }
 
-// fillTimeRange fills in missing hours with zero values for complete time coverage
+// fillTimeRange fills in missing buckets with zero values for complete time coverage
 func fillTimeRange[T ~int | ~float64](points []point[T], startTime, endTime time.Time, defaultValue T) []point[T] {
 	if len(points) == 0 && startTime.IsZero() {
 		return points
@@ -646,16 +652,16 @@ func fillTimeRange[T ~int | ~float64](points []point[T], startTime, endTime time
 	// Create a map of existing points
 	pointMap := make(map[time.Time]T)
 	for _, p := range points {
-		pointMap[nearestHour(p.timestamp)] = p.value
+		pointMap[nearestBucket(p.timestamp)] = p.value
 	}
 
 	// Determine start and end times
-	start := nearestHour(startTime)
-	end := nearestHour(endTime)
+	start := nearestBucket(startTime)
+	end := nearestBucket(endTime)
 
-	// Generate all hours in the range
+	// Generate all buckets in the range
 	var filledPoints []point[T]
-	for t := start; !t.After(end); t = t.Add(time.Hour) {
+	for t := start; !t.After(end); t = t.Add(bucketInterval) {
 		if val, exists := pointMap[t]; exists {
 			filledPoints = append(filledPoints, point[T]{timestamp: t, value: val})
 		} else {

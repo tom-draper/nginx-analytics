@@ -35,9 +35,9 @@ func (r *SuccessRateCard) UpdateCalculated(logs []nginx.NGINXLog, period period.
 		if log.Timestamp == nil || log.Status == nil {
 			continue
 		}
-		timeBucket := nearestHour(*log.Timestamp)
+		timeBucket := nearestBucket(*log.Timestamp)
 		totalCountMap[timeBucket]++
-		if *log.Status >= 200 && *log.Status < 400 {
+		if *log.Status >= 100 && *log.Status < 400 {
 			successCountMap[timeBucket]++
 		}
 	}
@@ -99,7 +99,7 @@ func (r *SuccessRateCard) UpdateCalculated(logs []nginx.NGINXLog, period period.
 					logTime := *log.Timestamp
 					if (logTime.Equal(bucketStartTime) || logTime.After(bucketStartTime)) && logTime.Before(bucketEndTime) {
 						totalInBucket++
-						if *log.Status >= 200 && *log.Status < 400 {
+						if *log.Status >= 100 && *log.Status < 400 {
 							successInBucket++
 						}
 					}
@@ -133,7 +133,7 @@ func (r *SuccessRateCard) UpdateCalculated(logs []nginx.NGINXLog, period period.
 func successCount(logs []nginx.NGINXLog) int {
 	count := 0
 	for _, log := range logs {
-		if log.Status != nil && *log.Status >= 200 && *log.Status < 400 {
+		if log.Status != nil && *log.Status >= 100 && *log.Status < 400 {
 			count++
 		}
 	}

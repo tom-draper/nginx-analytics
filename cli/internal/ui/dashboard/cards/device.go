@@ -28,6 +28,7 @@ const (
 type DeviceCard struct {
 	detector      useragent.UserAgentDetector
 	clients       map[string]int
+	sorted        []client
 	selectMode     bool
 	selectedIndex int
 	mode          DeviceMode
@@ -43,7 +44,7 @@ func NewDeviceCard(logs []nginx.NGINXLog, period period.Period) *DeviceCard {
 }
 
 func (p *DeviceCard) RenderContent(width, height int) string {
-	if len(p.clients) == 0 {
+	if len(p.sorted) == 0 {
 		faintStyle := lipgloss.NewStyle().
 			Foreground(styles.LightGray).
 			Bold(true)
@@ -69,30 +70,10 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 		return strings.Join(lines[:height], "\n")
 	}
 
-	// Convert map to slice and sort by count (descending)
-	var sortedClients []client
-	for name, count := range p.clients {
-		sortedClients = append(sortedClients, client{name: name, count: count})
-	}
-
-	sort.Slice(sortedClients, func(i, j int) bool {
-		if sortedClients[i].count != sortedClients[j].count {
-			return sortedClients[i].count > sortedClients[j].count
-		}
-		// Tie-breaker: client name
-		return sortedClients[i].name < sortedClients[j].name
-	})
+	clients := p.sorted
 
 	// Find max count for scaling bars
-	maxCount := sortedClients[0].count
-
-	var clients []client
-	if len(sortedClients) > maxClients {
-		// Limit to maxClients if more than allowed
-		clients = sortedClients[:maxClients]
-	} else {
-		clients = sortedClients
-	}
+	maxCount := clients[0].count
 
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
@@ -110,12 +91,16 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 		Foreground(lipgloss.Color("15")).
 		Bold(true)
 
-	var lines []string
+	var buf strings.Builder
 
 	// Render each client as a horizontal bar with overlaid text
 	for i, cl := range clients {
 		if i >= height {
 			break // Don't exceed available height
+		}
+
+		if i > 0 {
+			buf.WriteByte('\n')
 		}
 
 		isSelected := p.selectMode && i == p.selectedIndex
@@ -153,42 +138,53 @@ func (p *DeviceCard) RenderContent(width, height int) string {
 			textStyle = selectedTextStyle
 		}
 
-		// Build the line using lipgloss styles
-		var lineParts []string
-
 		for j := range width {
 			if j < len(overlayText) {
-				// Text character position
-				char := string(overlayText[j])
+				char := overlayText[j : j+1]
 				if j < barLength || isSelected {
-					lineParts = append(lineParts, currentBarStyle.Render(char))
+					buf.WriteString(currentBarStyle.Render(char))
 				} else {
-					lineParts = append(lineParts, textStyle.Render(char))
+					buf.WriteString(textStyle.Render(char))
 				}
 			} else {
-				// No text character at this position
 				if j < barLength || isSelected {
-					lineParts = append(lineParts, currentBarStyle.Render(" "))
+					buf.WriteString(currentBarStyle.Render(" "))
 				} else {
-					lineParts = append(lineParts, " ")
+					buf.WriteByte(' ')
 				}
 			}
 		}
-
-		lines = append(lines, strings.Join(lineParts, ""))
 	}
 
 	// Fill remaining height with empty lines
-	for len(lines) < height {
-		lines = append(lines, "")
+	for i := min(len(clients), height); i < height; i++ {
+		buf.WriteByte('\n')
 	}
 
-	return strings.Join(lines[:height], "\n")
+	return buf.String()
 }
 
 func (c *DeviceCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	c.logs = logs
 	c.clients = c.getClients(logs)
+	c.sorted = c.sortClients()
+}
+
+func (c *DeviceCard) sortClients() []client {
+	sorted := make([]client, 0, len(c.clients))
+	for name, count := range c.clients {
+		sorted = append(sorted, client{name: name, count: count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].count != sorted[j].count {
+			return sorted[i].count > sorted[j].count
+		}
+		return sorted[i].name < sorted[j].name
+	})
+	if len(sorted) > maxClients {
+		sorted = sorted[:maxClients]
+	}
+	return sorted
 }
 
 func (c *DeviceCard) getClients(logs []nginx.NGINXLog) map[string]int {
@@ -211,12 +207,12 @@ func (c *DeviceCard) getClients(logs []nginx.NGINXLog) map[string]int {
 }
 
 func (c *DeviceCard) GetRequiredHeight(width int) int {
-	if len(c.clients) == 0 {
+	if len(c.sorted) == 0 {
 		return 3 // Minimum height for "No clients found" message
 	}
 
 	// Each client needs one line
-	return min(len(c.clients), maxClients)
+	return len(c.sorted)
 }
 
 // SelectableCard interface implementation
@@ -241,8 +237,7 @@ func (c *DeviceCard) SelectUp() {
 }
 
 func (c *DeviceCard) SelectDown() {
-	maxIndex := min(len(c.clients), maxClients) - 1
-	if c.selectedIndex < maxIndex {
+	if c.selectedIndex < len(c.sorted)-1 {
 		c.selectedIndex++
 	}
 }
@@ -256,7 +251,8 @@ func (c *DeviceCard) SelectRight() {
 }
 
 func (c *DeviceCard) HasSelection() bool {
-	return c.selectMode && c.selectedIndex >= 0 && c.selectedIndex < len(c.clients)
+	_, ok := selectedItem(c.selectMode, c.selectedIndex, c.sorted)
+	return ok
 }
 
 func (c *DeviceCard) ClearSelection() {
@@ -266,36 +262,18 @@ func (c *DeviceCard) ClearSelection() {
 
 // GetSelectedDevice returns the currently selected device filter
 func (c *DeviceCard) GetSelectedDevice() *DeviceFilter {
-	if !c.HasSelection() {
+	cl, ok := selectedItem(c.selectMode, c.selectedIndex, c.sorted)
+	if !ok {
 		return nil
 	}
-
-	// Get sorted clients (same as in RenderContent)
-	var sortedClients []client
-	for name, count := range c.clients {
-		sortedClients = append(sortedClients, client{name: name, count: count})
-	}
-
-	sort.Slice(sortedClients, func(i, j int) bool {
-		if sortedClients[i].count != sortedClients[j].count {
-			return sortedClients[i].count > sortedClients[j].count
-		}
-		return sortedClients[i].name < sortedClients[j].name
-	})
-
-	if c.selectedIndex >= len(sortedClients) {
-		return nil
-	}
-
-	return &DeviceFilter{
-		Device: sortedClients[c.selectedIndex].name,
-	}
+	return &DeviceFilter{Device: cl.name}
 }
 
 // CycleMode advances to the next display mode and recalculates data
 func (c *DeviceCard) CycleMode() {
 	c.mode = (c.mode + 1) % 3
 	c.clients = c.getClients(c.logs)
+	c.sorted = c.sortClients()
 }
 
 // GetTitle returns the display title based on current mode

@@ -129,12 +129,17 @@ func (a *UsageTimeCard) generateBrailleBarChart(values []point[int], chartWidth,
 	a.convertCanvasToBraille(chartGrid, canvas, yAxisWidth, effectiveChartWidth, chartHeight, brailleHeight)
 
 	// Convert chart grid to string
-	lines := make([]string, chartHeight)
+	var buf strings.Builder
 	for i, row := range chartGrid {
-		lines[i] = strings.Join(row, "")
+		if i > 0 {
+			buf.WriteByte('\n')
+		}
+		for _, cell := range row {
+			buf.WriteString(cell)
+		}
 	}
 
-	return strings.Join(lines, "\n")
+	return buf.String()
 }
 
 func (a *UsageTimeCard) renderYAxisLabels(chartGrid [][]string, maxValue, height, yAxisWidth int) {

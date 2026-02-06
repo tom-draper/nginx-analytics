@@ -20,6 +20,7 @@ type versionEntry struct {
 type VersionCard struct {
 	detector      version.InlineVersionDetector
 	versions      map[string]int
+	sorted        []versionEntry
 	selectMode     bool
 	selectedIndex int
 }
@@ -33,7 +34,7 @@ func NewVersionCard(logs []nginx.NGINXLog, period period.Period) *VersionCard {
 }
 
 func (p *VersionCard) RenderContent(width, height int) string {
-	if len(p.versions) == 0 {
+	if len(p.sorted) == 0 {
 		faintStyle := lipgloss.NewStyle().
 			Foreground(styles.LightGray).
 			Bold(true)
@@ -59,30 +60,10 @@ func (p *VersionCard) RenderContent(width, height int) string {
 		return strings.Join(lines[:height], "\n")
 	}
 
-	// Convert map to slice and sort by count (descending)
-	var sortedVersions []versionEntry
-	for name, count := range p.versions {
-		sortedVersions = append(sortedVersions, versionEntry{name: name, count: count})
-	}
-
-	sort.Slice(sortedVersions, func(i, j int) bool {
-		if sortedVersions[i].count != sortedVersions[j].count {
-			return sortedVersions[i].count > sortedVersions[j].count
-		}
-		// Tie-breaker: version name
-		return sortedVersions[i].name < sortedVersions[j].name
-	})
+	versions := p.sorted
 
 	// Find max count for scaling bars
-	maxCount := sortedVersions[0].count
-
-	var versions []versionEntry
-	if len(sortedVersions) > maxVersions {
-		// Limit to maxVersions if more than allowed
-		versions = sortedVersions[:maxVersions]
-	} else {
-		versions = sortedVersions
-	}
+	maxCount := versions[0].count
 
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
@@ -100,12 +81,16 @@ func (p *VersionCard) RenderContent(width, height int) string {
 		Foreground(lipgloss.Color("15")).
 		Bold(true)
 
-	var lines []string
+	var buf strings.Builder
 
 	// Render each version as a horizontal bar with overlaid text
 	for i, ver := range versions {
 		if i >= height {
 			break // Don't exceed available height
+		}
+
+		if i > 0 {
+			buf.WriteByte('\n')
 		}
 
 		isSelected := p.selectMode && i == p.selectedIndex
@@ -143,41 +128,52 @@ func (p *VersionCard) RenderContent(width, height int) string {
 			textStyle = selectedTextStyle
 		}
 
-		// Build the line using lipgloss styles
-		var lineParts []string
-
 		for j := range width {
 			if j < len(overlayText) {
-				// Text character position
-				char := string(overlayText[j])
+				char := overlayText[j : j+1]
 				if j < barLength || isSelected {
-					lineParts = append(lineParts, currentBarStyle.Render(char))
+					buf.WriteString(currentBarStyle.Render(char))
 				} else {
-					lineParts = append(lineParts, textStyle.Render(char))
+					buf.WriteString(textStyle.Render(char))
 				}
 			} else {
-				// No text character at this position
 				if j < barLength || isSelected {
-					lineParts = append(lineParts, currentBarStyle.Render(" "))
+					buf.WriteString(currentBarStyle.Render(" "))
 				} else {
-					lineParts = append(lineParts, " ")
+					buf.WriteByte(' ')
 				}
 			}
 		}
-
-		lines = append(lines, strings.Join(lineParts, ""))
 	}
 
 	// Fill remaining height with empty lines
-	for len(lines) < height {
-		lines = append(lines, "")
+	for i := min(len(versions), height); i < height; i++ {
+		buf.WriteByte('\n')
 	}
 
-	return strings.Join(lines[:height], "\n")
+	return buf.String()
 }
 
 func (c *VersionCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	c.versions = c.getVersions(logs)
+	c.sorted = c.sortVersions()
+}
+
+func (c *VersionCard) sortVersions() []versionEntry {
+	sorted := make([]versionEntry, 0, len(c.versions))
+	for name, count := range c.versions {
+		sorted = append(sorted, versionEntry{name: name, count: count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].count != sorted[j].count {
+			return sorted[i].count > sorted[j].count
+		}
+		return sorted[i].name < sorted[j].name
+	})
+	if len(sorted) > maxVersions {
+		sorted = sorted[:maxVersions]
+	}
+	return sorted
 }
 
 func (c *VersionCard) getVersions(logs []nginx.NGINXLog) map[string]int {
@@ -192,12 +188,12 @@ func (c *VersionCard) getVersions(logs []nginx.NGINXLog) map[string]int {
 }
 
 func (c *VersionCard) GetRequiredHeight(width int) int {
-	if len(c.versions) == 0 {
+	if len(c.sorted) == 0 {
 		return 3 // Minimum height for "No versions found" message
 	}
 
 	// Each version needs one line
-	return min(len(c.versions), maxVersions)
+	return len(c.sorted)
 }
 
 // SelectableCard interface implementation
@@ -222,8 +218,7 @@ func (c *VersionCard) SelectUp() {
 }
 
 func (c *VersionCard) SelectDown() {
-	maxIndex := min(len(c.versions), maxVersions) - 1
-	if c.selectedIndex < maxIndex {
+	if c.selectedIndex < len(c.sorted)-1 {
 		c.selectedIndex++
 	}
 }
@@ -237,7 +232,8 @@ func (c *VersionCard) SelectRight() {
 }
 
 func (c *VersionCard) HasSelection() bool {
-	return c.selectMode && c.selectedIndex >= 0 && c.selectedIndex < len(c.versions)
+	_, ok := selectedItem(c.selectMode, c.selectedIndex, c.sorted)
+	return ok
 }
 
 func (c *VersionCard) ClearSelection() {
@@ -247,30 +243,11 @@ func (c *VersionCard) ClearSelection() {
 
 // GetSelectedVersion returns the currently selected version filter
 func (c *VersionCard) GetSelectedVersion() *VersionFilter {
-	if !c.HasSelection() {
+	ver, ok := selectedItem(c.selectMode, c.selectedIndex, c.sorted)
+	if !ok {
 		return nil
 	}
-
-	// Get sorted versions (same as in RenderContent)
-	var sortedVersions []versionEntry
-	for name, count := range c.versions {
-		sortedVersions = append(sortedVersions, versionEntry{name: name, count: count})
-	}
-
-	sort.Slice(sortedVersions, func(i, j int) bool {
-		if sortedVersions[i].count != sortedVersions[j].count {
-			return sortedVersions[i].count > sortedVersions[j].count
-		}
-		return sortedVersions[i].name < sortedVersions[j].name
-	})
-
-	if c.selectedIndex >= len(sortedVersions) {
-		return nil
-	}
-
-	return &VersionFilter{
-		Version: sortedVersions[c.selectedIndex].name,
-	}
+	return &VersionFilter{Version: ver.name}
 }
 
 // GetVersionLookup returns the version lookup function for filtering

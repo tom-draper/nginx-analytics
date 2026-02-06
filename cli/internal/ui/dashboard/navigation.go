@@ -410,6 +410,12 @@ func (d *DashboardGrid) MoveLeft() {
 			if bottomIndex != -1 {
 				d.SetActiveCard(bottomIndex)
 			}
+		} else {
+			// At leftmost card, go to endpoints card
+			middleIndex := d.GetMiddleCardIndex()
+			if middleIndex != -1 {
+				d.SetActiveCard(middleIndex)
+			}
 		}
 
 	case "sidebar-subgrid":
@@ -420,10 +426,10 @@ func (d *DashboardGrid) MoveLeft() {
 				d.SetActiveCard(newSubIndex)
 			}
 		} else {
-			// At leftmost column, go to version card
-			versionIndex := d.GetVersionCardIndex()
-			if versionIndex != -1 {
-				d.SetActiveCard(versionIndex)
+			// At leftmost column, go to endpoints card
+			middleIndex := d.GetMiddleCardIndex()
+			if middleIndex != -1 {
+				d.SetActiveCard(middleIndex)
 			}
 		}
 

@@ -26,6 +26,7 @@ type endpointID struct {
 
 type EndpointsCard struct {
 	endpoints     []endpoint
+	sorted        []endpoint
 	selectMode     bool
 	selectedIndex int
 }
@@ -39,7 +40,7 @@ func NewEndpointsCard(logs []nginx.NGINXLog, period period.Period) *EndpointsCar
 }
 
 func (p *EndpointsCard) RenderContent(width, height int) string {
-	if len(p.endpoints) == 0 {
+	if len(p.sorted) == 0 {
 		faintStyle := lipgloss.NewStyle().
 			Foreground(styles.LightGray).
 			Bold(true)
@@ -65,36 +66,10 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		return strings.Join(lines[:height], "\n")
 	}
 
-	// Sort endpoints by count (descending)
-	sortedEndpoints := make([]endpoint, len(p.endpoints))
-	copy(sortedEndpoints, p.endpoints)
-
-	sort.Slice(sortedEndpoints, func(i, j int) bool {
-		if sortedEndpoints[i].count != sortedEndpoints[j].count {
-			return sortedEndpoints[i].count > sortedEndpoints[j].count
-		}
-		// Tie-breaker 1: path
-		if sortedEndpoints[i].path != sortedEndpoints[j].path {
-			return sortedEndpoints[i].path < sortedEndpoints[j].path
-		}
-		// Tie-breaker 2: method
-		if sortedEndpoints[i].method != sortedEndpoints[j].method {
-			return sortedEndpoints[i].method < sortedEndpoints[j].method
-		}
-		// Tie-breaker 3: status
-		return sortedEndpoints[i].status < sortedEndpoints[j].status
-	})
+	endpoints := p.sorted
 
 	// Find max count for scaling bars
-	maxCount := sortedEndpoints[0].count
-
-	var endpoints []endpoint
-	if len(sortedEndpoints) > maxEndpoints {
-		// Limit to maxEndpoints if more than allowed
-		endpoints = sortedEndpoints[:maxEndpoints]
-	} else {
-		endpoints = sortedEndpoints
-	}
+	maxCount := endpoints[0].count
 
 
 
@@ -111,12 +86,16 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 		Foreground(lipgloss.Color("15")). // White
 		Bold(true)
 
-	var lines []string
+	var buf strings.Builder
 
 	// Render each endpoint as a horizontal bar with overlaid text
 	for i, ep := range endpoints {
 		if i >= height {
 			break // Don't exceed available height
+		}
+
+		if i > 0 {
+			buf.WriteByte('\n')
 		}
 
 		isSelected := p.selectMode && i == p.selectedIndex
@@ -162,7 +141,6 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 
 		var barStyle lipgloss.Style
 		if isSelected {
-			// Use highlight style for selected row
 			barStyle = selectedBarStyle
 		} else if ep.status >= 100 && ep.status <= 199 {
 			barStyle = lipgloss.NewStyle().
@@ -190,10 +168,6 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 				Foreground(styles.Black)
 		}
 
-		// Build the line using lipgloss styles
-		var lineParts []string
-
-		// Use different text style for selected row
 		textStyle := normalTextStyle
 		if isSelected {
 			textStyle = selectedTextStyle
@@ -201,40 +175,54 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 
 		for j := range width {
 			if j < len(overlayText) {
-				// Text character position
-				char := string(overlayText[j])
+				char := overlayText[j : j+1]
 				if j < barLength || isSelected {
-					// Text over bar - use bar style (full width highlight when selected)
-					lineParts = append(lineParts, barStyle.Render(char))
+					buf.WriteString(barStyle.Render(char))
 				} else {
-					// Text over empty space - use normal text style
-					lineParts = append(lineParts, textStyle.Render(char))
+					buf.WriteString(textStyle.Render(char))
 				}
 			} else {
-				// No text character at this position
 				if j < barLength || isSelected {
-					// Bar space (full width highlight when selected)
-					lineParts = append(lineParts, barStyle.Render(" "))
+					buf.WriteString(barStyle.Render(" "))
 				} else {
-					// Empty space
-					lineParts = append(lineParts, " ")
+					buf.WriteByte(' ')
 				}
 			}
 		}
-
-		lines = append(lines, strings.Join(lineParts, ""))
 	}
 
 	// Fill remaining height with empty lines
-	for len(lines) < height {
-		lines = append(lines, "")
+	for i := min(len(endpoints), height); i < height; i++ {
+		buf.WriteByte('\n')
 	}
 
-	return strings.Join(lines[:height], "\n")
+	return buf.String()
 }
 
 func (r *EndpointsCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	r.endpoints = getEndpoints(logs)
+	r.sorted = r.sortEndpoints()
+}
+
+func (r *EndpointsCard) sortEndpoints() []endpoint {
+	sorted := make([]endpoint, len(r.endpoints))
+	copy(sorted, r.endpoints)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].count != sorted[j].count {
+			return sorted[i].count > sorted[j].count
+		}
+		if sorted[i].path != sorted[j].path {
+			return sorted[i].path < sorted[j].path
+		}
+		if sorted[i].method != sorted[j].method {
+			return sorted[i].method < sorted[j].method
+		}
+		return sorted[i].status < sorted[j].status
+	})
+	if len(sorted) > maxEndpoints {
+		sorted = sorted[:maxEndpoints]
+	}
+	return sorted
 }
 
 func getEndpoints(logs []nginx.NGINXLog) []endpoint {
@@ -261,12 +249,12 @@ func getEndpoints(logs []nginx.NGINXLog) []endpoint {
 }
 
 func (r *EndpointsCard) GetRequiredHeight(width int) int {
-	if len(r.endpoints) == 0 {
+	if len(r.sorted) == 0 {
 		return 3 // Minimum height for "No endpoints found" message
 	}
 
-	// Each endpoint needs one line, plus some padding
-	return min(len(r.endpoints), maxEndpoints) // +2 for padding/borders
+	// Each endpoint needs one line
+	return len(r.sorted)
 }
 
 // SelectableCard interface implementation
@@ -291,8 +279,7 @@ func (r *EndpointsCard) SelectUp() {
 }
 
 func (r *EndpointsCard) SelectDown() {
-	maxIndex := min(len(r.endpoints), maxEndpoints) - 1
-	if r.selectedIndex < maxIndex {
+	if r.selectedIndex < len(r.sorted)-1 {
 		r.selectedIndex++
 	}
 }
@@ -306,7 +293,8 @@ func (r *EndpointsCard) SelectRight() {
 }
 
 func (r *EndpointsCard) HasSelection() bool {
-	return r.selectMode && r.selectedIndex >= 0 && r.selectedIndex < len(r.endpoints)
+	_, ok := selectedItem(r.selectMode, r.selectedIndex, r.sorted)
+	return ok
 }
 
 func (r *EndpointsCard) ClearSelection() {
@@ -316,32 +304,10 @@ func (r *EndpointsCard) ClearSelection() {
 
 // GetSelectedEndpoint returns the currently selected endpoint filter, or nil if none selected
 func (r *EndpointsCard) GetSelectedEndpoint() *EndpointFilter {
-	if !r.HasSelection() {
+	ep, ok := selectedItem(r.selectMode, r.selectedIndex, r.sorted)
+	if !ok {
 		return nil
 	}
-
-	// Get sorted endpoints (same as in RenderContent)
-	sortedEndpoints := make([]endpoint, len(r.endpoints))
-	copy(sortedEndpoints, r.endpoints)
-
-	sort.Slice(sortedEndpoints, func(i, j int) bool {
-		if sortedEndpoints[i].count != sortedEndpoints[j].count {
-			return sortedEndpoints[i].count > sortedEndpoints[j].count
-		}
-		if sortedEndpoints[i].path != sortedEndpoints[j].path {
-			return sortedEndpoints[i].path < sortedEndpoints[j].path
-		}
-		if sortedEndpoints[i].method != sortedEndpoints[j].method {
-			return sortedEndpoints[i].method < sortedEndpoints[j].method
-		}
-		return sortedEndpoints[i].status < sortedEndpoints[j].status
-	})
-
-	if r.selectedIndex >= len(sortedEndpoints) {
-		return nil
-	}
-
-	ep := sortedEndpoints[r.selectedIndex]
 	return &EndpointFilter{
 		Path:   ep.path,
 		Method: ep.method,
