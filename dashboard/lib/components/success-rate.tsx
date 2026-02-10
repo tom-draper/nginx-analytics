@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useMemo, memo } from "react";
 import { NginxLog } from "../types";
 import { Period, periodStart } from "../period";
 
@@ -7,7 +7,7 @@ function getSuccessRate(data: NginxLog[], period: Period) {
     // Filter data by period if applicable
     const startDate = periodStart(period);
     const endDate = new Date(); // Current time as end date
-    
+
     let filteredData = [...data];
     if (startDate) {
         filteredData = filteredData.filter(log => {
@@ -36,7 +36,7 @@ function getSuccessRatesByTime(data: NginxLog[], period: Period) {
     // Get period start date (if applicable)
     const startDate = periodStart(period);
     const endDate = new Date(); // Current time as end date
-    
+
     // Filter data by period if startDate is available
     let filteredData = [...data];
     if (startDate) {
@@ -56,14 +56,14 @@ function getSuccessRatesByTime(data: NginxLog[], period: Period) {
 
     // Generate all time buckets within the period range
     const allBuckets = new Map<string, { requests: number, successes: number }>();
-    
+
     if (startDate) {
         // Clone dates to avoid modifying the original
         const currentDate = new Date(startDate.getTime());
-        
+
         while (currentDate <= endDate) {
             let timeKey: string;
-            
+
             if (bucketFormat === 'hour') {
                 // Format: YYYY-MM-DD HH
                 timeKey = `${currentDate.toISOString().split('T')[0]} ${currentDate.getHours()}`;
@@ -75,7 +75,7 @@ function getSuccessRatesByTime(data: NginxLog[], period: Period) {
                 // Advance by 1 day
                 currentDate.setDate(currentDate.getDate() + 1);
             }
-            
+
             allBuckets.set(timeKey, { requests: 0, successes: 0 });
         }
     }
@@ -84,7 +84,7 @@ function getSuccessRatesByTime(data: NginxLog[], period: Period) {
     for (const row of sortedData) {
         const timestamp = new Date(row.timestamp || 0);
         let timeKey: string;
-        
+
         if (bucketFormat === 'hour') {
             // Format: YYYY-MM-DD HH
             timeKey = `${timestamp.toISOString().split('T')[0]} ${timestamp.getHours()}`;
@@ -92,7 +92,7 @@ function getSuccessRatesByTime(data: NginxLog[], period: Period) {
             // Format: YYYY-MM-DD
             timeKey = timestamp.toISOString().split('T')[0];
         }
-        
+
         // Ensure the bucket exists
         if (!allBuckets.has(timeKey)) {
             allBuckets.set(timeKey, { requests: 1, successes: 0 });
@@ -111,7 +111,7 @@ function getSuccessRatesByTime(data: NginxLog[], period: Period) {
     // Convert to array of points for graphing
     const ratesByTime = Array.from(allBuckets.entries())
         .map(([date, { requests, successes }]) => ({
-            date, 
+            date,
             rate: requests > 0 ? successes / requests : 0
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
@@ -120,7 +120,7 @@ function getSuccessRatesByTime(data: NginxLog[], period: Period) {
     if (ratesByTime.length > 6) {
         const bucketSize = Math.ceil(ratesByTime.length / 6);
         const consolidatedBuckets = [];
-        
+
         for (let i = 0; i < ratesByTime.length; i += bucketSize) {
             const chunk = ratesByTime.slice(i, i + bucketSize);
             const totalRequests = chunk.reduce((sum, b) => {
@@ -143,7 +143,7 @@ function getSuccessRatesByTime(data: NginxLog[], period: Period) {
 
         return consolidatedBuckets;
     }
-    
+
     return ratesByTime;
 }
 
@@ -159,22 +159,19 @@ function getColor(successRate: number | null) {
     }
 }
 
-export function SuccessRate({ data, period }: { data: NginxLog[], period: Period }) {
-    const [successRate, setSuccessRate] = useState<number | null>(null);
-    const [ratesTrend, setRatesTrend] = useState<Array<{ date: string, rate: number }>>([]);
+export const SuccessRate = memo(function SuccessRate({ data, period }: { data: NginxLog[], period: Period }) {
+    const { successRate, ratesTrend } = useMemo(() => ({
+        successRate: getSuccessRate(data, period),
+        ratesTrend: getSuccessRatesByTime(data, period),
+    }), [data, period]);
 
-    useEffect(() => {
-        setSuccessRate(getSuccessRate(data, period));
-        setRatesTrend(getSuccessRatesByTime(data, period));
-    }, [data, period]);
-
-    // Rest of the component remains the same as in the previous implementation
-    const renderBackgroundGraph = () => {
+    // Memoize SVG path — only recomputes when ratesTrend or successRate changes
+    const backgroundGraph = useMemo(() => {
         if (!ratesTrend.length) return null;
-        
+
         // Find the maximum value for scaling
         const maxRate = Math.max(...ratesTrend.map(b => b.rate), 1); // Ensure non-zero divisor
-        
+
         // Graph dimensions
         const width = 100; // percentage width
         const height = 40; // pixels for graph height
@@ -206,7 +203,7 @@ export function SuccessRate({ data, period }: { data: NginxLog[], period: Period
             // For two data points, create a smoother transition between them
             const point1Y = height - (ratesTrend[0].rate / maxRate) * height;
             const point2Y = height - (ratesTrend[1].rate / maxRate) * height;
-            
+
             return (
                 <svg
                     className="absolute bottom-0 left-0 w-full h-6"
@@ -227,32 +224,32 @@ export function SuccessRate({ data, period }: { data: NginxLog[], period: Period
                 </svg>
             );
         }
-        
+
         // Calculate points for normal case (3+ data points)
         const points = ratesTrend.map((bucket, index) => {
             const x = (index / (ratesTrend.length - 1 || 1)) * width;
             const y = height - (bucket.rate / maxRate) * height;
             return `${x},${y}`;
         });
-        
+
         // Create a smooth path with better curve handling
         let pathData = `M 0,${height} L 0,${points[0]?.split(',')[1] || height}`;
-        
+
         // Add smooth curves between points
         for (let i = 1; i < points.length; i++) {
             const prevPoint = points[i-1].split(',').map(Number);
             const currPoint = points[i].split(',').map(Number);
-            
+
             // Control points for the bezier curve
             const cpX1 = prevPoint[0] + (currPoint[0] - prevPoint[0]) / 3;
             const cpX2 = prevPoint[0] + 2 * (currPoint[0] - prevPoint[0]) / 3;
-            
+
             pathData += ` C ${cpX1},${prevPoint[1]} ${cpX2},${currPoint[1]} ${currPoint[0]},${currPoint[1]}`;
         }
-        
+
         // Close the path
         pathData += ` L ${width},${height} Z`;
-        
+
         return (
             <svg
                 className="absolute bottom-0 left-0 w-full h-6"
@@ -266,7 +263,7 @@ export function SuccessRate({ data, period }: { data: NginxLog[], period: Period
                 />
             </svg>
         );
-    };
+    }, [ratesTrend, successRate]);
 
     return (
         <div className="card flex-1 px-4 py-3 m-3 relative overflow-hidden">
@@ -282,7 +279,7 @@ export function SuccessRate({ data, period }: { data: NginxLog[], period: Period
                 </div>
             </div>
 
-            {renderBackgroundGraph()}
+            {backgroundGraph}
         </div>
     );
-}
+});

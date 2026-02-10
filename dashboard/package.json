@@ -17,11 +17,11 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.479.0",
     "maxmind": "^4.3.24",
-    "next": "^15.2.3",
+    "next": "16.1.6",
     "pako": "^2.1.0",
-    "react": "^19.0.0",
+    "react": "19.2.4",
     "react-chartjs-2": "^5.3.0",
-    "react-dom": "^19.0.0",
+    "react-dom": "19.2.4",
     "systeminformation": "^5.25.11",
     "three": "^0.175.0"
   },
@@ -31,12 +31,17 @@
     "@types/d3": "^7.4.3",
     "@types/node": "^20",
     "@types/pako": "^2.0.3",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/react": "19.2.13",
+    "@types/react-dom": "19.2.3",
     "@types/three": "^0.175.0",
     "eslint": "^9",
-    "eslint-config-next": "15.2.0",
+    "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.28.1+sha512.7d7dbbca9e99447b7c3bf7a73286afaaf6be99251eb9498baefa7d406892f67b879adb3a1d7e687fc4ccc1a388c7175fbaae567a26ab44d1067b54fcb0d6a316",
+  "overrides": {
+    "@types/react": "19.2.13",
+    "@types/react-dom": "19.2.3"
   }
 }

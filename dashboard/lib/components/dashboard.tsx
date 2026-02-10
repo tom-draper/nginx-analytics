@@ -11,7 +11,7 @@ import { Version } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseNginxLogs } from "@/lib/parse";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -32,7 +32,6 @@ import FileUpload from "./file-upload";
 export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, demo: boolean }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [logs, setLogs] = useState<NginxLog[]>([]);
-    const [filteredData, setFilteredData] = useState<NginxLog[]>([]);
 
     const [errorLogs, setErrorLogs] = useState<string[]>([]);
 
@@ -47,42 +46,42 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
 
     const currentPeriod = useMemo(() => filter.period, [filter.period]);
 
-    const setPeriod = (period: Period) => {
+    const setPeriod = useCallback((period: Period) => {
         setFilter((previous) => ({
             ...previous,
             period
         }))
-    }
+    }, [])
 
-    const setLocation = (location: string | null) => {
+    const setLocation = useCallback((location: string | null) => {
         setFilter((previous) => ({
             ...previous,
             location
         }))
-    }
+    }, [])
 
-    const setEndpoint = (path: string | null, method: string | null, status: number | [number, number][] | null) => {
+    const setEndpoint = useCallback((path: string | null, method: string | null, status: number | [number, number][] | null) => {
         setFilter((previous) => ({
             ...previous,
             path,
             method,
             status
         }))
-    }
+    }, [])
 
-    const setStatus = (status: number | [number, number][] | null) => {
+    const setStatus = useCallback((status: number | [number, number][] | null) => {
         setFilter((previous) => ({
             ...previous,
             status
         }))
-    }
+    }, [])
 
-    const setReferrer = (referrer: string | null) => {
+    const setReferrer = useCallback((referrer: string | null) => {
         setFilter((previous) => ({
             ...previous,
             referrer
         }))
-    }
+    }, [])
 
     useEffect(() => {
         if (fileUpload) {
@@ -186,7 +185,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         return date >= start;
     }
 
-    useEffect(() => {
+    const filteredData = useMemo(() => {
         const validStatus = (status: number | null) => {
             if (status === null || filter.status === null) {
                 return true;
@@ -204,7 +203,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
             return false;
         }
 
-        const filteredData: NginxLog[] = [];
+        const result: NginxLog[] = [];
         const start = periodStart(filter.period);
         for (const row of logs) {
             if (
@@ -216,10 +215,10 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                 && (!settings.ignore404 || row.status !== 404)
                 && (filter.referrer === null || (row.referrer === filter.referrer))
             ) {
-                filteredData.push(row);
+                result.push(row);
             }
         }
-        setFilteredData(filteredData);
+        return result;
     }, [logs, filter, settings, locationMap]);
 
 

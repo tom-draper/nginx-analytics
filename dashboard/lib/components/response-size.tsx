@@ -1,5 +1,5 @@
 import { NginxLog } from "@/lib/types";
-import { useEffect, useState, useRef } from "react";
+import { useMemo, useRef, memo } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 
@@ -131,16 +131,41 @@ const minMax = (values: number[]) => {
     return result;
 }
 
-export function ResponseSize({ data }: { data: NginxLog[] }) {
-    const [stats, setStats] = useState<Stats | null>(null);
-    const [chartData, setChartData] = useState<any>(null);
+// Static — no props/state, no reason to recreate on every render
+const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: {
+            display: false,
+        },
+        tooltip: {
+            // enabled: false,
+        },
+    },
+    scales: {
+        x: {
+            display: false,
+            grid: {
+                display: false,
+            },
+        },
+        y: {
+            display: false,
+            grid: {
+                display: false,
+            },
+            beginAtZero: true,
+        },
+    },
+};
+
+export const ResponseSize = memo(function ResponseSize({ data }: { data: NginxLog[] }) {
     const chartRef = useRef(null);
 
-    useEffect(() => {
+    const { stats, chartData } = useMemo(() => {
         if (!data.length) {
-            setStats(null);
-            setChartData(null);
-            return;
+            return { stats: null, chartData: null };
         }
 
         // Extract response sizes
@@ -150,55 +175,27 @@ export function ResponseSize({ data }: { data: NginxLog[] }) {
         const total = responseSizes.reduce((sum, size) => sum + size, 0);
         const avg = total / responseSizes.length;
 
-        setStats({ min, avg, max });
-
         // Generate histogram data
         const { bins, binLabels } = generateHistogramData(responseSizes);
 
-        setChartData({
-            labels: binLabels,
-            datasets: [
-                {
-                    data: bins,
-                    backgroundColor: 'rgb(26, 240, 115)',
-                    borderColor: 'rgb(26, 240, 115)',
-                    borderWidth: 0,
-                    borderRadius: 3,
-                    barPercentage: 1,
-                    categoryPercentage: 1,
-                }
-            ]
-        });
-
+        return {
+            stats: { min, avg, max } as Stats,
+            chartData: {
+                labels: binLabels,
+                datasets: [
+                    {
+                        data: bins,
+                        backgroundColor: 'rgb(26, 240, 115)',
+                        borderColor: 'rgb(26, 240, 115)',
+                        borderWidth: 0,
+                        borderRadius: 3,
+                        barPercentage: 1,
+                        categoryPercentage: 1,
+                    }
+                ]
+            }
+        };
     }, [data]);
-
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false,
-            },
-            tooltip: {
-                // enabled: false,
-            },
-        },
-        scales: {
-            x: {
-                display: false,
-                grid: {
-                    display: false,
-                },
-            },
-            y: {
-                display: false,
-                grid: {
-                    display: false,
-                },
-                beginAtZero: true,
-            },
-        },
-    };
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-46 overflow-hidden">
@@ -255,4 +252,4 @@ export function ResponseSize({ data }: { data: NginxLog[] }) {
             </div>
         </div>
     );
-}
+});

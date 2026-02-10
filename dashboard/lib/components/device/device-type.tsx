@@ -3,7 +3,7 @@
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { NginxLog } from "../../types";
-import { useEffect, useState } from "react";
+import { useMemo, memo } from "react";
 import {
     type Candidate,
     maintainCandidates,
@@ -38,10 +38,19 @@ const deviceCandidates: Candidate[] = [
 	}
 
 
-export function DeviceType({ data }: { data: NginxLog[] }) {
-    const [plotData, setPlotData] = useState<ChartData<"doughnut"> | null>(null);
+const doughnutOptions = {
+    plugins: {
+        legend: {
+            position: 'right' as const,
+            align: 'center' as const,
+        },
+    },
+    responsive: true,
+    maintainAspectRatio: false
+};
 
-    useEffect(() => {
+export const DeviceType = memo(function DeviceType({ data }: { data: NginxLog[] }) {
+    const plotData = useMemo<ChartData<"doughnut"> | null>(() => {
         const deviceCounts: { [key: string]: number } = {};
 
         for (const row of data) {
@@ -55,7 +64,7 @@ export function DeviceType({ data }: { data: NginxLog[] }) {
         const labels = Object.keys(deviceCounts);
         const values = Object.values(deviceCounts);
 
-        setPlotData({
+        return {
             labels,
             datasets: [
                 {
@@ -73,21 +82,12 @@ export function DeviceType({ data }: { data: NginxLog[] }) {
                     borderWidth: 0,
                 },
             ],
-        });
+        };
     }, [data]);
 
     return (
         <div className="relative w-full flex items-center justify-center pb-4" >
-            {plotData && <Doughnut data={plotData} options={{
-                plugins: {
-                    legend: {
-                        position: 'right', // Moves legend to the right side
-                        align: 'center',
-                    },
-                },
-                responsive: true,
-                maintainAspectRatio: false
-            }} />}
+            {plotData && <Doughnut data={plotData} options={doughnutOptions} />}
         </div>
     );
-}
+})

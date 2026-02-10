@@ -1,7 +1,7 @@
 "use client";
 
 import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend, ChartData } from "chart.js";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, memo } from "react";
 import { Bar } from "react-chartjs-2";
 import { NginxLog } from "@/lib/types";
 import 'chartjs-adapter-date-fns';
@@ -152,47 +152,42 @@ const getSuccessRateLevel = (successRate: number | null) => {
     return Math.ceil((successRate) * 10)
 }
 
-export default function Activity({ data, period }: { data: NginxLog[], period: Period }) {
-    const [plotData, setPlotData] = useState<ChartData<"bar"> | null>(null)
-    const [plotOptions, setPlotOptions] = useState<object | null>(null)
-    const [successRates, setSuccessRates] = useState<({ timestamp: number, value: number | null })[]>([])
-    const [displayRates, setDisplayRates] = useState<({ timestamp: number, value: number | null })[]>([])
+// Pure function — lives outside the component so it's not recreated on every render
+function calculateDisplayRates(rates: { timestamp: number, value: number | null }[], width: number) {
+    if (width === 0 || rates.length === 0) {
+        return rates;
+    }
+
+    // Calculate how many divs we can fit based on container width
+    // Assume each div needs minimum 3px (2px + 0.5px margin on each side)
+    const minDivWidth = 3;
+    const maxDivs = Math.floor(width / minDivWidth);
+
+    // If we have fewer success rates than maxDivs, display all of them
+    if (rates.length <= maxDivs) {
+        return rates;
+    }
+
+    // Otherwise, sample the data to fit the container
+    const sampleStep = Math.ceil(rates.length / maxDivs);
+    const sampled = [];
+
+    for (let i = 0; i < rates.length; i += sampleStep) {
+        sampled.push(rates[i]);
+    }
+
+    // Always include the most recent data point if it's not already included
+    if (sampled.length > 0 && rates.length > 0 &&
+        sampled[sampled.length - 1] !== rates[rates.length - 1]) {
+        sampled.push(rates[rates.length - 1]);
+    }
+
+    return sampled;
+}
+
+function Activity({ data, period }: { data: NginxLog[], period: Period }) {
     const [containerWidth, setContainerWidth] = useState<number>(0);
-    const [periodLabels, setPeriodLabels] = useState<{start: string, end: string}>({start: '', end: ''});
     const containerRef = useRef<HTMLDivElement>(null);
-
-    // Function to sample success rates based on container width
-    const calculateDisplayRates = (rates: { timestamp: number, value: number | null }[], width: number) => {
-        if (width === 0 || rates.length === 0) {
-            return rates;
-        }
-
-        // Calculate how many divs we can fit based on container width
-        // Assume each div needs minimum 3px (2px + 0.5px margin on each side)
-        const minDivWidth = 3;
-        const maxDivs = Math.floor(width / minDivWidth);
-
-        // If we have fewer success rates than maxDivs, display all of them
-        if (rates.length <= maxDivs) {
-            return rates;
-        }
-
-        // Otherwise, sample the data to fit the container
-        const sampleStep = Math.ceil(rates.length / maxDivs);
-        const sampled = [];
-
-        for (let i = 0; i < rates.length; i += sampleStep) {
-            sampled.push(rates[i]);
-        }
-
-        // Always include the most recent data point if it's not already included
-        if (sampled.length > 0 && rates.length > 0 &&
-            sampled[sampled.length - 1] !== rates[rates.length - 1]) {
-            sampled.push(rates[rates.length - 1]);
-        }
-
-        return sampled;
-    };
 
     useEffect(() => {
         const updateWidth = () => {
@@ -225,14 +220,10 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         };
     }, []); // Remove containerWidth from dependencies to prevent circular updates
 
-    // Update display rates when success rates or container width change
-    useEffect(() => {
-        const updatedDisplayRates = calculateDisplayRates(successRates, containerWidth);
-        setDisplayRates(updatedDisplayRates);
-    }, [successRates, containerWidth]);
-
-    useEffect(() => {
-        const points: { [id: string]: { requests: number; users: Set<string> } } = {};
+    // Single pass over data to compute chart data, success rates, and period labels
+    const { plotData, plotOptions, successRates, periodLabels } = useMemo(() => {
+        const chartPoints: { [id: string]: { requests: number; users: Set<string> } } = {};
+        const ratePoints: { [id: string]: { success: number, total: number } } = {};
 
         const start = periodStart(period);
         const getTimeId = getTimeIdGetter(period, data);
@@ -242,43 +233,54 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         if (start === null) {
             const range = getDateRange(data);
             if (!range) {
-                return;
+                return { plotData: null, plotOptions: null, successRates: [], periodLabels: { start: '', end: '' } };
             }
             currentDate = new Date(range.start);
-            end = new Date(range.end)
+            end = new Date(range.end);
         } else {
             end = new Date();
             currentDate = new Date(start);
         }
+
         while (currentDate <= end) {
             const timeId = getTimeId(currentDate);
-            points[timeId] = { requests: 0, users: new Set() };
+            chartPoints[timeId] = { requests: 0, users: new Set() };
+            ratePoints[timeId] = { success: 0, total: 0 };
             currentDate = incrementDate(currentDate, period);
         }
 
+        // Single loop over data for both chart points and success rates
         for (const row of data) {
-            if (!row.timestamp) {
-                continue;
+            if (!row.timestamp) continue;
+
+            const timeId = getTimeId(row.timestamp);
+            const userId = `${row.ipAddress}::${row.userAgent}`;
+
+            if (chartPoints[timeId]) {
+                chartPoints[timeId].requests++;
+                chartPoints[timeId].users.add(userId);
+            } else {
+                chartPoints[timeId] = { requests: 1, users: new Set([userId]) };
             }
 
-            const userId = `${row.ipAddress}::${row.userAgent}`;
-            const timeId = getTimeId(row.timestamp);
-
-            if (points[timeId]) {
-                points[timeId].requests++;
-                points[timeId].users.add(userId);
-            } else {
-                points[timeId] = { requests: 1, users: new Set([userId]) };
+            if (row.status) {
+                if (!ratePoints[timeId]) {
+                    ratePoints[timeId] = { success: 0, total: 0 };
+                }
+                if (row.status >= 200 && row.status <= 399) {
+                    ratePoints[timeId].success++;
+                }
+                ratePoints[timeId].total++;
             }
         }
 
-        const values = Object.entries(points).map(([x, y]) => ({
+        const values = Object.entries(chartPoints).map(([x, y]) => ({
             x: new Date(parseInt(x)),
             requests: y.requests - y.users.size,
             users: y.users.size
         }));
 
-        setPlotData({
+        const plotData: ChartData<"bar"> = {
             datasets: [
                 {
                     label: 'Users',
@@ -297,43 +299,27 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                     stack: 'stack1',
                 }
             ]
-        });
+        };
 
-        setPlotOptions({
+        const plotOptions: object = {
             scales: {
                 x: {
                     type: 'time',
                     display: false,
-                    // time: {
-                    // unit: 'day'
-                    // unit: getTimeUnit(period, data),
-                    // },
-                    // title: {
-                    //     display: false,
-                    //     text: 'Time'
-                    // },
                     grid: {
                         display: false
                     },
-                    // min: periodStart(period),
                     max: period === 'all time' ? undefined : getTimeId(new Date())
                 },
                 y: {
                     display: false,
                     title: {
-                        // display: true,
                         text: 'Requests'
                     },
-                    // ticks: {
-                    //     padding: 20,
-                    // },
                     min: 0,
                     stacked: true
                 }
             },
-            // layout: {
-            //     left: 50,
-            // },
             maintainAspectRatio: false,
             responsive: true,
             plugins: {
@@ -358,8 +344,50 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                     }
                 }
             }
-        });
+        };
+
+        const successRates = Object.entries(ratePoints)
+            .sort(([t1], [t2]) => Number(t2) - Number(t1))
+            .map(([timeId, value]) => ({
+                timestamp: Number(timeId),
+                value: value.total ? value.success / value.total : null
+            }))
+            .reverse();
+
+        let periodLabels = { start: '', end: '' };
+        switch (period) {
+            case '24 hours':
+                periodLabels = { start: '24 hours ago', end: 'Now' };
+                break;
+            case 'week':
+                periodLabels = { start: 'One week ago', end: 'Now' };
+                break;
+            case 'month':
+                periodLabels = { start: 'One month ago', end: 'Now' };
+                break;
+            case '6 months':
+                periodLabels = { start: 'Six months ago', end: 'Now' };
+                break;
+            default: {
+                const range = getDateRange(data);
+                if (range) {
+                    periodLabels = {
+                        start: new Date(range.start).toLocaleDateString(),
+                        end: new Date(range.end).toLocaleDateString()
+                    };
+                }
+                break;
+            }
+        }
+
+        return { plotData, plotOptions, successRates, periodLabels };
     }, [data, period]);
+
+    // Only recalculate display rates when successRates or container width changes
+    const displayRates = useMemo(
+        () => calculateDisplayRates(successRates, containerWidth),
+        [successRates, containerWidth]
+    );
 
     const getSuccessRateTitle = (successRate: { timestamp: number, value: number | null }) => {
         const time = new Date(successRate.timestamp).toLocaleString()
@@ -369,86 +397,6 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
 
         return `Success rate: ${((successRate.value === 0 || successRate.value === 1) ? (successRate.value * 100).toFixed(0) : (successRate.value * 100).toFixed(1))}%\n${time}`;
     }
-
-    useEffect(() => {
-        let periodLabels: {start: string, end: string} = {start: '', end: ''};
-        if (!data) {
-            setPeriodLabels(periodLabels);
-            return;
-        }
-
-        switch (period) {
-            case '24 hours':
-                periodLabels = {start: '24 hours ago', end: 'Now'};
-                break;
-            case 'week':
-                periodLabels = {start: 'One week ago', end: 'Now'};
-                break;
-            case 'month':
-                periodLabels = {start: 'One month ago', end: 'Now'};
-                break;
-            case '6 months':
-                periodLabels = {start: 'Six months ago', end: 'Now'};
-                break;
-            default:
-                const range = getDateRange(data);
-                if (!range) {
-                    setPeriodLabels(periodLabels);
-                    return;
-                }
-                periodLabels = {start: new Date(range.start).toLocaleDateString(), end: new Date(range.end).toLocaleDateString()};
-                break;
-        }
-
-        setPeriodLabels(periodLabels);
-    }, [data, period]);
-
-    useEffect(() => {
-        const points: { [id: string]: { success: number, total: number } } = {}
-
-        const start = periodStart(period);
-        const getTimeId = getTimeIdGetter(period, data);
-
-        let currentDate: Date;
-        let end: Date;
-        if (start === null) {
-            const range = getDateRange(data);
-            if (!range) {
-                return;
-            }
-            currentDate = new Date(range.start);
-            end = new Date(range.end)
-        } else {
-            end = new Date();
-            currentDate = new Date(start);
-        }
-        while (currentDate <= end) {
-            const timeId = getTimeId(currentDate);
-            points[timeId] = { success: 0, total: 0 };
-            currentDate = incrementDate(currentDate, period);
-        }
-
-        for (const row of data) {
-            if (!row.timestamp || !row.status) {
-                continue;
-            }
-
-            const timeId = getTimeId(row.timestamp);
-
-            if (!points[timeId]) {
-                points[timeId] = { success: 0, total: 0 }
-            }
-            const success = row.status >= 200 && row.status <= 399;
-            if (success) {
-                points[timeId].success++
-            }
-            points[timeId].total++
-        }
-
-        const values = Object.entries(points).sort(([timeId1, _], [timeId2, __]) => Number(timeId2) - Number(timeId1)).map(([timeId, value]) => ({ timestamp: Number(timeId), value: value.total ? value.success / value.total : null })).reverse()
-
-        setSuccessRates(values);
-    }, [data, period]);
 
     return (
         <div className="card flex-1 px-4 py-3 m-3">
@@ -470,6 +418,7 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
                             key={index}
                             className={`flex-1 h-12 mx-[0.5px] rounded-[2px] ${successRate.value === null ? 'level-none' : 'level-' + getSuccessRateLevel(successRate.value)}`}
                             title={getSuccessRateTitle(successRate)}
+                            suppressHydrationWarning
                         >
                         </div>
                     ))}
@@ -485,3 +434,5 @@ export default function Activity({ data, period }: { data: NginxLog[], period: P
         </div>
     )
 }
+
+export default memo(Activity);

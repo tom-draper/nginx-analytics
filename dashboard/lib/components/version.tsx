@@ -3,7 +3,7 @@
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { NginxLog } from "../types";
-import { useEffect, useState } from "react";
+import { useMemo, memo } from "react";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -20,10 +20,20 @@ function getVersion(endpoint: string): string | null {
     return match[1];
 }
 
-export function Version({ data }: { data: NginxLog[] }) {
-    const [plotData, setPlotData] = useState<ChartData<"doughnut"> | null>(null);
+// Static — no props/state, no reason to recreate on every render
+const doughnutOptions = {
+    plugins: {
+        legend: {
+            position: 'right' as const,
+            align: 'center' as const,
+        },
+    },
+    responsive: true,
+    maintainAspectRatio: false
+};
 
-    useEffect(() => {
+export const Version = memo(function Version({ data }: { data: NginxLog[] }) {
+    const plotData = useMemo<ChartData<"doughnut"> | null>(() => {
         const versionCounts: { [key: string]: number } = {};
 
         for (const row of data) {
@@ -41,12 +51,11 @@ export function Version({ data }: { data: NginxLog[] }) {
 
         const labels = Object.keys(versionCounts);
         if (labels.length <= 1) {
-            setPlotData(null);
-            return;
+            return null;
         }
         const values = Object.values(versionCounts);
 
-        setPlotData({
+        return {
             labels,
             datasets: [
                 {
@@ -64,7 +73,7 @@ export function Version({ data }: { data: NginxLog[] }) {
                     borderWidth: 0,
                 },
             ],
-        });
+        };
     }, [data]);
 
     return (
@@ -74,19 +83,10 @@ export function Version({ data }: { data: NginxLog[] }) {
                     <h2 className="font-semibold">Version</h2>
 
                     <div className="relative w-full flex items-center justify-center pb-4" >
-                        <Doughnut data={plotData} options={{
-                            plugins: {
-                                legend: {
-                                    position: 'right', // Moves legend to the right side
-                                    align: 'center',
-                                },
-                            },
-                            responsive: true,
-                            maintainAspectRatio: false
-                        }} />
+                        <Doughnut data={plotData} options={doughnutOptions} />
                     </div>
                 </div>
             )}
         </>
     );
-}
+});

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useMemo, memo } from "react";
 import { NginxLog } from "../types";
 
 type Referral = {
@@ -8,10 +8,8 @@ type Referral = {
     count: number
 }
 
-export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: NginxLog[], filterReferrer: string | null, setFilterReferrer: (referrer: string | null) => void }) {
-    const [referrals, setReferrals] = useState<Referral[]>([])
-
-    useEffect(() => {
+export const Referrals = memo(function Referrals({ data, filterReferrer, setFilterReferrer }: { data: NginxLog[], filterReferrer: string | null, setFilterReferrer: (referrer: string | null) => void }) {
+    const referrals = useMemo(() => {
         const referrerCount: { [referer: string]: number } = {};
         for (const row of data) {
             if (!row.referrer || row.referrer === '-') {
@@ -24,8 +22,7 @@ export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: N
             referrerCount[row.referrer]++;
         }
 
-        const referrals = Object.entries(referrerCount).sort((a, b) => b[1] - a[1]).slice(0, 50).map(([referrer, count]) => ({ referrer, count }));
-        setReferrals(referrals);
+        return Object.entries(referrerCount).sort((a, b) => b[1] - a[1]).slice(0, 50).map(([referrer, count]) => ({ referrer, count }));
     }, [data])
 
     const selectReferrer = (referrer: string) => {
@@ -68,4 +65,4 @@ export function Referrals({ data, filterReferrer, setFilterReferrer }: { data: N
             )}
         </>
     )
-}
+})

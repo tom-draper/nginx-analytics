@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useMemo, useState, memo } from "react";
 import { NginxLog } from "../types";
 import { getPeriodRange, hoursInRange, Period, periodStart } from "../period";
 
@@ -113,23 +113,21 @@ function getRequestsByTime(data: NginxLog[], period: Period) {
     return buckets;
 }
 
-export function Requests({ data, period }: { data: NginxLog[], period: Period }) {
-    const [requests, setRequests] = useState<{total: number, perHour: number}>({total: 0, perHour: 0});
-    const [requestTrend, setRequestTrend] = useState<Array<{ date: string, count: number }>>([]);
+export const Requests = memo(function Requests({ data, period }: { data: NginxLog[], period: Period }) {
     const [displayMode, setDisplayMode] = useState<'total' | 'per-hour'>('total');
 
-    useEffect(() => {
+    const { requests, requestTrend } = useMemo(() => {
         const range = getPeriodRange(period, data);
-        if (!range) return;
+        if (!range) return { requests: { total: 0, perHour: 0 }, requestTrend: [] };
 
         const totalRequests = data.length;
-
         const requestsPerHour = totalRequests / hoursInRange(range.start, range.end);
 
-        setRequests({total: totalRequests, perHour: requestsPerHour});
-        setRequestTrend(getRequestsByTime(data, period));
-    }, [data, period, displayMode]);
-
+        return {
+            requests: { total: totalRequests, perHour: requestsPerHour },
+            requestTrend: getRequestsByTime(data, period)
+        };
+    }, [data, period]);
 
     // Toggle display mode
     const toggleDisplayMode = () => {
@@ -138,8 +136,8 @@ export function Requests({ data, period }: { data: NginxLog[], period: Period })
         );
     };
 
-    // Calculate the path for the background graph
-    const renderBackgroundGraph = () => {
+    // Memoize SVG path — only recomputes when requestTrend changes, not on displayMode toggle
+    const backgroundGraph = useMemo(() => {
         if (!requestTrend.length) return null;
 
         // Find the maximum value for scaling
@@ -235,7 +233,7 @@ export function Requests({ data, period }: { data: NginxLog[], period: Period })
                 />
             </svg>
         );
-    };
+    }, [requestTrend]);
 
     return (
         <div
@@ -261,7 +259,7 @@ export function Requests({ data, period }: { data: NginxLog[], period: Period })
                 </div>
             </div>
 
-            {renderBackgroundGraph()}
+            {backgroundGraph}
         </div>
     );
-}
+});

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useMemo, memo } from "react";
 import { NginxLog } from "../types";
 import { clientErrorStatus, redirectStatus, serverErrorStatus } from "../status";
 
@@ -11,10 +11,8 @@ type Endpoint = {
     count: number
 }
 
-export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus, ignoreParams }: { data: NginxLog[], filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void, ignoreParams: boolean }) {
-    const [endpoints, setEndpoints] = useState<Endpoint[]>([])
-
-    useEffect(() => {
+export const Endpoints = memo(function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus, ignoreParams }: { data: NginxLog[], filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void, ignoreParams: boolean }) {
+    const endpoints = useMemo(() => {
         const groupedEndpoints: { [id: string]: number } = {};
         for (const row of data) {
             const path = ignoreParams ? row.path.split('?')[0] : row.path;
@@ -37,7 +35,7 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
             })
         }
 
-        setEndpoints(endpoints.sort((a, b) => b.count - a.count).slice(0, 50));
+        return endpoints.sort((a, b) => b.count - a.count).slice(0, 50);
     }, [data, ignoreParams])
 
     const selectEndpoint = (path: string, method: string, status: number | null) => {
@@ -177,4 +175,4 @@ export function Endpoints({ data, filterPath, filterMethod, filterStatus, setEnd
 
 
     )
-}
+})
