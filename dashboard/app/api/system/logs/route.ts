@@ -16,7 +16,8 @@ export async function GET() {
 
         const response = await fetch(serverUrl + '/api/system/logs', {
             method: 'GET',
-            headers
+            headers,
+            signal: AbortSignal.timeout(10000)
         });
 
         if (!response.ok) {
@@ -36,7 +37,7 @@ export async function GET() {
             );
         }
 
-        const path = getLogPath();
+        const path = await getLogPath();
 
         if (!path) {
             return NextResponse.json(
@@ -60,18 +61,18 @@ export async function GET() {
     }
 }
 
-const getLogPath = () => {
+const getLogPath = async () => {
     if (logPath) {
         return logPath;
     }
 
-    const accessPath = tryGetLogPath(process.env.NGINX_ANALYTICS_ACCESS_PATH);
+    const accessPath = await tryGetLogPath(process.env.NGINX_ANALYTICS_ACCESS_PATH);
     if (accessPath) {
         logPath = accessPath;
         return logPath;
     }
 
-    const errorPath = tryGetLogPath(process.env.NGINX_ANALYTICS_ERROR_PATH);
+    const errorPath = await tryGetLogPath(process.env.NGINX_ANALYTICS_ERROR_PATH);
     if (errorPath) {
         logPath = errorPath;
         return logPath;
@@ -80,13 +81,13 @@ const getLogPath = () => {
     return null;
 }
 
-const tryGetLogPath = (nginxPath: string | undefined) => {
+const tryGetLogPath = async (nginxPath: string | undefined) => {
     if (!nginxPath) {
         return null;
     }
 
     try {
-        const stats = fs.statSync(nginxPath);
+        const stats = await fs.promises.stat(nginxPath);
 
         if (stats.isDirectory()) {
             // If it's a directory, use it directly

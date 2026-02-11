@@ -1,7 +1,9 @@
 "use client";
 
 import { useRef, useEffect, useState } from 'react';
-import Globe from '@/lib/components/globe';
+import dynamic from 'next/dynamic';
+
+const Globe = dynamic(() => import('@/lib/components/globe'), { ssr: false });
 
 export default function TiltedGlobeSingleTarget() {
 	const [isGlobeVisible, setIsGlobeVisible] = useState(true);

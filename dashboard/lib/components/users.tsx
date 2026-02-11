@@ -10,13 +10,12 @@ function getUsers(data: NginxLog[], period: Period) {
     const endDate = new Date(); // Current time as end date
 
     // Filter data by period if startDate is available
-    let filteredData = [...data];
-    if (startDate) {
-        filteredData = filteredData.filter(log => {
+    const filteredData = startDate
+        ? data.filter(log => {
             const logDate = new Date(log.timestamp || 0);
             return logDate >= startDate && logDate <= endDate;
-        });
-    }
+        })
+        : data;
 
     const users = new Set<string>();
     for (const row of filteredData) {
@@ -38,18 +37,12 @@ function getUsersByTime(data: NginxLog[], period: Period) {
     const endDate = new Date(); // Current time as end date
 
     // Filter data by period if startDate is available
-    let filteredData = [...data];
-    if (startDate) {
-        filteredData = filteredData.filter(log => {
+    const filteredData = startDate
+        ? data.filter(log => {
             const logDate = new Date(log.timestamp || 0);
             return logDate >= startDate && logDate <= endDate;
-        });
-    }
-
-    // Sort data by timestamp
-    const sortedData = filteredData.sort((a, b) => {
-        return new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime();
-    });
+        })
+        : data;
 
     // Determine appropriate bucket size based on period
     const bucketFormat: 'hour' | 'day' = period === '24 hours' ? 'hour' : 'day';
@@ -88,7 +81,7 @@ function getUsersByTime(data: NginxLog[], period: Period) {
     // Count unique users per time bucket (first appearance only)
     // const seenUsers = new Set<string>();
 
-    for (const row of sortedData) {
+    for (const row of filteredData) {
         const userId = getUserId(row.ipAddress, row.userAgent);
         if (!userId) continue;
 

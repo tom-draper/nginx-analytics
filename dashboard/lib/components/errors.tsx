@@ -1,6 +1,6 @@
 "use client";
 
-import { Dispatch, SetStateAction, useEffect, useState, useMemo } from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState, useMemo } from "react";
 import { parseNginxErrors } from "../parse";
 import { NginxError } from "../types";
 import { Period, periodStart } from "../period";
@@ -51,6 +51,15 @@ const useSortedData = <T extends Record<string, any>>(
 
     return { sortedData, sortConfig, requestSort };
 };
+
+const dateFormatter = new Intl.DateTimeFormat('default', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+});
 
 // Error row component
 const ErrorRow = ({
@@ -143,7 +152,8 @@ export default function Errors({
     noFetch: boolean;
     demo: boolean;
 }) {
-    const [errors, setErrors] = useState<NginxError[]>([]);
+    const [parsedErrors, setParsedErrors] = useState<NginxError[]>([]);
+    const parsedErrorCount = useRef(0);
     const [expandedError, setExpandedError] = useState<number | null>(null);
     const [filtering, setFiltering] = useState<string>("");
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -151,12 +161,19 @@ export default function Errors({
     const [selectedSeverities, setSelectedSeverities] = useState<string[]>([]);
 
     useEffect(() => {
+        if (errorLogs.length <= parsedErrorCount.current) return;
+        const newRawLogs = errorLogs.slice(parsedErrorCount.current);
+        parsedErrorCount.current = errorLogs.length;
+        const newParsed = parseNginxErrors(newRawLogs);
+        if (newParsed.length > 0) {
+            setParsedErrors(prev => [...prev, ...newParsed]);
+        }
+    }, [errorLogs]);
+
+    const errors = useMemo(() => {
         const start = periodStart(period);
-        const parsedErrors = parseNginxErrors(errorLogs).filter(error =>
-            start === null || error.timestamp >= start
-        );
-        setErrors(parsedErrors);
-    }, [errorLogs, period]);
+        return start === null ? parsedErrors : parsedErrors.filter(e => e.timestamp >= start);
+    }, [parsedErrors, period]);
 
     useEffect(() => {
         if (noFetch) {
@@ -192,7 +209,6 @@ export default function Errors({
                 const data = await response.json();
 
                 if (data.logs && data.logs.length > 0) {
-                    console.log('Errors', data)
                     setErrorLogs(prevLogs => [...prevLogs, ...data.logs]);
 
                     if (data.positions) {
@@ -302,16 +318,7 @@ export default function Errors({
         }
     };
 
-    const formatDate = (date: Date) => {
-        return new Intl.DateTimeFormat('default', {
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        }).format(new Date(date));
-    };
+    const formatDate = (date: Date) => dateFormatter.format(new Date(date));
 
     if (errors.length === 0 && !isLoading && !fetchError) {
         return null;

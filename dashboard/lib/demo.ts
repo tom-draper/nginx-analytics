@@ -1,6 +1,10 @@
 import { Location } from "@/lib/location";
 import { LogFilesSizes, LogFilesSummary, LogSizes, SystemInfo } from "./types";
 
+// Precomputed zero-padded strings "00".."99" for fast timestamp formatting
+const PAD2: string[] = Array.from({ length: 100 }, (_, i) => i < 10 ? '0' + i : String(i));
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 /**
  * Generates random LogSizes data mimicking Nginx log file structure
  * @returns A random LogSizes object
@@ -704,257 +708,427 @@ export function generateNginxLogs(options: LogGeneratorOptions): string[] {
     const {
         format = 'common',
         count = 100,
-        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Default to past week
+        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
         endDate = new Date(),
         ipRange = [],
-        statusCodes = [200, 201, 204, 301, 302, 304, 400, 401, 403, 404, 500, 502, 503],
-        paths = [
-            // Standard paths
-            '/',
-            '/index.html',
-            '/about',
-            '/contact',
-            '/blog',
-            '/blog/post-1',
-            '/products',
-            '/products/category',
-            '/login',
-            '/logout',
-            '/assets/main.css',
-            '/assets/main.js',
-            '/favicon.ico',
-
-            // API v1 endpoints
-            '/api/v1/users',
-            '/api/v1/users/profile',
-            '/api/v1/products',
-            '/api/v1/products/categories',
-            '/api/v1/orders',
-            '/api/v1/orders/history',
-            '/api/v1/authentication',
-            '/api/v1/search',
-
-            // API v2 endpoints
-            '/api/v2/users',
-            '/api/v2/users/extended-profile',
-            '/api/v2/products',
-            '/api/v2/products/inventory',
-            '/api/v2/orders',
-            '/api/v2/orders/analytics',
-            '/api/v2/authentication/refresh',
-            '/api/v2/metrics',
-
-            // Additional versioned endpoints
-            '/api/v3/users/preferences',
-            '/api/v1/health',
-            '/api/v2/status',
-            '/api/v1/system/config'
-        ],
-        userAgents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-            'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
-            'Googlebot/2.1 (+http://www.google.com/bot.html)',
-            'Bingbot/2.0 (+http://www.bing.com/bingbot.htm)',
-            'Twitterbot/1.0',
-            'python-requests/2.31.0'
-        ],
-        referers = [
-            '-',
-            'https://www.google.com/',
-            'https://www.bing.com/',
-            'https://www.facebook.com/',
-            'https://www.twitter.com/',
-            'https://www.linkedin.com/',
-            'https://www.reddit.com/',
-            'https://www.example.com/'
-        ]
     } = options;
 
-    // Add more referrers for increased variety
-    const expandedReferers = [
-        ...referers,
-        'https://duckduckgo.com/',
-        'https://www.instagram.com/',
-        'https://www.pinterest.com/',
-        'https://news.ycombinator.com/',
-        'https://www.producthunt.com/',
-        'https://github.com/',
-        'https://stackoverflow.com/',
-        'https://www.youtube.com/',
-        'https://medium.com/',
-        'https://www.baidu.com/',
-        'https://www.yandex.ru/',
-        'https://t.co/', // Twitter shortened URLs
-        'https://lnkd.in/', // LinkedIn shortened URLs
-        'https://www.naver.com/',
-        'https://mail.google.com/',
-        'https://outlook.live.com/',
-        'https://www.yahoo.com/',
-        'https://www.aliexpress.com/',
-        'https://www.alibaba.com/',
-        'https://www.tiktok.com/'
+    // ── Paths with categories for correlated behaviour ─────────────────────
+    type PathCat = 'page' | 'api' | 'static' | 'auth' | 'monitor' | 'scanner';
+    const pathData: Array<[string, PathCat, number]> = [
+        // [path, category, relative weight]
+        // Core pages (high traffic)
+        ['/', 'page', 30],
+        ['/about', 'page', 8],
+        ['/pricing', 'page', 10],
+        ['/contact', 'page', 5],
+        ['/docs', 'page', 12],
+        ['/docs/getting-started', 'page', 8],
+        ['/docs/api-reference', 'page', 7],
+        ['/blog', 'page', 9],
+        ['/blog/introducing-v2', 'page', 6],
+        ['/blog/performance-tips', 'page', 5],
+        ['/changelog', 'page', 4],
+        ['/features', 'page', 7],
+        ['/dashboard', 'page', 14],
+        ['/settings', 'page', 5],
+        ['/profile', 'page', 5],
+        ['/billing', 'page', 3],
+        ['/404', 'page', 4],
+        // Auth
+        ['/login', 'auth', 12],
+        ['/logout', 'auth', 6],
+        ['/register', 'auth', 8],
+        ['/forgot-password', 'auth', 3],
+        ['/reset-password', 'auth', 2],
+        ['/oauth/callback', 'auth', 4],
+        // API v1
+        ['/api/v1/users', 'api', 15],
+        ['/api/v1/users/me', 'api', 12],
+        ['/api/v1/users/preferences', 'api', 6],
+        ['/api/v1/auth/token', 'api', 14],
+        ['/api/v1/auth/refresh', 'api', 10],
+        ['/api/v1/products', 'api', 13],
+        ['/api/v1/products/search', 'api', 9],
+        ['/api/v1/orders', 'api', 11],
+        ['/api/v1/orders/recent', 'api', 7],
+        ['/api/v1/payments', 'api', 6],
+        ['/api/v1/notifications', 'api', 8],
+        ['/api/v1/search', 'api', 10],
+        ['/api/v1/analytics/events', 'api', 7],
+        // API v2
+        ['/api/v2/users', 'api', 12],
+        ['/api/v2/users/activity', 'api', 7],
+        ['/api/v2/products', 'api', 11],
+        ['/api/v2/products/inventory', 'api', 6],
+        ['/api/v2/orders', 'api', 9],
+        ['/api/v2/orders/analytics', 'api', 5],
+        ['/api/v2/auth/refresh', 'api', 9],
+        ['/api/v2/webhooks', 'api', 4],
+        ['/api/v2/metrics', 'api', 5],
+        ['/api/v2/recommendations', 'api', 6],
+        // Static assets (present but not overwhelming the endpoint list)
+        ['/favicon.ico', 'static', 8],
+        ['/robots.txt', 'static', 5],
+        ['/sitemap.xml', 'static', 3],
+        ['/static/css/app.css', 'static', 7],
+        ['/static/css/vendor.css', 'static', 4],
+        ['/static/js/app.js', 'static', 7],
+        ['/static/js/vendor.js', 'static', 5],
+        ['/static/js/chunk-react.js', 'static', 3],
+        ['/static/img/hero.webp', 'static', 4],
+        ['/static/img/logo.svg', 'static', 5],
+        ['/static/img/og-image.png', 'static', 2],
+        ['/static/fonts/inter.woff2', 'static', 3],
+        ['/static/fonts/mono.woff2', 'static', 2],
+        ['/apple-touch-icon.png', 'static', 3],
+        ['/manifest.json', 'static', 2],
+        // Monitoring
+        ['/health', 'monitor', 8],
+        ['/ping', 'monitor', 6],
+        ['/metrics', 'monitor', 4],
+        ['/status', 'monitor', 5],
+        ['/api/v1/health', 'monitor', 7],
+        // Scanner/probe targets (rare but realistic)
+        ['/.env', 'scanner', 1],
+        ['/.env.local', 'scanner', 1],
+        ['/.git/config', 'scanner', 1],
+        ['/wp-admin', 'scanner', 1],
+        ['/wp-login.php', 'scanner', 1],
+        ['/xmlrpc.php', 'scanner', 1],
+        ['/phpmyadmin', 'scanner', 1],
+        ['/admin', 'scanner', 1],
+        ['/admin/config.php', 'scanner', 1],
+        ['/backup.zip', 'scanner', 1],
+        ['/shell.php', 'scanner', 1],
+        ['/config.yml', 'scanner', 1],
+    ];
+    const paths    = pathData.map(p => p[0]);
+    const pathCats = pathData.map(p => p[1]) as PathCat[];
+    const pathWeights = pathData.map(p => p[2]);
+
+    // ── User agents by category ─────────────────────────────────────────────
+    const browserAgents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+        'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Opera/9.80 (Windows NT 6.1; WOW64) Presto/2.12.388 Version/12.18',
+    ];
+    const mobileAgents = [
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
+        'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.101 Mobile Safari/537.36',
+        'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36',
+        'Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+        'Mozilla/5.0 (Linux; Android 13; SM-A546B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/23.0 Chrome/115.0.0.0 Mobile Safari/537.36',
+    ];
+    const crawlerAgents = [
+        'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+        'DuckDuckBot/1.1; (+http://duckduckgo.com/duckduckbot.html)',
+        'Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)',
+        'Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)',
+        'Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)',
+        'Mozilla/5.0 (compatible; SemrushBot/7~bl; +http://www.semrush.com/bot.html)',
+        'Twitterbot/1.0',
+        'LinkedInBot/1.0 (compatible; Mozilla/5.0; Apache-HttpClient +http://www.linkedin.com)',
+        'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+    ];
+    const apiClientAgents = [
+        'python-requests/2.31.0',
+        'python-requests/2.28.2',
+        'python-httpx/0.25.2',
+        'axios/1.6.2',
+        'axios/1.4.0',
+        'PostmanRuntime/7.36.1',
+        'PostmanRuntime/7.35.0',
+        'curl/7.88.1',
+        'curl/8.4.0',
+        'Go-http-client/2.0',
+        'Go-http-client/1.1',
+        'Wget/1.21.4',
+        'insomnia/2023.5.8',
+    ];
+    const scannerAgents = [
+        'Mozilla/5.0 (compatible; Nikto/2.1.6)',
+        'sqlmap/1.7.8#stable (https://sqlmap.org)',
+        'python-urllib3/2.0.7',
+        'masscan/1.3 (https://github.com/robertdavidgraham/masscan)',
+        'zgrab/0.x',
     ];
 
-    // Generate a pool of IPs to allow for repeating patterns
-    // This creates more realistic logs where the same users return
-    const ipPool: string[] = [];
-    const ipPoolSize = Math.min(count / 3, 15); // Adjust based on log volume
+    // ── Referrers ───────────────────────────────────────────────────────────
+    const referers = [
+        '-', '-', '-', '-',  // direct traffic is most common
+        'https://www.google.com/',
+        'https://www.google.com/',
+        'https://www.google.com/',
+        'https://www.bing.com/',
+        'https://duckduckgo.com/',
+        'https://www.facebook.com/',
+        'https://twitter.com/',
+        'https://www.linkedin.com/',
+        'https://www.reddit.com/',
+        'https://news.ycombinator.com/',
+        'https://github.com/',
+        'https://stackoverflow.com/',
+        'https://www.producthunt.com/',
+        'https://medium.com/',
+        'https://dev.to/',
+        'https://t.co/',
+        'https://www.youtube.com/',
+        'https://www.instagram.com/',
+        'https://mail.google.com/',
+        'https://outlook.live.com/',
+        'https://www.baidu.com/',
+        'https://www.yandex.ru/',
+    ];
 
-    for (let i = 0; i < ipPoolSize; i++) {
-        if (ipRange.length > 0 && Math.random() < 0.9) {
-            // 70% chance to use provided IP range
-            ipPool.push(ipRange[Math.floor(Math.random() * ipRange.length)]);
+    // ── IP pool: regular users + scanner cluster ────────────────────────────
+    const regularIpCount = 50;
+    const scannerIps: string[] = [
+        `185.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}`,
+        `45.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}`,
+        `194.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}`,
+    ];
+    const regularIps: string[] = [];
+    for (let i = 0; i < regularIpCount; i++) {
+        if (ipRange.length > 0 && Math.random() < 0.6) {
+            regularIps.push(ipRange[Math.floor(Math.random() * ipRange.length)]);
         } else {
-            // Generate a random IP
-            ipPool.push(`${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`);
+            regularIps.push(`${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}`);
         }
     }
 
-    // Helper for weighted random selection
-    const weightedRandom = <T>(items: T[], weights: number[]): T => {
-        const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-        let random = Math.random() * totalWeight;
-
-        for (let i = 0; i < weights.length; i++) {
-            if (random < weights[i]) {
-                return items[i];
-            }
-            random -= weights[i];
-        }
-
-        return items[0]; // Default fallback
+    // ── Weight helpers ──────────────────────────────────────────────────────
+    const sumW = (w: number[]) => { let s = 0; for (let i = 0; i < w.length; i++) s += w[i]; return s; };
+    const pickIndex = (weights: number[], total: number): number => {
+        let r = Math.random() * total;
+        for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r < 0) return i; }
+        return weights.length - 1;
     };
+    const pickItem = <T>(items: T[], weights: number[], total: number): T =>
+        items[pickIndex(weights, total)];
 
-    // Create zipf-like distribution weights for paths and referers
-    // This creates more realistic logs where some pages are much more popular than others
-    const createZipfWeights = (size: number): number[] => {
-        const weights: number[] = [];
-        for (let i = 1; i <= size; i++) {
-            // Use a modified zipf distribution: 1/i^0.8 (less steep than classic zipf)
-            weights.push(1 / Math.pow(i, 0.8));
-        }
-        return weights;
-    };
+    const pathTotal = sumW(pathWeights);
 
-    const pathWeights = createZipfWeights(paths.length);
-    const refererWeights = createZipfWeights(expandedReferers.length);
-
-    // Adjust referer weights to make "-" (direct traffic) more common
-    if (expandedReferers[0] === '-') {
-        refererWeights[0] *= 2;
-    }
-
-    // Methods with realistic distribution
     const methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
-    const methodWeights = [70, 15, 5, 5, 3, 1, 1];
+    const methodWeights = [65, 18, 5, 5, 4, 2, 1];
+    const methodTotal = sumW(methodWeights);
 
-    // Status code distribution - make 200s more common
-    const statusCodeWeights = statusCodes.map(code => {
-        if (code >= 200 && code < 300) return 51;  // Success codes
-        if (code >= 300 && code < 400) return 10;  // Redirect codes
-        if (code >= 400 && code < 500) return 22   // Client errors
-        return 17;                                  // Server errors
+    // ── Hour-of-day distribution: peaks 9-11am and 2-4pm ───────────────────
+    // Index = hour (0-23)
+    const hourWeights = [1,1,1,1,1,2,4,7,10,14,16,14,11,12,15,14,11,8,6,5,4,3,2,1];
+    const hourTotal = sumW(hourWeights);
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+
+    // ── Timezone suffix (computed once) ─────────────────────────────────────
+    const tzOff  = new Date().getTimezoneOffset();
+    const tzSign = tzOff <= 0 ? '+' : '-';
+    const tzAbs  = Math.abs(tzOff);
+    const tzStr  = `${tzSign}${PAD2[Math.floor(tzAbs / 60)]}${PAD2[tzAbs % 60]}`;
+
+    const startMs   = startDate.getTime();
+    const totalDays = Math.max(1, Math.ceil((endDate.getTime() - startMs) / 86400000));
+
+    // ── Day profiles ─────────────────────────────────────────────────────────
+    type DayMode = 'normal' | 'spike' | 'attack' | 'offline' | 'server_issues' | 'degraded';
+    interface DayProfile { weight: number; mode: DayMode; attackIps?: string[]; }
+
+    // Consistent week-level noise so you see plateau-like weekly variation
+    const weeklyNoise = Array.from(
+        { length: Math.ceil(totalDays / 7) + 1 },
+        () => 0.65 + Math.random() * 0.7
+    );
+
+    // Independent IP clusters for each attack event
+    const rndIp = (prefix: number) =>
+        `${prefix}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}.${Math.floor(Math.random()*256)}`;
+    const attackPool1 = Array.from({ length: 4 }, () => rndIp(45));
+    const attackPool2 = Array.from({ length: 3 }, () => rndIp(185));
+
+    const dayProfiles: DayProfile[] = Array.from({ length: totalDays }, (_, d) => {
+        const dow       = new Date(startMs + d * 86400000).getDay();
+        const isWeekend = dow === 0 || dow === 6;
+        const growth    = 0.5 + (d / Math.max(1, totalDays - 1)) * 1.2; // 0.5 → 1.7 over range
+        const weekly    = weeklyNoise[Math.floor(d / 7)];
+        const dayFact   = isWeekend ? 0.5 : 1.0;
+        return { weight: growth * weekly * dayFact, mode: 'normal' };
     });
 
-    // Helper functions
-    const getRandomIP = (): string => {
-        if (ipPool.length > 0 && Math.random() < 0.95) {
-            return ipPool[Math.floor(Math.random() * ipPool.length)];
-        }
-        return `${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`;
-    };
-
-    const getRandomTimestamp = (): { date: Date, formatted: string } => {
-        // Simple random timestamp between start and end dates
-        const timestampMs = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime());
-        const date = new Date(timestampMs);
-
-        // Format: [day/month/year:hour:minute:second +offset]
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()];
-        const year = date.getFullYear();
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        const seconds = date.getSeconds().toString().padStart(2, '0');
-        const milliseconds = date.getMilliseconds(); // Store milliseconds for precision
-
-        // Calculate timezone offset
-        const offset = date.getTimezoneOffset();
-        const offsetHours = Math.abs(Math.floor(offset / 60)).toString().padStart(2, '0');
-        const offsetMinutes = Math.abs(offset % 60).toString().padStart(2, '0');
-        const offsetSign = offset <= 0 ? '+' : '-';
-
-        const formatted = `[${day}/${month}/${year}:${hours}:${minutes}:${seconds} ${offsetSign}${offsetHours}${offsetMinutes}]`;
-        return { date, formatted };
-    };
-
-    const getRandomMethod = (): string => {
-        return weightedRandom(methods, methodWeights);
-    };
-
-    const getRandomPath = (): string => {
-        return weightedRandom(paths, pathWeights);
-    };
-
-    const getRandomBytes = (): string => {
-        // More realistic byte distribution
-        if (Math.random() < 0.08) {
-            return '-'; // 8% of requests don't have a response size
-        }
-
-        // Create different size categories
-        if (Math.random() < 0.3) {
-            // Small responses (e.g., API responses, small HTML)
-            return Math.floor(Math.random() * 10000 + 100).toString();
-        } else if (Math.random() < 0.8) {
-            // Medium responses (e.g., typical web pages)
-            return Math.floor(Math.random() * 100000 + 10000).toString();
-        } else {
-            // Large responses (e.g., images, downloads)
-            return Math.floor(Math.random() * 5000000 + 100000).toString();
+    const applyEvent = (s: number, e: number, mode: DayMode, mult: number, ips?: string[]) => {
+        for (let d = s; d <= e && d < totalDays; d++) {
+            dayProfiles[d].weight *= mult;
+            dayProfiles[d].mode = mode;
+            if (ips) dayProfiles[d].attackIps = ips;
         }
     };
 
-    const getRandomStatusCode = (): number => {
-        return weightedRandom(statusCodes, statusCodeWeights);
+    if (totalDays >= 300) {
+        applyEvent(0,   4,   'normal',        0.25);              // Quiet launch week
+        applyEvent(46,  48,  'spike',         5.0);               // Feb: viral HN post
+        applyEvent(78,  80,  'attack',        3.5,  attackPool1); // Mar: scanning attack
+        applyEvent(96,  97,  'offline',       0.06);              // Apr: unplanned outage
+        applyEvent(130, 132, 'spike',         3.8);               // May: v2 launch
+        applyEvent(154, 158, 'server_issues', 0.85);              // Jun: DB connection leak
+        applyEvent(196, 230, 'degraded',      0.72);              // Jul-Aug: summer slowdown
+        applyEvent(248, 250, 'spike',         4.2);               // Sep: product launch
+        applyEvent(288, 290, 'attack',        4.0,  attackPool2); // Oct: HTTP flood
+        applyEvent(320, 323, 'server_issues', 0.60);              // Nov: memory leak
+        applyEvent(357, Math.min(364, totalDays - 1), 'normal', 0.35); // Dec: holiday dip
+    }
+
+    // Distribute log count across days proportionally to weight
+    const totalW    = dayProfiles.reduce((s, p) => s + p.weight, 0);
+    const logsPerDay = dayProfiles.map(p => Math.round((p.weight / totalW) * count));
+    const drift      = count - logsPerDay.reduce((s, n) => s + n, 0);
+    logsPerDay[Math.floor(totalDays / 2)] += drift; // absorb rounding error mid-year
+
+    // Pre-compute scanner path indices once
+    const scannerPathIndices = pathCats.reduce<number[]>(
+        (acc, c, i) => { if (c === 'scanner') acc.push(i); return acc; }, []
+    );
+
+    // ── Helpers reused per log ────────────────────────────────────────────────
+    const normalStatus = (pathCat: PathCat): number => {
+        const sr = Math.random();
+        if (pathCat === 'scanner') return sr < 0.72 ? 404 : sr < 0.92 ? 403 : sr < 0.97 ? 400 : 200;
+        if (pathCat === 'static')  return sr < 0.65 ? 200 : sr < 0.80 ? 304 : sr < 0.94 ? 404 : 403;
+        if (pathCat === 'monitor') return sr < 0.80 ? 200 : 503;
+        // auth: ~70% non-success
+        if (pathCat === 'auth')    return sr < 0.30 ? 200 : sr < 0.55 ? 401 : sr < 0.68 ? 400 : sr < 0.76 ? 302 : sr < 0.90 ? 429 : 500;
+        // api: ~70% non-success
+        if (pathCat === 'api')     return sr < 0.25 ? 200 : sr < 0.32 ? 201 : sr < 0.35 ? 204 : sr < 0.55 ? 400 : sr < 0.68 ? 401 : sr < 0.78 ? 403 : sr < 0.90 ? 404 : 500;
+        // page: ~50% non-success
+        return sr < 0.50 ? 200 : sr < 0.62 ? 301 : sr < 0.82 ? 404 : sr < 0.94 ? 500 : 502;
     };
 
-    const getRandomUserAgent = (): string => {
-        return userAgents[Math.floor(Math.random() * userAgents.length)];
+    const sizeForPath = (pathCat: PathCat, path: string, statusCode: number): string => {
+        if (statusCode >= 400)                    return String(Math.floor(Math.random() * 800  + 80));
+        if (statusCode === 204 || statusCode === 304) return '0';
+        if (statusCode === 301 || statusCode === 302) return String(Math.floor(Math.random() * 200 + 20));
+        if (pathCat === 'static') {
+            const ext = path.split('.').pop() ?? '';
+            if (ext === 'woff2' || ext === 'woff') return String(Math.floor(Math.random() * 80000  + 20000));
+            if (ext === 'js')                      return String(Math.floor(Math.random() * 400000 + 20000));
+            if (ext === 'css')                     return String(Math.floor(Math.random() * 120000 + 8000));
+            if (ext === 'png' || ext === 'jpg' || ext === 'webp') return String(Math.floor(Math.random() * 2000000 + 50000));
+            if (ext === 'svg')                     return String(Math.floor(Math.random() * 20000  + 500));
+            return String(Math.floor(Math.random() * 5000 + 100));
+        }
+        if (pathCat === 'api' || pathCat === 'monitor') return String(Math.floor(Math.random() * 15000 + 100));
+        return String(Math.floor(Math.random() * 80000 + 5000)); // page / auth
     };
 
-    const getRandomReferer = (): string => {
-        return weightedRandom(expandedReferers, refererWeights);
+    const agentFor = (pathCat: PathCat, isAttacker: boolean): string => {
+        if (isAttacker) return scannerAgents[Math.floor(Math.random() * scannerAgents.length)];
+        const ur = Math.random();
+        if (pathCat === 'api' && ur < 0.35) return apiClientAgents[Math.floor(Math.random() * apiClientAgents.length)];
+        if (ur < 0.08) return crawlerAgents[Math.floor(Math.random() * crawlerAgents.length)];
+        if (ur < 0.22) return mobileAgents[Math.floor(Math.random() * mobileAgents.length)];
+        return browserAgents[Math.floor(Math.random() * browserAgents.length)];
     };
 
-    // Generate logs
+    // ── Per-day log generation ────────────────────────────────────────────────
     const logs: string[] = [];
 
-    for (let i = 0; i < count; i++) {
-        const ip = getRandomIP();
-        const { date, formatted: timestamp } = getRandomTimestamp();
-        const method = getRandomMethod();
-        const path = getRandomPath();
-        const httpVersion = Math.random() < 0.15 ? 'HTTP/1.0' : 'HTTP/1.1'; // Reduced HTTP/1.0 to 15%
-        const statusCode = getRandomStatusCode();
-        const bytes = getRandomBytes();
-        const referer = getRandomReferer();
-        const userAgent = getRandomUserAgent();
+    for (let d = 0; d < totalDays; d++) {
+        const n = logsPerDay[d];
+        if (n <= 0) continue;
 
-        // Common Log Format: %h %l %u %t \"%r\" %>s %b
-        // where %h=remote_addr, %l=remote_log_name, %u=remote_user, %t=time, %r=request, %>s=status, %b=bytes_sent
-        const commonFormatLog = `${ip} - - ${timestamp} "${method} ${path} ${httpVersion}" ${statusCode} ${bytes}`;
+        const { mode, attackIps } = dayProfiles[d];
+        const dayStartMs = startMs + d * 86400000;
 
-        if (format === 'common') {
-            logs.push(commonFormatLog);
-        } else {
-            // Extended Log Format: Common Log Format + \"%{Referer}i\" \"%{User-agent}i\"
-            const extendedFormatLog = `${commonFormatLog} "${referer}" "${userAgent}"`;
-            logs.push(extendedFormatLog);
+        for (let i = 0; i < n; i++) {
+            // Timestamp — attacks run 24/7; normal traffic peaks in business hours
+            const hour   = (mode === 'attack') ? Math.floor(Math.random() * 24) : pickItem(hours, hourWeights, hourTotal);
+            const minute = Math.floor(Math.random() * 60);
+            const second = Math.floor(Math.random() * 60);
+            const dt     = new Date(dayStartMs + hour * 3600000 + minute * 60000 + second * 1000);
+            const timestamp = `[${PAD2[dt.getDate()]}/${MONTH_NAMES[dt.getMonth()]}/${dt.getFullYear()}:${PAD2[dt.getHours()]}:${PAD2[dt.getMinutes()]}:${PAD2[dt.getSeconds()]} ${tzStr}]`;
+
+            const httpVersion = Math.random() < 0.65 ? 'HTTP/2.0' : (Math.random() < 0.9 ? 'HTTP/1.1' : 'HTTP/1.0');
+
+            let ip: string, path: string, pathCat: PathCat, method: string, statusCode: number, bytes: string, userAgent: string, referer: string;
+
+            if (mode === 'offline') {
+                // Server down — everything returns 503/502
+                ip         = regularIps[Math.floor(Math.random() * regularIps.length)];
+                const idx  = pickIndex(pathWeights, pathTotal);
+                path       = paths[idx];
+                pathCat    = pathCats[idx];
+                method     = 'GET';
+                statusCode = Math.random() < 0.88 ? 503 : 502;
+                bytes      = String(Math.floor(Math.random() * 300 + 50));
+                userAgent  = browserAgents[Math.floor(Math.random() * browserAgents.length)];
+                referer    = referers[Math.floor(Math.random() * referers.length)];
+
+            } else if (mode === 'attack') {
+                // Coordinated flood: few fixed IPs, scanner-heavy paths, all 4xx/5xx
+                const pool = attackIps ?? scannerIps;
+                ip         = pool[Math.floor(Math.random() * pool.length)];
+                if (Math.random() < 0.55) {
+                    const idx = scannerPathIndices[Math.floor(Math.random() * scannerPathIndices.length)];
+                    path    = paths[idx]; pathCat = 'scanner';
+                } else {
+                    const idx = pickIndex(pathWeights, pathTotal);
+                    path    = paths[idx]; pathCat = pathCats[idx];
+                }
+                method     = Math.random() < 0.8 ? 'GET' : 'POST';
+                const sr   = Math.random();
+                statusCode = sr < 0.55 ? 404 : sr < 0.72 ? 403 : sr < 0.84 ? 400 : sr < 0.94 ? 429 : sr < 0.98 ? 503 : 200;
+                bytes      = statusCode >= 400 ? String(Math.floor(Math.random() * 600 + 80)) : String(Math.floor(Math.random() * 5000 + 200));
+                userAgent  = scannerAgents[Math.floor(Math.random() * scannerAgents.length)];
+                referer    = '-';
+
+            } else {
+                // normal / spike / server_issues / degraded
+                const isPassiveScanner = Math.random() < 0.04;
+                ip = isPassiveScanner
+                    ? scannerIps[Math.floor(Math.random() * scannerIps.length)]
+                    : regularIps[Math.floor(Math.random() * regularIps.length)];
+
+                const pathIdx = (isPassiveScanner && Math.random() < 0.7)
+                    ? scannerPathIndices[Math.floor(Math.random() * scannerPathIndices.length)]
+                    : pickIndex(pathWeights, pathTotal);
+                path    = paths[pathIdx];
+                pathCat = pathCats[pathIdx];
+
+                if (pathCat === 'static' || pathCat === 'monitor' || pathCat === 'scanner') {
+                    method = Math.random() < 0.97 ? 'GET' : 'HEAD';
+                } else if (pathCat === 'api') {
+                    method = pickItem(methods, methodWeights, methodTotal);
+                } else {
+                    method = Math.random() < 0.85 ? 'GET' : (Math.random() < 0.8 ? 'POST' : pickItem(methods, methodWeights, methodTotal));
+                }
+
+                // Mode overrides success rate before falling back to normal path logic
+                const modeRoll = Math.random();
+                if (mode === 'server_issues' && modeRoll < 0.35) {
+                    statusCode = Math.random() < 0.6 ? 500 : (Math.random() < 0.6 ? 502 : 503);
+                } else if (mode === 'degraded' && modeRoll < 0.10) {
+                    statusCode = Math.random() < 0.7 ? 500 : 502;
+                } else {
+                    statusCode = normalStatus(pathCat);
+                }
+
+                bytes     = sizeForPath(pathCat, path, statusCode);
+                userAgent = agentFor(pathCat, isPassiveScanner);
+                referer   = (pathCat === 'api' || pathCat === 'monitor' || pathCat === 'scanner')
+                    ? '-'
+                    : referers[Math.floor(Math.random() * referers.length)];
+            }
+
+            const commonLog = `${ip} - - ${timestamp} "${method} ${path} ${httpVersion}" ${statusCode} ${bytes}`;
+            logs.push(format === 'common' ? commonLog : `${commonLog} "${referer}" "${userAgent}"`);
         }
     }
 

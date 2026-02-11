@@ -11,7 +11,7 @@ import { Version } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseNginxLogs } from "@/lib/parse";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -25,13 +25,19 @@ import Errors from "@/lib/components/errors";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
-import NetworkBackground from "./network-background";
-import FileUpload from "./file-upload";
+import dynamic from "next/dynamic";
 
+const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
+const FileUpload = dynamic(() => import("./file-upload"), { ssr: false });
+
+const EMPTY_MAP = new Map<string, LocationType>();
+const PARSE_CHUNK_SIZE = 5000;
 
 export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, demo: boolean }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [logs, setLogs] = useState<NginxLog[]>([]);
+    const parsedAccessCount = useRef(0);
+    const parseCancelRef = useRef(false);
 
     const [errorLogs, setErrorLogs] = useState<string[]>([]);
 
@@ -89,8 +95,10 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         }
 
         if (demo) {
-            const demoLogs = generateNginxLogs({ format: 'extended', count: 120000, startDate: new Date('2023-01-01') });
-            setAccessLogs(demoLogs)
+            const endDate = new Date();
+            const startDate = new Date(endDate);
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            setAccessLogs(generateNginxLogs({ format: 'extended', count: 120000, startDate, endDate }));
             return;
         }
 
@@ -146,33 +154,61 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
     }
 
     useEffect(() => {
-        const initPeriod = (logs: NginxLog[]) => {
-            if (!logs.length || !logs[0].timestamp) {
-                return;
-            }
-            let maxDate = logs[0].timestamp;
-            for (const log of logs) {
+        if (accessLogs.length <= parsedAccessCount.current) return;
+
+        const newRawLogs = accessLogs.slice(parsedAccessCount.current);
+        const isFirstBatch = parsedAccessCount.current === 0;
+        parsedAccessCount.current = accessLogs.length;
+
+        const initPeriod = (parsed: ReturnType<typeof parseNginxLogs>) => {
+            let maxDate = parsed[0].timestamp;
+            for (const log of parsed) {
                 if (log.timestamp && (!maxDate || log.timestamp > maxDate)) {
                     maxDate = log.timestamp;
                 }
             }
-
-            if (inPeriod(maxDate, 'week')) {
-                setPeriod('week');
-            } else if (inPeriod(maxDate, 'month')) {
-                setPeriod('month');
-            } else if (inPeriod(maxDate, '6 months')) {
-                setPeriod('6 months');
-            } else {
-                setPeriod('all time');
+            if (maxDate) {
+                if (inPeriod(maxDate, 'week')) setPeriod('week');
+                else if (inPeriod(maxDate, 'month')) setPeriod('month');
+                else if (inPeriod(maxDate, '6 months')) setPeriod('6 months');
+                else setPeriod('all time');
             }
+        };
+
+        // Small batches: parse synchronously
+        if (newRawLogs.length <= PARSE_CHUNK_SIZE) {
+            const newParsed = parseNginxLogs(newRawLogs);
+            if (newParsed.length === 0) return;
+            if (isFirstBatch) initPeriod(newParsed);
+            setLogs(prev => [...prev, ...newParsed]);
+            return;
         }
 
-        const parsedLogs = parseNginxLogs(accessLogs)
-        if (logs.length === 0) {
-            initPeriod(parsedLogs);
-        }
-        setLogs(parsedLogs);
+        // Large batches: chunk with setTimeout to avoid blocking the main thread,
+        // but accumulate all results and update state only once at the end.
+        parseCancelRef.current = false;
+        let offset = 0;
+        const allParsed: ReturnType<typeof parseNginxLogs> = [];
+        const processChunk = () => {
+            if (parseCancelRef.current) return;
+            const chunk = newRawLogs.slice(offset, offset + PARSE_CHUNK_SIZE);
+            if (chunk.length === 0) return;
+            const parsed = parseNginxLogs(chunk);
+            if (parsed.length > 0) allParsed.push(...parsed);
+            offset += PARSE_CHUNK_SIZE;
+            if (offset < newRawLogs.length) {
+                setTimeout(processChunk, 0);
+            } else {
+                // All chunks done — single state update
+                if (allParsed.length > 0) {
+                    if (isFirstBatch) initPeriod(allParsed);
+                    setLogs(prev => [...prev, ...allParsed]);
+                }
+            }
+        };
+        processChunk();
+
+        return () => { parseCancelRef.current = true; };
     }, [accessLogs])
 
 
@@ -184,6 +220,10 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         }
         return date >= start;
     }
+
+    // Only track locationMap when a location filter is active — avoids recomputing
+    // filteredData on every IP-resolution batch when no location filter is set.
+    const effectiveLocationMap = filter.location !== null ? locationMap : EMPTY_MAP;
 
     const filteredData = useMemo(() => {
         const validStatus = (status: number | null) => {
@@ -208,7 +248,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         for (const row of logs) {
             if (
                 (start === null || (row.timestamp && row.timestamp > start))
-                && (filter.location === null || (locationMap.get(row.ipAddress)?.country === filter.location))
+                && (filter.location === null || (effectiveLocationMap.get(row.ipAddress)?.country === filter.location))
                 && (filter.path === null || (row.path === filter.path))
                 && (filter.method === null || (row.method === filter.method))
                 && (filter.status === null || validStatus(row.status))
@@ -219,7 +259,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
             }
         }
         return result;
-    }, [logs, filter, settings, locationMap]);
+    }, [logs, filter, settings, effectiveLocationMap]);
 
 
     if (fileUpload && accessLogs.length === 0) {
@@ -294,7 +334,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                     </div>
 
                     {/* Right */}
-                    <div className="min-[950px]:w-[calc(100vw-48px-48px-416px)]">
+                    <div className="min-[950px]:flex-1 min-w-0">
                         <Activity data={filteredData} period={currentPeriod} />
 
                         <div className="flex max-xl:flex-col">
@@ -307,11 +347,11 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                         <SystemResources demo={demo} />
 
                         <div className="w-inherit flex max-xl:flex-col">
-                            <div className="max-xl:!w-full flex-1" style={{ width: 'calc(100vw - 48px - 48px - 416px - 28em)' }}>
+                            <div className="max-xl:!w-full flex-1 min-w-0">
                                 <UsageTime data={filteredData} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
                             </div>
-                            <div>
+                            <div className="self-start">
                                 <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                             </div>
                         </div>

@@ -17,7 +17,8 @@ export async function GET() {
 
         const response = await fetch(serverUrl + '/api/system', {
             method: 'GET',
-            headers
+            headers,
+            signal: AbortSignal.timeout(10000)
         });
 
         if (!response.ok) {

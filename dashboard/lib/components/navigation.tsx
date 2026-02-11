@@ -24,12 +24,7 @@ export function Navigation({ filterPeriod, setFilterPeriod, setShowSettings, isD
                                 viewBox="0 0 24 24"
                                 strokeWidth="1.5"
                                 stroke="currentColor"
-                                className="size-6 h-[18px] my-auto ml-[6px] 
-                           transition-transform duration-300 ease-in-out 
-                           group-hover:translate-x-[2px] 
-                           group-hover:transition-colors 
-                           group-hover:delay-300 
-                           group-hover:stroke-[var(--highlight)]"
+                                className="size-6 h-[18px] my-auto ml-[6px] transition-transform duration-300 ease-in-out group-hover:translate-x-[2px] group-hover:transition-colors group-hover:delay-300 group-hover:stroke-[var(--highlight)]"
                             >
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path>
                             </svg>

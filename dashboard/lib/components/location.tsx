@@ -4,6 +4,8 @@ import { type Location } from '@/lib/location'
 import { generateDemoLocations } from "../demo";
 
 
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
 export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation, noFetch, demo }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void, noFetch: boolean, demo: boolean }) {
     const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
     const [loading, setLoading] = useState(true);
@@ -46,7 +48,6 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
             return '';
         }
 
-        const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
         return regionNames.of(countryCode);
     }
 
@@ -77,8 +78,14 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
 
         const fetchData = async () => {
             setLoading(true);
-            const ipAddresses = data.map((row) => row.ipAddress);
-            const unknown = ipAddresses.filter((ip) => !locationMap.has(ip));
+            const seen = new Set<string>();
+            const unknown: string[] = [];
+            for (const row of data) {
+                if (!seen.has(row.ipAddress) && !locationMap.has(row.ipAddress)) {
+                    seen.add(row.ipAddress);
+                    unknown.push(row.ipAddress);
+                }
+            }
 
             if (unknown.length > 0) {
                 try {

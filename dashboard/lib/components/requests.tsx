@@ -10,18 +10,12 @@ function getRequestsByTime(data: NginxLog[], period: Period) {
     const endDate = new Date(); // Current time as end date
 
     // Filter data by period if startDate is available
-    let filteredData = [...data];
-    if (startDate) {
-        filteredData = filteredData.filter(log => {
+    const filteredData = startDate
+        ? data.filter(log => {
             const logDate = new Date(log.timestamp || 0);
             return logDate >= startDate && logDate <= endDate;
-        });
-    }
-
-    // Sort data by timestamp
-    const sortedData = filteredData.sort((a, b) => {
-        return new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime();
-    });
+        })
+        : data;
 
     // Determine appropriate bucket size based on period
     const bucketFormat: 'hour' | 'day' = period === '24 hours' ? 'hour' : 'day';
@@ -58,7 +52,7 @@ function getRequestsByTime(data: NginxLog[], period: Period) {
     }
 
     // Count actual requests per time bucket
-    for (const row of sortedData) {
+    for (const row of filteredData) {
         const timestamp = new Date(row.timestamp || 0);
         let timeKey: string;
 

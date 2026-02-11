@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
         const response = await fetch(serverUrl + '/api/location', {
             method: 'POST',
             body: JSON.stringify(ipAddresses),
-            headers
+            headers,
+            signal: AbortSignal.timeout(10000)
         });
 
         if (!response.ok) {

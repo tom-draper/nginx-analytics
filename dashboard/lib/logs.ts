@@ -12,6 +12,9 @@ export const readdir = promisify(fs.readdir);
 export const stat = promisify(fs.stat);
 export const gunzip = promisify(zlib.gunzip);
 
+// Cache for decompressed gz files, keyed by file path
+const gzCache = new Map<string, { mtime: number; result: LogResult }>();
+
 export const isAccessDir = isDir(nginxAccessPath);
 export const isErrorDir = isDir(nginxErrorPath);
 
@@ -50,8 +53,9 @@ export function parsePositionsFromRequest(searchParams: URLSearchParams): FilePo
 export async function serveLog(filePath: string, position: number) {
     const resolvedPath = path.resolve(process.cwd(), filePath);
 
-    // Check if file exists
-    if (!fs.existsSync(resolvedPath)) {
+    try {
+        await stat(resolvedPath);
+    } catch {
         console.error(`File not found at path ${filePath}`);
         return { error: "File not found", status: 404 };
     }
@@ -76,7 +80,9 @@ export async function serveDirectoryLogs(
 ) {
     const resolvedPath = path.resolve(process.cwd(), dirPath);
 
-    if (!fs.existsSync(resolvedPath)) {
+    try {
+        await stat(resolvedPath);
+    } catch {
         console.error(`Directory does not exist: ${resolvedPath}`);
         return { error: "Directory not found", status: 404 };
     }
@@ -183,7 +189,10 @@ export function combineLogResults(
 
         // Only track positions for .log files
         if (filePositions[index].filename?.endsWith('.log')) {
-            newPositions.push(filePositions[index]);
+            newPositions.push({
+                filename: filePositions[index].filename,
+                position: result.positions[0]?.position ?? filePositions[index].position
+            });
         }
     });
 
@@ -206,7 +215,7 @@ export async function readLogFile(filePath: string, position: number): Promise<L
         const isErrorLog = filePath.includes('error');
 
         // Handle the special case where error logs report size 0 but contain data
-        if (isErrorLog && fileSize === 0 && fs.existsSync(filePath)) {
+        if (isErrorLog && fileSize === 0) {
             return await readErrorLogDirectly(filePath, position);
         }
 
@@ -254,7 +263,7 @@ export async function readLogFile(filePath: string, position: number): Promise<L
 export async function readErrorLogDirectly(filePath: string, position: number): Promise<LogResult> {
     try {
         // Read file directly as utf8 text
-        const content = fs.readFileSync(filePath, { encoding: 'utf8' });
+        const content = await fs.promises.readFile(filePath, { encoding: 'utf8' });
 
         // If position is beyond content length, nothing new to read
         if (position >= content.length) {
@@ -282,18 +291,29 @@ export async function readErrorLogDirectly(filePath: string, position: number): 
  */
 export async function readGzippedLogFile(filePath: string): Promise<LogResult> {
     try {
+        const fileStats = await stat(filePath);
+        const mtime = fileStats.mtimeMs;
+
+        const cached = gzCache.get(filePath);
+        if (cached && cached.mtime === mtime) {
+            return cached.result;
+        }
+
         // Read and decompress the entire file
-        const fileBuffer = fs.readFileSync(filePath);
+        const fileBuffer = await fs.promises.readFile(filePath);
         const decompressed = await gunzip(fileBuffer);
         const content = decompressed.toString('utf8');
 
         // Split into lines and filter out empty lines
         const allLines = content.split('\n').filter(line => line.trim() !== '');
 
-        return {
+        const result: LogResult = {
             logs: allLines,
-            positions: [{ position: 0 }]  // Always return 0 as position for gzipped files
+            positions: [{ position: 0 }]
         };
+
+        gzCache.set(filePath, { mtime, result });
+        return result;
     } catch (error) {
         console.error(`Error reading gzipped file ${filePath}:`, error);
         return { logs: [], positions: [{ position: 0 }] };
@@ -313,7 +333,8 @@ export async function serveRemoteLogs(remoteUrl: string, positions: FilePosition
         const url = getUrl(remoteUrl, positions, isErrorLog, includeCompressed);
         const response = await fetch(url, {
             method: "GET",
-            headers
+            headers,
+            signal: AbortSignal.timeout(10000)
         });
 
         if (!response.ok) {

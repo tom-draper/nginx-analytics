@@ -32,6 +32,14 @@ function getHourId(date: Date) {
     return new Date(date).setMinutes(0, 0, 0); // Set minutes, seconds, and milliseconds to zero
 }
 
+function get6HourId(date: Date) {
+    if (!(date instanceof Date)) {
+        throw new Error("Invalid date object");
+    }
+    const ms6h = 6 * 60 * 60 * 1000;
+    return Math.floor(date.getTime() / ms6h) * ms6h;
+}
+
 function get5MinuteId(date: Date) {
     if (!(date instanceof Date)) {
         throw new Error("Invalid date object");
@@ -54,7 +62,11 @@ const getStepSize = (period: Period, data: NginxLog[]) => {
         case '24 hours':
             return 300000; // 5 minutes
         case 'week':
-            return 3600000; // hour
+            return 3600000; // 1 hour
+        case 'month':
+            return 21600000; // 6 hours
+        case '6 months':
+            return 86400000; // 1 day
         case 'all time':
             const range = getDateRange(data);
             if (!range) {
@@ -77,15 +89,14 @@ const getStepSize = (period: Period, data: NginxLog[]) => {
 const incrementDate = (date: Date, period: Period) => {
     switch (period) {
         case '24 hours':
-            // increment 5 minutes
             return new Date(date.setMinutes(date.getMinutes() + 5));
         case 'week':
-            // increment 1 hour
             return new Date(date.setHours(date.getHours() + 1));
+        case 'month':
+            return new Date(date.setHours(date.getHours() + 6));
+        case '6 months':
         case 'all time':
-            return new Date(date.setDate(date.getDate() + 1));
         default:
-            // increment 1 day
             return new Date(date.setDate(date.getDate() + 1));
     }
 }
@@ -96,6 +107,10 @@ const getTimeIdGetter = (period: Period, data: NginxLog[]) => {
             return get5MinuteId
         case 'week':
             return getHourId
+        case 'month':
+            return get6HourId
+        case '6 months':
+            return getDayId
         case 'all time':
             const range = getDateRange(data);
             if (!range) {
@@ -121,6 +136,10 @@ const getTimeUnit = (period: Period, data: NginxLog[]) => {
             return 'minute'
         case 'week':
             return 'hour'
+        case 'month':
+            return 'hour'
+        case '6 months':
+            return 'day'
         case 'all time':
             const range = getDateRange(data);
             if (!range) {
