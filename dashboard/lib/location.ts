@@ -4,6 +4,8 @@ export type Location = {
     ipAddress: string;
     country: string;
     city: string;
+    lat: number | null;
+    lon: number | null;
 }
 
 let cityLookup: Reader<CityResponse> | undefined;
@@ -45,6 +47,8 @@ export async function locationLookup(ipAddress: string) {
             ipAddress,
             country: response?.country?.iso_code || null,
             city: response?.city?.names?.en || null,
+            lat: response?.location?.latitude ?? null,
+            lon: response?.location?.longitude ?? null,
         };
     } else if (countryLookup) {
         const response = countryLookup.get(ipAddress);
@@ -52,12 +56,16 @@ export async function locationLookup(ipAddress: string) {
             ipAddress,
             country: response?.country?.iso_code || null,
             city: null,
+            lat: null,
+            lon: null,
         };
     } else {
         return {
             ipAddress,
             country: null,
             city: null,
+            lat: null,
+            lon: null,
         };
     }
 }

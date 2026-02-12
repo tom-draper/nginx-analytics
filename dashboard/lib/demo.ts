@@ -694,7 +694,9 @@ function randomLocation(ipAddress: string): Location {
     return {
         country,
         city,
-        ipAddress
+        ipAddress,
+        lat: null,
+        lon: null,
     };
 }
 
