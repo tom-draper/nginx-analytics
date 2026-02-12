@@ -88,17 +88,19 @@ func defaultActivityCardStyles() activityCardStyles {
 }
 
 type ActivityCard struct {
-	requests    []point[int]
-	users       []point[int]
-	successRate []point[float64]
-	period      period.Period // Store the period for time range logic
-	styles      activityCardStyles
+	requests       []point[int]
+	users          []point[int]
+	successRate    []point[float64]
+	period         period.Period
+	bucketInterval time.Duration
+	styles         activityCardStyles
 }
 
 func NewActivityCard(logs []nginx.NGINXLog, period period.Period) *ActivityCard {
 	card := &ActivityCard{
-		period: period,
-		styles: defaultActivityCardStyles(),
+		period:         period,
+		bucketInterval: defaultBucketInterval,
+		styles:         defaultActivityCardStyles(),
 	}
 	card.UpdateCalculated(logs, period)
 	return card
@@ -123,8 +125,8 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 	}
 
 	// Sort and fill data for consistent chart rendering
-	sortedRequests := fillTimeRange(sortPoints(a.requests), startTime, endTime, 0)
-	sortedUsers := fillTimeRange(sortPoints(a.users), startTime, endTime, 0)
+	sortedRequests := fillTimeRange(sortPoints(a.requests), startTime, endTime, 0, a.bucketInterval)
+	sortedUsers := fillTimeRange(sortPoints(a.users), startTime, endTime, 0, a.bucketInterval)
 
 	// Calculate chart dimensions
 	usableWidth := width
@@ -132,14 +134,8 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 	chartHeight := max(height-4, 3) // -4 for success rate (2 rows) + time range line + padding
 	chartWidth := max(usableWidth-2, 15)
 
-	// Calculate y-axis width for alignment
-	maxRequests := 0
-	for _, req := range sortedRequests {
-		if req.value > maxRequests {
-			maxRequests = req.value
-		}
-	}
-	yAxisWidth := len(fmt.Sprintf("%d", maxRequests)) + 1
+	// Calculate y-axis width for alignment (must match generateBrailleBarChart's logic)
+	yAxisWidth := a.computeYAxisWidth(sortedRequests, chartWidth)
 
 	var lines []string
 
@@ -256,6 +252,21 @@ func getBrailleChar(pattern int) string {
 	return string(braillePatterns[pattern])
 }
 
+// computeYAxisWidth returns the y-axis label width that generateBrailleBarChart
+// will use, so callers can align adjacent elements (e.g. the success-rate strip).
+func (a *ActivityCard) computeYAxisWidth(requests []point[int], chartWidth int) int {
+	perBucketMax := 0
+	for _, req := range requests {
+		if req.value > perBucketMax {
+			perBucketMax = req.value
+		}
+	}
+	if perBucketMax == 0 {
+		return 1
+	}
+	return len(fmt.Sprintf("%d", perBucketMax)) + 1
+}
+
 func (a *ActivityCard) generateBrailleBarChart(requests []point[int], users []point[int], chartWidth, chartHeight int) string {
 	if len(requests) == 0 || chartHeight <= 0 || chartWidth <= 0 {
 		return strings.Repeat("\n", chartHeight) // Return empty lines if no data or invalid dimensions
@@ -272,18 +283,19 @@ func (a *ActivityCard) generateBrailleBarChart(requests []point[int], users []po
 			maxRequests = req.value
 		}
 	}
-
 	if maxRequests == 0 {
-		return strings.Repeat("\n", chartHeight) // Return empty lines if max requests is 0
+		return strings.Repeat("\n", chartHeight)
 	}
 
-	yAxisWidth := len(fmt.Sprintf("%d", maxRequests)) + 1 // Max label + 1 for separator
-	effectiveChartWidth := max(chartWidth-yAxisWidth, 1)   // Ensure positive chart width for plotting
+	yAxisWidth := len(fmt.Sprintf("%d", maxRequests)) + 1
+	effectiveChartWidth := max(chartWidth-yAxisWidth, 1)
+	brailleHeight := chartHeight * 4
+	canvasWidthPixels := effectiveChartWidth * 2
 
 	// Create the chart grid with Y-axis space
 	chartGrid := make([][]string, chartHeight)
 	for i := range chartGrid {
-		chartGrid[i] = make([]string, chartWidth) // Use original chartWidth here for the final output grid
+		chartGrid[i] = make([]string, chartWidth)
 		for j := range chartGrid[i] {
 			chartGrid[i][j] = " "
 		}
@@ -292,9 +304,6 @@ func (a *ActivityCard) generateBrailleBarChart(requests []point[int], users []po
 	// Add Y-axis labels
 	a.renderYAxisLabels(chartGrid, maxRequests, chartHeight, yAxisWidth)
 
-	// --- CRUCIAL CHANGE HERE: Canvas width is now 2x effectiveChartWidth ---
-	brailleHeight := chartHeight * 4 // Each row can represent 4 sub-rows (dots 1,2,3,7 or 4,5,6,8)
-	canvasWidthPixels := effectiveChartWidth * 2 // Each Braille char (1 terminal column) covers 2 pixels
 	canvas := make([][]bool, brailleHeight)
 	userCanvas := make([][]bool, brailleHeight)
 	for i := range canvas {
@@ -351,31 +360,42 @@ func (a *ActivityCard) renderYAxisLabels(chartGrid [][]string, maxRequests, heig
 	}
 }
 
-// drawChartBarsOnCanvas now takes canvasWidthPixels
 func (a *ActivityCard) drawChartBarsOnCanvas(requests []point[int], userMap map[time.Time]int, canvas, userCanvas [][]bool, maxRequests, effectiveChartWidth, brailleHeight, canvasWidthPixels int) {
 	dataPoints := len(requests)
 	if dataPoints == 0 {
 		return
 	}
 
-	// Each conceptual "bar" in the terminal output is now 2 pixels wide on the canvas.
-	// We need to map our 'dataPoints' (timestamps) across the 'canvasWidthPixels'.
 	for canvasCol := 0; canvasCol < canvasWidthPixels; canvasCol++ {
-		// Map the canvas pixel column back to a data point index
-		// This assumes an even distribution of data points across the total canvas width
-		dataIndex := (canvasCol * dataPoints) / canvasWidthPixels
-		if dataIndex >= dataPoints { // Safety check
-			dataIndex = dataPoints - 1
+		startIdx := (canvasCol * dataPoints) / canvasWidthPixels
+		endIdx := ((canvasCol + 1) * dataPoints) / canvasWidthPixels
+		if endIdx > dataPoints {
+			endIdx = dataPoints
+		}
+		if startIdx >= endIdx {
+			if startIdx < dataPoints {
+				endIdx = startIdx + 1
+			} else {
+				continue
+			}
 		}
 
-		requestCount := requests[dataIndex].value
-		userCount := userMap[requests[dataIndex].timestamp]
+		// Use the max value across all buckets in this column. Summing causes
+		// artificial spikes when integer division assigns 2 buckets to one column;
+		// averaging still spikes. Max preserves any non-zero activity without inflation.
+		requestCount := 0
+		userCount := 0
+		for i := startIdx; i < endIdx; i++ {
+			if requests[i].value > requestCount {
+				requestCount = requests[i].value
+				userCount = userMap[requests[i].timestamp]
+			}
+		}
 
 		barHeight := float64(requestCount) * float64(brailleHeight-1) / float64(maxRequests)
 		userHeight := 0.0
 		if requestCount > 0 {
-			userProportion := float64(userCount) / float64(requestCount)
-			userHeight = barHeight * userProportion
+			userHeight = barHeight * (float64(userCount) / float64(requestCount))
 		}
 
 		for row := 0; row < int(math.Ceil(barHeight)); row++ {
@@ -478,7 +498,7 @@ func (a *ActivityCard) generateSuccessRateGraph(width int, yAxisWidth int) []str
 		endTime = time.Now()
 	}
 
-	sortedSuccessRate := fillTimeRange(sortPoints(a.successRate), startTime, endTime, -1.0) // -1 means no data
+	sortedSuccessRate := fillTimeRange(sortPoints(a.successRate), startTime, endTime, -1.0, a.bucketInterval)
 
 	leftPadding := yAxisWidth // Use calculated y-axis width for alignment
 	rightPadding := 2
@@ -498,12 +518,34 @@ func (a *ActivityCard) generateSuccessRateGraph(width int, yAxisWidth int) []str
 	dataPoints := len(sortedSuccessRate)
 
 	for i := range graphWidth {
-		dataIndex := (i * dataPoints) / graphWidth
-		if dataIndex >= dataPoints {
-			dataIndex = dataPoints - 1
+		startIdx := (i * dataPoints) / graphWidth
+		endIdx := ((i + 1) * dataPoints) / graphWidth
+		if endIdx > dataPoints {
+			endIdx = dataPoints
+		}
+		if startIdx >= endIdx {
+			if startIdx < dataPoints {
+				endIdx = startIdx + 1
+			} else {
+				continue
+			}
 		}
 
-		successRate := sortedSuccessRate[dataIndex].value
+		// Average success rates across all buckets in this column, ignoring
+		// -1 sentinel values (no data) so gaps don't pull the average down.
+		var rateSum float64
+		validCount := 0
+		for j := startIdx; j < endIdx; j++ {
+			if sortedSuccessRate[j].value >= 0 {
+				rateSum += sortedSuccessRate[j].value
+				validCount++
+			}
+		}
+		successRate := -1.0
+		if validCount > 0 {
+			successRate = rateSum / float64(validCount)
+		}
+
 		coloredChar := lipgloss.NewStyle().Foreground(a.getSuccessRateColor(successRate)).Render("█")
 		topBuf.WriteString(coloredChar)
 		bottomBuf.WriteString(coloredChar)
@@ -537,11 +579,38 @@ func (a *ActivityCard) getSuccessRateColor(rate float64) lipgloss.Color {
 	}
 }
 
-func (r *ActivityCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
-	r.period = period // Store the period
-	r.requests = getRequests(logs)
-	r.users = getUsers(logs)
-	r.successRate = getSuccessRates(logs)
+func (r *ActivityCard) UpdateCalculated(logs []nginx.NGINXLog, p period.Period) {
+	r.period = p
+
+	// Determine the time span so we can pick an appropriate bucket interval.
+	var span time.Duration
+	if p == period.PeriodAllTime {
+		var minT, maxT time.Time
+		for _, log := range logs {
+			if log.Timestamp == nil {
+				continue
+			}
+			t := *log.Timestamp
+			if minT.IsZero() || t.Before(minT) {
+				minT = t
+			}
+			if maxT.IsZero() || t.After(maxT) {
+				maxT = t
+			}
+		}
+		if !minT.IsZero() {
+			span = maxT.Sub(minT)
+		}
+	} else {
+		span = time.Since(p.Start())
+	}
+
+	interval := adaptiveBucketInterval(span)
+	r.bucketInterval = interval
+
+	r.requests = getRequests(logs, interval)
+	r.users = getUsers(logs, interval)
+	r.successRate = getSuccessRates(logs, interval)
 }
 
 type point[T ~int | ~float32 | ~float64] struct {
@@ -559,13 +628,13 @@ func sortPoints[T ~int | ~float32 | ~float64](points []point[T]) []point[T] {
 	return sorted
 }
 
-func getRequests(logs []nginx.NGINXLog) []point[int] {
+func getRequests(logs []nginx.NGINXLog, interval time.Duration) []point[int] {
 	requestBuckets := make(map[time.Time]int)
 	for _, log := range logs {
 		if log.Timestamp == nil {
 			continue
 		}
-		timeBucket := nearestBucket(*log.Timestamp)
+		timeBucket := nearestBucket(*log.Timestamp, interval)
 		requestBuckets[timeBucket]++
 	}
 
@@ -577,13 +646,13 @@ func getRequests(logs []nginx.NGINXLog) []point[int] {
 	return requests
 }
 
-func getUsers(logs []nginx.NGINXLog) []point[int] {
+func getUsers(logs []nginx.NGINXLog, interval time.Duration) []point[int] {
 	userBuckets := make(map[time.Time]map[string]struct{})
 	for _, log := range logs {
 		if log.Timestamp == nil {
 			continue
 		}
-		timeBucket := nearestBucket(*log.Timestamp)
+		timeBucket := nearestBucket(*log.Timestamp, interval)
 		userID := u.UserID(log)
 		if userBuckets[timeBucket] == nil {
 			userBuckets[timeBucket] = make(map[string]struct{})
@@ -600,7 +669,7 @@ func getUsers(logs []nginx.NGINXLog) []point[int] {
 	return users
 }
 
-func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
+func getSuccessRates(logs []nginx.NGINXLog, interval time.Duration) []point[float64] {
 	successRateBuckets := make(map[time.Time]struct {
 		success int
 		total   int
@@ -610,7 +679,7 @@ func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
 		if log.Timestamp == nil || log.Status == nil {
 			continue
 		}
-		t := nearestBucket(*log.Timestamp)
+		t := nearestBucket(*log.Timestamp, interval)
 		bucket := successRateBuckets[t]
 
 		success := *log.Status >= 100 && *log.Status < 400
@@ -637,31 +706,55 @@ func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
 	return successRates
 }
 
-const bucketInterval = 5 * time.Minute
+const defaultBucketInterval = 5 * time.Minute
 
-func nearestBucket(timestamp time.Time) time.Time {
-	return timestamp.Truncate(bucketInterval)
+// adaptiveBucketInterval picks a bucket size so that the total span produces
+// roughly 200–600 buckets — enough detail without creating a chart that is
+// so sparse that every real data point looks like an isolated spike.
+// Returns defaultBucketInterval for a zero span.
+func adaptiveBucketInterval(span time.Duration) time.Duration {
+	if span <= 0 {
+		return defaultBucketInterval
+	}
+	targets := []time.Duration{
+		5 * time.Minute,
+		15 * time.Minute,
+		30 * time.Minute,
+		1 * time.Hour,
+		3 * time.Hour,
+		6 * time.Hour,
+		12 * time.Hour,
+		24 * time.Hour,
+	}
+	const targetBuckets = 1500
+	for _, d := range targets {
+		if span/d <= targetBuckets {
+			return d
+		}
+	}
+	return 24 * time.Hour
+}
+
+func nearestBucket(timestamp time.Time, interval time.Duration) time.Time {
+	return timestamp.Truncate(interval)
 }
 
 // fillTimeRange fills in missing buckets with zero values for complete time coverage
-func fillTimeRange[T ~int | ~float64](points []point[T], startTime, endTime time.Time, defaultValue T) []point[T] {
+func fillTimeRange[T ~int | ~float64](points []point[T], startTime, endTime time.Time, defaultValue T, interval time.Duration) []point[T] {
 	if len(points) == 0 && startTime.IsZero() {
 		return points
 	}
 
-	// Create a map of existing points
 	pointMap := make(map[time.Time]T)
 	for _, p := range points {
-		pointMap[nearestBucket(p.timestamp)] = p.value
+		pointMap[nearestBucket(p.timestamp, interval)] = p.value
 	}
 
-	// Determine start and end times
-	start := nearestBucket(startTime)
-	end := nearestBucket(endTime)
+	start := nearestBucket(startTime, interval)
+	end := nearestBucket(endTime, interval)
 
-	// Generate all buckets in the range
 	var filledPoints []point[T]
-	for t := start; !t.After(end); t = t.Add(bucketInterval) {
+	for t := start; !t.After(end); t = t.Add(interval) {
 		if val, exists := pointMap[t]; exists {
 			filledPoints = append(filledPoints, point[T]{timestamp: t, value: val})
 		} else {

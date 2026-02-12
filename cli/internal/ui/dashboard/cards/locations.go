@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	loc "github.com/tom-draper/nginx-analytics/cli/internal/logs/location"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/period"
@@ -13,9 +14,11 @@ import (
 )
 
 type LocationsCard struct {
-	locations loc.Locations
-	serverURL string
-	authToken string
+	locations     loc.Locations
+	serverURL     string
+	authToken     string
+	selectMode    bool
+	selectedIndex int
 }
 
 func NewLocationsCard(logs []nginx.NGINXLog, period period.Period, serverURL string, authToken string) *LocationsCard {
@@ -197,8 +200,7 @@ func (r *LocationsCard) overlayRight(line, text string, maxWidth int) string {
 		padding := targetStart - lineDisplayWidth
 		line += strings.Repeat(" ", padding)
 	} else if lineDisplayWidth > targetStart {
-		// Truncate the line using lipgloss.Truncate to handle styled text properly
-		line = lipgloss.NewStyle().Width(targetStart).Render(line)
+		line = ansi.Truncate(line, targetStart, "")
 	}
 	
 	return line + faintStyle.Render(text)

@@ -41,14 +41,22 @@ type Model struct {
 
 // DataManager handles all data operations
 type DataManager struct {
-	serverURL    string
-	authToken    string
-	logs         []nginx.NGINXLog
-	logSizes     parse.LogSizes
-	currentLogs  []nginx.NGINXLog
-	calculatable []c.CalculatedCard
-	systemCards  []c.CalculatedSystemCard
-	positions    []parse.Position // Track the last log position for incremental loading
+	serverURL      string
+	authToken      string
+	logs           []nginx.NGINXLog
+	logSizes       parse.LogSizes
+	currentLogs    []nginx.NGINXLog
+	calculatable   []c.CalculatedCard
+	systemCards    []c.CalculatedSystemCard
+	positions      []parse.Position // Track the last log position for incremental loading
+	endpointFilter *l.EndpointFilter
+	referrerFilter *l.ReferrerFilter
+	locationFilter *l.LocationFilter
+	locationLookup func(string) string
+	deviceFilter   *l.DeviceFilter
+	deviceLookup   func(string) string
+	versionFilter  *l.VersionFilter
+	versionLookup  func(string) string
 }
 
 // UIManager handles UI rendering and layout

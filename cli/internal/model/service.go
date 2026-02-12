@@ -176,6 +176,17 @@ func (ls *LogService) httpGetAndReadBody(url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status %d from %s", resp.StatusCode, url)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body from %s: %w", url, err)
+	}
+	return body, nil
+}
+
 // httpGetWithRetry performs an HTTP GET with retry logic and exponential backoff
 func httpGetWithRetry(client *http.Client, url string, maxRetries int, initialDelay time.Duration) ([]byte, error) {
 	var lastErr error
@@ -262,6 +273,12 @@ func (ss *SystemService) fetchSystemInfo() (system.SystemInfo, error) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return system.SystemInfo{}, fmt.Errorf("failed to fetch system info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return system.SystemInfo{}, fmt.Errorf("failed to read system info response: %w", err)
 	}
 
 	var sysInfo system.SystemInfo

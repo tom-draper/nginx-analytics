@@ -2,7 +2,6 @@ package location
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -106,12 +105,6 @@ func fetchLocations(serverURL string, ipAddresses []string, authToken string) ([
 	if authToken != "" {
 		req.Header.Set("Authorization", "Bearer "+authToken)
 	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := locationClient.Do(req)
 	if err != nil {
