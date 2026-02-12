@@ -28,7 +28,7 @@ import { exportCSV } from "@/lib/export";
 import dynamic from "next/dynamic";
 
 const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
-const FileUpload = dynamic(() => import("./file-upload"), { ssr: false });
+const FileUpload = dynamic(() => import("./file-upload"));
 
 const EMPTY_MAP = new Map<string, LocationType>();
 const PARSE_CHUNK_SIZE = 5000;
