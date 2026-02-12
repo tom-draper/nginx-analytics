@@ -18,11 +18,12 @@ type CardRenderer interface {
 
 // Card provides the generic card structure and rendering
 type Card struct {
-	Title    string
-	Width    int
-	Height   int
-	IsActive bool
-	Renderer CardRenderer
+	Title      string
+	Width      int
+	Height     int
+	IsActive   bool
+	IsFiltered bool
+	Renderer   CardRenderer
 }
 
 // NewBaseCard creates a new base card with a renderer
@@ -77,6 +78,11 @@ func (c *Card) SetActive(active bool) {
 	c.IsActive = active
 }
 
+// SetFiltered sets the filtered state of the card
+func (c *Card) SetFiltered(filtered bool) {
+	c.IsFiltered = filtered
+}
+
 // SetSize sets the card dimensions
 func (c *Card) SetSize(width, height int) {
 	c.Width = width
@@ -108,7 +114,16 @@ func (c *Card) addTitleOverlay(card string) string {
 		rawTopLine := l.StripANSI(originalTopLine)
 		rawTopLineRunes := []rune(rawTopLine)
 
-		styledTitleContent := " " + c.Title + " "
+		// Use dynamic title if the renderer supports it
+		titleText := c.Title
+		if dt, ok := c.Renderer.(DynamicTitleCard); ok {
+			titleText = dt.GetTitle()
+		}
+		if c.IsFiltered {
+			titleText = titleText + "*"
+		}
+
+		styledTitleContent := " " + titleText + " "
 		renderedTitle := styledTitleContent
 		renderedTitleVisualWidth := lipgloss.Width(borderStyle.Render(renderedTitle))
 
@@ -145,4 +160,58 @@ type CalculatedCard interface {
 
 type CalculatedSystemCard interface {
 	UpdateCalculated(sysInfo system.SystemInfo)
+}
+
+// DynamicTitleCard interface for cards whose title changes dynamically
+type DynamicTitleCard interface {
+	GetTitle() string
+}
+
+// SelectableCard interface for cards that support select mode with row selection
+type SelectableCard interface {
+	EnterSelectMode()
+	ExitSelectMode()
+	IsInSelectMode() bool
+	SelectUp()
+	SelectDown()
+	SelectLeft()
+	SelectRight()
+	HasSelection() bool
+	ClearSelection()
+}
+
+// selectedItem returns the item at selectedIndex if selection is valid.
+func selectedItem[T any](selectMode bool, selectedIndex int, items []T) (T, bool) {
+	var zero T
+	if !selectMode || selectedIndex < 0 || selectedIndex >= len(items) {
+		return zero, false
+	}
+	return items[selectedIndex], true
+}
+
+// EndpointFilter represents a filter for endpoint data
+type EndpointFilter struct {
+	Path   string
+	Method string
+	Status int
+}
+
+// ReferrerFilter represents a filter for referrer data
+type ReferrerFilter struct {
+	Referrer string
+}
+
+// LocationFilter represents a filter for location data
+type LocationFilter struct {
+	Location string
+}
+
+// DeviceFilter represents a filter for device/client data
+type DeviceFilter struct {
+	Device string
+}
+
+// VersionFilter represents a filter for version data
+type VersionFilter struct {
+	Version string
 }

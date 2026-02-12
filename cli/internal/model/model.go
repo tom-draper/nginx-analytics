@@ -21,6 +21,12 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/styles"
 )
 
+const (
+	// maxStoredLogs limits memory usage by rotating old logs
+	// At ~500 bytes per log, 100k logs = ~50MB
+	maxStoredLogs = 100000
+)
+
 // Model represents the main application state
 type Model struct {
 	config      config.Config
@@ -160,7 +166,69 @@ func newUIManager(currentLogs []nginx.NGINXLog, period period.Period,
 }
 
 func (dm *DataManager) getCurrentLogs(period period.Period) []nginx.NGINXLog {
-	return l.FilterLogs(dm.logs, period)
+	logs := l.FilterLogs(dm.logs, period)
+	if dm.endpointFilter != nil {
+		logs = l.FilterByEndpoint(logs, dm.endpointFilter)
+	}
+	if dm.referrerFilter != nil {
+		logs = l.FilterByReferrer(logs, dm.referrerFilter)
+	}
+	if dm.locationFilter != nil && dm.locationLookup != nil {
+		logs = l.FilterByLocation(logs, dm.locationFilter, dm.locationLookup)
+	}
+	if dm.deviceFilter != nil && dm.deviceLookup != nil {
+		logs = l.FilterByDevice(logs, dm.deviceFilter, dm.deviceLookup)
+	}
+	if dm.versionFilter != nil && dm.versionLookup != nil {
+		logs = l.FilterByVersion(logs, dm.versionFilter, dm.versionLookup)
+	}
+	return logs
+}
+
+func (dm *DataManager) setEndpointFilter(filter *l.EndpointFilter) {
+	dm.endpointFilter = filter
+}
+
+func (dm *DataManager) setReferrerFilter(filter *l.ReferrerFilter) {
+	dm.referrerFilter = filter
+}
+
+func (dm *DataManager) setLocationFilter(filter *l.LocationFilter, lookup func(string) string) {
+	dm.locationFilter = filter
+	dm.locationLookup = lookup
+}
+
+func (dm *DataManager) setDeviceFilter(filter *l.DeviceFilter, lookup func(string) string) {
+	dm.deviceFilter = filter
+	dm.deviceLookup = lookup
+}
+
+func (dm *DataManager) setVersionFilter(filter *l.VersionFilter, lookup func(string) string) {
+	dm.versionFilter = filter
+	dm.versionLookup = lookup
+}
+
+func (dm *DataManager) hasAnyFilter() bool {
+	return dm.endpointFilter != nil || dm.referrerFilter != nil ||
+		dm.locationFilter != nil || dm.deviceFilter != nil || dm.versionFilter != nil
+}
+
+func (dm *DataManager) clearAllFilters() {
+	dm.endpointFilter = nil
+	dm.referrerFilter = nil
+	dm.locationFilter = nil
+	dm.deviceFilter = nil
+	dm.versionFilter = nil
+	dm.locationLookup = nil
+	dm.deviceLookup = nil
+	dm.versionLookup = nil
+}
+
+// clearAllFilteredStates clears the filtered state on all cards
+func (um *UIManager) clearAllFilteredStates() {
+	for _, card := range um.grid.GetAllCards() {
+		card.Card.SetFiltered(false)
+	}
 }
 
 func (dm *DataManager) getLogSizes() parse.LogSizes {
@@ -193,8 +261,17 @@ func (dm *DataManager) updateSystemCardData(sysInfo system.SystemInfo) {
 }
 
 func (dm *DataManager) appendNewLogs(newLogs []nginx.NGINXLog) {
-	if len(newLogs) > 0 {
-		dm.logs = append(dm.logs, newLogs...)
+	if len(newLogs) == 0 {
+		return
+	}
+
+	dm.logs = append(dm.logs, newLogs...)
+
+	// Rotate logs if we exceed the maximum
+	if len(dm.logs) > maxStoredLogs {
+		// Keep the most recent logs, discard old ones
+		excess := len(dm.logs) - maxStoredLogs
+		dm.logs = dm.logs[excess:]
 	}
 }
 
@@ -248,15 +325,109 @@ func (um *UIManager) setWidth(width int) {
 }
 
 func (um *UIManager) navigateLeft() {
-	totalCards := um.grid.GetTotalCardCount()
-	newIndex := (um.grid.ActiveCard - 1 + totalCards) % totalCards
-	um.grid.SetActiveCard(newIndex)
+	position := um.grid.GetActiveCardPosition()
+
+	switch position {
+	case "main":
+		localIndex := um.grid.GetActiveCardIndexInArea()
+		row, col := um.grid.GetMainGridPosition(localIndex)
+		if col > 0 {
+			newIndex := um.grid.GetMainGridCardIndex(row, col-1)
+			if newIndex >= 0 {
+				um.grid.SetActiveCard(newIndex)
+			}
+		}
+	case "sidebar":
+		// From sidebar, go to right edge of main grid (top row)
+		newIndex := um.grid.GetMainGridCardIndex(0, um.grid.Cols-1)
+		if newIndex >= 0 {
+			um.grid.SetActiveCard(newIndex)
+		}
+	case "sidebar-bottom":
+		// From sidebar-bottom, go to Version (or Endpoints if no Version)
+		currentIndex := um.grid.GetActiveCardIndexInArea()
+		if currentIndex > 0 {
+			// Move left within sidebar-bottom
+			prevIndex := um.grid.GetSidebarBottomCardIndex(currentIndex - 1)
+			if prevIndex >= 0 {
+				um.grid.SetActiveCard(prevIndex)
+			}
+		} else {
+			// At leftmost sidebar-bottom, go to Version
+			versionIndex := um.grid.GetVersionCardIndex()
+			if versionIndex >= 0 {
+				um.grid.SetActiveCard(versionIndex)
+			} else {
+				middleIndex := um.grid.GetMiddleCardIndex()
+				if middleIndex >= 0 {
+					um.grid.SetActiveCard(middleIndex)
+				}
+			}
+		}
+	case "sidebar-subgrid":
+		um.grid.MoveLeft()
+	case "sidebar-footer":
+		currentIndex := um.grid.GetActiveCardIndexInArea()
+		if currentIndex > 0 {
+			prevIndex := um.grid.GetSidebarFooterCardIndex(currentIndex - 1)
+			if prevIndex >= 0 {
+				um.grid.SetActiveCard(prevIndex)
+			}
+		} else {
+			// At leftmost footer card (usage time), go to version card
+			versionIndex := um.grid.GetVersionCardIndex()
+			if versionIndex >= 0 {
+				um.grid.SetActiveCard(versionIndex)
+			}
+		}
+	}
 }
 
 func (um *UIManager) navigateRight() {
-	totalCards := um.grid.GetTotalCardCount()
-	newIndex := (um.grid.ActiveCard + 1) % totalCards
-	um.grid.SetActiveCard(newIndex)
+	position := um.grid.GetActiveCardPosition()
+
+	switch position {
+	case "main":
+		localIndex := um.grid.GetActiveCardIndexInArea()
+		row, col := um.grid.GetMainGridPosition(localIndex)
+		if col < um.grid.Cols-1 {
+			newIndex := um.grid.GetMainGridCardIndex(row, col+1)
+			if newIndex >= 0 {
+				um.grid.SetActiveCard(newIndex)
+			}
+		} else {
+			// At right edge of main grid, go to sidebar
+			sidebarIndex := um.grid.GetSidebarCardIndex()
+			if sidebarIndex >= 0 {
+				um.grid.SetActiveCard(sidebarIndex)
+			}
+		}
+	case "middle", "version":
+		// From left column cards (Endpoints, Version), go to sidebar-bottom (Location)
+		bottomIndex := um.grid.GetSidebarBottomCardIndex(0)
+		if bottomIndex >= 0 {
+			um.grid.SetActiveCard(bottomIndex)
+		}
+	case "sidebar-bottom":
+		// Move right within sidebar-bottom
+		currentIndex := um.grid.GetActiveCardIndexInArea()
+		if currentIndex == 0 {
+			nextIndex := um.grid.GetSidebarBottomCardIndex(1)
+			if nextIndex >= 0 {
+				um.grid.SetActiveCard(nextIndex)
+			}
+		}
+	case "sidebar-subgrid":
+		um.grid.MoveRight()
+	case "sidebar-footer":
+		currentIndex := um.grid.GetActiveCardIndexInArea()
+		if currentIndex == 0 {
+			nextIndex := um.grid.GetSidebarFooterCardIndex(1)
+			if nextIndex >= 0 {
+				um.grid.SetActiveCard(nextIndex)
+			}
+		}
+	}
 }
 
 func (um *UIManager) navigateUp() {
@@ -264,11 +435,25 @@ func (um *UIManager) navigateUp() {
 
 	switch position {
 	case "main":
-		row, col := um.grid.GetMainGridPosition(um.grid.ActiveCard)
+		localIndex := um.grid.GetActiveCardIndexInArea()
+		row, col := um.grid.GetMainGridPosition(localIndex)
 		if row > 0 {
 			newIndex := um.grid.GetMainGridCardIndex(row-1, col)
 			if newIndex >= 0 {
 				um.grid.SetActiveCard(newIndex)
+			}
+		} else {
+			// At top row of main grid, wrap to footer (referrers area)
+			// Go to last footer card (rightmost, which is referrers)
+			footerIndex := um.grid.GetSidebarFooterCardIndex(1) // Index 1 is referrers
+			if footerIndex >= 0 {
+				um.grid.SetActiveCard(footerIndex)
+			} else {
+				// Fallback to first footer card
+				footerIndex = um.grid.GetSidebarFooterCardIndex(0)
+				if footerIndex >= 0 {
+					um.grid.SetActiveCard(footerIndex)
+				}
 			}
 		}
 	case "sidebar":
@@ -277,20 +462,29 @@ func (um *UIManager) navigateUp() {
 			um.grid.SetActiveCard(newIndex)
 		}
 	case "middle":
-		newIndex := um.grid.GetMainGridCardIndex(1, 0)
+		// From Endpoints, go up to bottom of main grid (left column)
+		newIndex := um.grid.GetMainGridCardIndex(um.grid.Rows-1, 0)
 		if newIndex >= 0 {
 			um.grid.SetActiveCard(newIndex)
 		}
-	case "bottom":
+	case "version":
+		// From Version, go up to Endpoints (middle)
 		middleIndex := um.grid.GetMiddleCardIndex()
 		if middleIndex >= 0 {
 			um.grid.SetActiveCard(middleIndex)
-		} else {
-			sidebarIndex := um.grid.GetSidebarCardIndex()
-			if sidebarIndex >= 0 {
-				um.grid.SetActiveCard(sidebarIndex)
-			}
 		}
+	case "sidebar-bottom":
+		// From Location, go up to Sidebar
+		sidebarIndex := um.grid.GetSidebarCardIndex()
+		if sidebarIndex >= 0 {
+			um.grid.SetActiveCard(sidebarIndex)
+		}
+	case "sidebar-subgrid":
+		// From CPU area, go up to Location (sidebar-bottom)
+		um.grid.MoveUp()
+	case "sidebar-footer":
+		// Go up to system subgrid
+		um.grid.MoveUp()
 	}
 }
 
@@ -299,7 +493,8 @@ func (um *UIManager) navigateDown() {
 
 	switch position {
 	case "main":
-		row, col := um.grid.GetMainGridPosition(um.grid.ActiveCard)
+		localIndex := um.grid.GetActiveCardIndexInArea()
+		row, col := um.grid.GetMainGridPosition(localIndex)
 		if row < um.grid.Rows-1 {
 			newIndex := um.grid.GetMainGridCardIndex(row+1, col)
 			if newIndex >= 0 {
@@ -307,6 +502,7 @@ func (um *UIManager) navigateDown() {
 				return
 			}
 		}
+		// At bottom of main grid, go to middle (endpoints)
 		middleIndex := um.grid.GetMiddleCardIndex()
 		if middleIndex >= 0 {
 			um.grid.SetActiveCard(middleIndex)
@@ -317,17 +513,33 @@ func (um *UIManager) navigateDown() {
 			um.grid.SetActiveCard(bottomIndex)
 		}
 	case "middle":
-		bottomIndex := um.grid.GetSidebarBottomCardIndex(0)
-		if bottomIndex >= 0 {
-			um.grid.SetActiveCard(bottomIndex)
+		// From Endpoints, go down to Version
+		versionIndex := um.grid.GetVersionCardIndex()
+		if versionIndex >= 0 {
+			um.grid.SetActiveCard(versionIndex)
 		}
-	case "bottom":
-		cardIndex := um.grid.GetActiveCardIndexInArea()
-		if cardIndex == 0 {
-			secondBottomIndex := um.grid.GetSidebarBottomCardIndex(1)
-			if secondBottomIndex >= 0 {
-				um.grid.SetActiveCard(secondBottomIndex)
-			}
+	case "version":
+		// From Version, wrap to top of main grid
+		newIndex := um.grid.GetMainGridCardIndex(0, 0)
+		if newIndex >= 0 {
+			um.grid.SetActiveCard(newIndex)
+		}
+	case "sidebar-bottom":
+		// From sidebar-bottom (Location/Device), go down to system subgrid (CPU/Memory)
+		// Maintain column alignment
+		currentCol := um.grid.GetActiveCardIndexInArea()
+		subGridIndex := um.grid.GetSidebarSubGridCardIndex(currentCol)
+		if subGridIndex >= 0 {
+			um.grid.SetActiveCard(subGridIndex)
+		}
+	case "sidebar-subgrid":
+		// Move down within system subgrid or to footer
+		um.grid.MoveDown()
+	case "sidebar-footer":
+		// Wrap to top
+		newIndex := um.grid.GetMainGridCardIndex(0, 0)
+		if newIndex >= 0 {
+			um.grid.SetActiveCard(newIndex)
 		}
 	}
 }
@@ -369,9 +581,108 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Check if active card is in select mode
+	activeCard := m.uiManager.grid.GetActiveCard()
+	var selectable c.SelectableCard
+	if activeCard != nil {
+		selectable, _ = activeCard.Renderer.(c.SelectableCard)
+	}
+	inSelectMode := selectable != nil && selectable.IsInSelectMode()
+
 	switch {
 	case key.Matches(msg, m.uiManager.keys.Quit):
+		// If in select mode, exit select mode instead of quitting
+		if inSelectMode {
+			selectable.ExitSelectMode()
+			return m, nil
+		}
+		// If the active card has a filter, clear only that filter
+		if activeCard != nil && activeCard.IsFiltered {
+			switch activeCard.Renderer.(type) {
+			case *c.EndpointsCard:
+				m.dataManager.endpointFilter = nil
+			case *c.ReferrersCard:
+				m.dataManager.referrerFilter = nil
+			case *c.LocationsCard:
+				m.dataManager.locationFilter = nil
+				m.dataManager.locationLookup = nil
+			case *c.DeviceCard:
+				m.dataManager.deviceFilter = nil
+				m.dataManager.deviceLookup = nil
+			case *c.VersionCard:
+				m.dataManager.versionFilter = nil
+				m.dataManager.versionLookup = nil
+			}
+			activeCard.SetFiltered(false)
+			m.updateCurrentData()
+			return m, nil
+		}
 		return m, tea.Quit
+
+	case msg.String() == "m":
+		// If active card is a DeviceCard, cycle the display mode
+		if deviceCard, ok := activeCard.Renderer.(*c.DeviceCard); ok {
+			deviceCard.CycleMode()
+			return m, nil
+		}
+
+	case msg.String() == "enter":
+		if selectable != nil {
+			if inSelectMode {
+				// Select the item and apply filter based on card type
+				if endpointsCard, ok := activeCard.Renderer.(*c.EndpointsCard); ok {
+					if filter := endpointsCard.GetSelectedEndpoint(); filter != nil {
+						m.dataManager.setEndpointFilter(&l.EndpointFilter{
+							Path:   filter.Path,
+							Method: filter.Method,
+							Status: filter.Status,
+						})
+						activeCard.SetFiltered(true)
+						selectable.ExitSelectMode()
+						m.updateCurrentData()
+					}
+				} else if referrersCard, ok := activeCard.Renderer.(*c.ReferrersCard); ok {
+					if filter := referrersCard.GetSelectedReferrer(); filter != nil {
+						m.dataManager.setReferrerFilter(&l.ReferrerFilter{
+							Referrer: filter.Referrer,
+						})
+						activeCard.SetFiltered(true)
+						selectable.ExitSelectMode()
+						m.updateCurrentData()
+					}
+				} else if locationsCard, ok := activeCard.Renderer.(*c.LocationsCard); ok {
+					if filter := locationsCard.GetSelectedLocation(); filter != nil {
+						m.dataManager.setLocationFilter(&l.LocationFilter{
+							Location: filter.Location,
+						}, locationsCard.GetLocationLookup())
+						activeCard.SetFiltered(true)
+						selectable.ExitSelectMode()
+						m.updateCurrentData()
+					}
+				} else if deviceCard, ok := activeCard.Renderer.(*c.DeviceCard); ok {
+					if filter := deviceCard.GetSelectedDevice(); filter != nil {
+						m.dataManager.setDeviceFilter(&l.DeviceFilter{
+							Device: filter.Device,
+						}, deviceCard.GetDeviceLookup())
+						activeCard.SetFiltered(true)
+						selectable.ExitSelectMode()
+						m.updateCurrentData()
+					}
+				} else if versionCard, ok := activeCard.Renderer.(*c.VersionCard); ok {
+					if filter := versionCard.GetSelectedVersion(); filter != nil {
+						m.dataManager.setVersionFilter(&l.VersionFilter{
+							Version: filter.Version,
+						}, versionCard.GetVersionLookup())
+						activeCard.SetFiltered(true)
+						selectable.ExitSelectMode()
+						m.updateCurrentData()
+					}
+				}
+			} else {
+				// Enter select mode
+				selectable.EnterSelectMode()
+			}
+		}
 
 	case msg.String() == "tab":
 		m.navManager.toggleNavigationMode()
@@ -388,6 +699,11 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.navManager.isTabNavigationMode() {
 			m.navManager.navigatePeriodsLeft()
 			m.updateCurrentData()
+		} else if inSelectMode {
+			// For LocationsCard in select mode, use left/right to select
+			if _, ok := activeCard.Renderer.(*c.LocationsCard); ok {
+				selectable.SelectLeft()
+			}
 		} else {
 			m.uiManager.navigateLeft()
 		}
@@ -396,17 +712,26 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.navManager.isTabNavigationMode() {
 			m.navManager.navigatePeriodsRight()
 			m.updateCurrentData()
+		} else if inSelectMode {
+			// For LocationsCard in select mode, use left/right to select
+			if _, ok := activeCard.Renderer.(*c.LocationsCard); ok {
+				selectable.SelectRight()
+			}
 		} else {
 			m.uiManager.navigateRight()
 		}
 
 	case key.Matches(msg, m.uiManager.keys.Up):
-		if !m.navManager.isTabNavigationMode() {
+		if inSelectMode {
+			selectable.SelectUp()
+		} else if !m.navManager.isTabNavigationMode() {
 			m.uiManager.navigateUp()
 		}
 
 	case key.Matches(msg, m.uiManager.keys.Down):
-		if !m.navManager.isTabNavigationMode() {
+		if inSelectMode {
+			selectable.SelectDown()
+		} else if !m.navManager.isTabNavigationMode() {
 			m.uiManager.navigateDown()
 		}
 	}
@@ -510,6 +835,32 @@ func (m Model) getHelpText() string {
 	if m.navManager.isTabNavigationMode() {
 		return "← → navigate tabs    [tab] switch to cards    [q] quit  "
 	}
+
+	// Check if we're in select mode
+	activeCard := m.uiManager.grid.GetActiveCard()
+	if activeCard != nil {
+		if selectable, ok := activeCard.Renderer.(c.SelectableCard); ok && selectable.IsInSelectMode() {
+			// In select mode - show select controls
+			if _, isLocation := activeCard.Renderer.(*c.LocationsCard); isLocation {
+				return "← → select    [enter] filter    [q] exit select mode  "
+			}
+			return "↑ ↓ select    [enter] filter    [q] exit select mode  "
+		}
+
+		// Not in select mode - check if it's a selectable card and show appropriate help
+		if _, ok := activeCard.Renderer.(c.SelectableCard); ok {
+			// Check specific card types for custom help text
+			if _, ok := activeCard.Renderer.(*c.DeviceCard); ok {
+				return "← → ↑ ↓    [enter] select    [m] cycle mode    [p] switch period    [q] quit  "
+			}
+			if _, ok := activeCard.Renderer.(*c.LocationsCard); ok {
+				return "← → ↑ ↓    [enter] select    [p] switch period    [q] quit  "
+			}
+			// For other selectable cards (endpoint, version, referrers)
+			return "← → ↑ ↓    [enter] select    [p] switch period    [q] quit  "
+		}
+	}
+
 	return "← → ↑ ↓    [p] switch period    [q] quit  "
 }
 

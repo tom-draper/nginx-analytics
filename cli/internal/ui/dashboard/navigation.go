@@ -14,6 +14,8 @@ func (d *DashboardGrid) GetActiveCardPosition() string {
 		return "sidebar"
 	case PositionEndpoints:
 		return "middle"
+	case PositionVersion:
+		return "version"
 	case PositionCenterPair:
 		return "sidebar-bottom"
 	case PositionSystem:
@@ -43,24 +45,41 @@ func (d *DashboardGrid) GetActiveCardIndexInArea() int {
 	return 0
 }
 
+// getGlobalIndex converts a local index within a position to the global allCards index
+func (d *DashboardGrid) getGlobalIndex(position CardPosition, localIndex int) int {
+	if localIndex < 0 || localIndex >= len(d.cardsByPosition[position]) {
+		return -1
+	}
+	targetCard := d.cardsByPosition[position][localIndex]
+	for i, card := range d.allCards {
+		if card.Card == targetCard {
+			return i
+		}
+	}
+	return -1
+}
+
 // Navigation helper methods for smart up/down movement
+// GetMainGridCardIndex returns the global allCards index for a card at the given row/col in the main grid
 func (d *DashboardGrid) GetMainGridCardIndex(row, col int) int {
 	if row < 0 || row >= d.Rows || col < 0 || col >= d.Cols {
 		return -1
 	}
-	index := row*d.Cols + col
-	if index >= len(d.cardsByPosition[PositionMainGrid]) {
+	localIndex := row*d.Cols + col
+	if localIndex >= len(d.cardsByPosition[PositionMainGrid]) {
 		return -1
 	}
-	return index
+	return d.getGlobalIndex(PositionMainGrid, localIndex)
 }
 
-func (d *DashboardGrid) GetMainGridPosition(cardIndex int) (int, int) {
-	if cardIndex < 0 || cardIndex >= len(d.cardsByPosition[PositionMainGrid]) {
+// GetMainGridPosition returns the row and column for the current card in the main grid
+// This uses the local index within the main grid position
+func (d *DashboardGrid) GetMainGridPosition(localIndex int) (int, int) {
+	if localIndex < 0 || localIndex >= len(d.cardsByPosition[PositionMainGrid]) {
 		return -1, -1
 	}
-	row := cardIndex / d.Cols
-	col := cardIndex % d.Cols
+	row := localIndex / d.Cols
+	col := localIndex % d.Cols
 	return row, col
 }
 
@@ -68,35 +87,42 @@ func (d *DashboardGrid) GetSidebarCardIndex() int {
 	if len(d.cardsByPosition[PositionSidebar]) == 0 {
 		return -1
 	}
-	return 0 // Sidebar only has one card
+	return d.getGlobalIndex(PositionSidebar, 0)
 }
 
 func (d *DashboardGrid) GetMiddleCardIndex() int {
 	if len(d.cardsByPosition[PositionEndpoints]) == 0 {
 		return -1
 	}
-	return 0 // Middle only has one card
+	return d.getGlobalIndex(PositionEndpoints, 0)
+}
+
+func (d *DashboardGrid) GetVersionCardIndex() int {
+	if len(d.cardsByPosition[PositionVersion]) == 0 {
+		return -1
+	}
+	return d.getGlobalIndex(PositionVersion, 0)
 }
 
 func (d *DashboardGrid) GetSidebarBottomCardIndex(bottomIndex int) int {
 	if bottomIndex < 0 || bottomIndex >= len(d.cardsByPosition[PositionCenterPair]) {
 		return -1
 	}
-	return bottomIndex
+	return d.getGlobalIndex(PositionCenterPair, bottomIndex)
 }
 
 func (d *DashboardGrid) GetSidebarSubGridCardIndex(subGridIndex int) int {
 	if subGridIndex < 0 || subGridIndex >= len(d.cardsByPosition[PositionSystem]) {
 		return -1
 	}
-	return subGridIndex
+	return d.getGlobalIndex(PositionSystem, subGridIndex)
 }
 
 func (d *DashboardGrid) GetSidebarFooterCardIndex(footerIndex int) int {
 	if footerIndex < 0 || footerIndex >= len(d.cardsByPosition[PositionFooter]) {
 		return -1
 	}
-	return footerIndex
+	return d.getGlobalIndex(PositionFooter, footerIndex)
 }
 
 // GetSidebarSubGridPosition returns the row and column of a card in the 2x2 sidebar sub-grid
@@ -130,7 +156,8 @@ func (d *DashboardGrid) MoveUp() {
 	switch currentPosition {
 	case "main":
 		// In main grid, move up within the grid or wrap to bottom of right column
-		row, col := d.GetMainGridPosition(d.ActiveCard)
+		localIndex := d.GetActiveCardIndexInArea()
+		row, col := d.GetMainGridPosition(localIndex)
 		if row > 0 {
 			// Move up within main grid
 			newIndex := d.GetMainGridCardIndex(row-1, col)
@@ -143,7 +170,7 @@ func (d *DashboardGrid) MoveUp() {
 		}
 
 	case "middle":
-		// From middle card, move to bottom row of main grid (left column)
+		// From middle card (Endpoints), move up to bottom row of main grid (left column)
 		if len(d.cardsByPosition[PositionMainGrid]) > 0 {
 			// Move to bottom-left card of main grid
 			bottomRow := (len(d.cardsByPosition[PositionMainGrid]) - 1) / d.Cols
@@ -152,6 +179,22 @@ func (d *DashboardGrid) MoveUp() {
 				if newIndex != -1 {
 					d.SetActiveCard(newIndex)
 				}
+			}
+		}
+
+	case "version":
+		// From version card, move up to Endpoints (middle)
+		if len(d.cardsByPosition[PositionEndpoints]) > 0 {
+			middleIndex := d.GetMiddleCardIndex()
+			if middleIndex != -1 {
+				d.SetActiveCard(middleIndex)
+			}
+		} else if len(d.cardsByPosition[PositionMainGrid]) > 0 {
+			// No endpoints card, go to bottom of main grid
+			bottomRow := (len(d.cardsByPosition[PositionMainGrid]) - 1) / d.Cols
+			newIndex := d.GetMainGridCardIndex(bottomRow, 0)
+			if newIndex != -1 {
+				d.SetActiveCard(newIndex)
 			}
 		}
 
@@ -237,7 +280,8 @@ func (d *DashboardGrid) MoveDown() {
 	switch currentPosition {
 	case "main":
 		// In main grid, move down within the grid or to middle/right column
-		row, col := d.GetMainGridPosition(d.ActiveCard)
+		localIndex := d.GetActiveCardIndexInArea()
+		row, col := d.GetMainGridPosition(localIndex)
 		newRow := row + 1
 		newIndex := d.GetMainGridCardIndex(newRow, col)
 
@@ -259,9 +303,21 @@ func (d *DashboardGrid) MoveDown() {
 		}
 
 	case "middle":
-		// From middle card, wrap to top of main grid (left column)
+		// From middle card (Endpoints), move down to Version
+		if len(d.cardsByPosition[PositionVersion]) > 0 {
+			versionIndex := d.GetVersionCardIndex()
+			if versionIndex != -1 {
+				d.SetActiveCard(versionIndex)
+			}
+		} else if len(d.cardsByPosition[PositionMainGrid]) > 0 {
+			// No version card, wrap to top of main grid
+			d.SetActiveCard(0)
+		}
+
+	case "version":
+		// From version card, wrap to top of main grid (left column)
 		if len(d.cardsByPosition[PositionMainGrid]) > 0 {
-			d.SetActiveCard(0) // Top-left card of main grid
+			d.SetActiveCard(0)
 		}
 
 	case "sidebar":
@@ -339,7 +395,8 @@ func (d *DashboardGrid) MoveLeft() {
 
 	switch currentPosition {
 	case "main":
-		row, col := d.GetMainGridPosition(d.ActiveCard)
+		localIndex := d.GetActiveCardIndexInArea()
+		row, col := d.GetMainGridPosition(localIndex)
 		if col > 0 {
 			newIndex := d.GetMainGridCardIndex(row, col-1)
 			if newIndex != -1 {
@@ -353,6 +410,12 @@ func (d *DashboardGrid) MoveLeft() {
 			if bottomIndex != -1 {
 				d.SetActiveCard(bottomIndex)
 			}
+		} else {
+			// At leftmost card, go to endpoints card
+			middleIndex := d.GetMiddleCardIndex()
+			if middleIndex != -1 {
+				d.SetActiveCard(middleIndex)
+			}
 		}
 
 	case "sidebar-subgrid":
@@ -362,6 +425,12 @@ func (d *DashboardGrid) MoveLeft() {
 			if newSubIndex != -1 {
 				d.SetActiveCard(newSubIndex)
 			}
+		} else {
+			// At leftmost column, go to endpoints card
+			middleIndex := d.GetMiddleCardIndex()
+			if middleIndex != -1 {
+				d.SetActiveCard(middleIndex)
+			}
 		}
 
 	case "sidebar-footer":
@@ -369,6 +438,12 @@ func (d *DashboardGrid) MoveLeft() {
 			footerIndex := d.GetSidebarFooterCardIndex(0)
 			if footerIndex != -1 {
 				d.SetActiveCard(footerIndex)
+			}
+		} else {
+			// At leftmost footer card, go to version card
+			versionIndex := d.GetVersionCardIndex()
+			if versionIndex != -1 {
+				d.SetActiveCard(versionIndex)
 			}
 		}
 	}
@@ -380,7 +455,8 @@ func (d *DashboardGrid) MoveRight() {
 
 	switch currentPosition {
 	case "main":
-		row, col := d.GetMainGridPosition(d.ActiveCard)
+		localIndex := d.GetActiveCardIndexInArea()
+		row, col := d.GetMainGridPosition(localIndex)
 		if col < d.Cols-1 {
 			newIndex := d.GetMainGridCardIndex(row, col+1)
 			if newIndex != -1 {

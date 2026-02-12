@@ -86,22 +86,16 @@ func (c *MemoryCard) renderMemoryBar(width int) string {
 	total := float64(c.memory.total)
 	used := float64(c.memory.used)
 	free := float64(c.memory.free)
-	available := float64(c.memory.available)
 
-	cache := available - free
+	// On Linux, gopsutil's Used is already excluding buffers/cache
+	// (Total - Free - Buffers - Cached). So cache = Total - Used - Free.
+	cache := total - used - free
 	if cache < 0 {
-		cache = 0 // safety
+		cache = 0
 	}
 
-	// Ensure mutually exclusive segments
-	usedApp := used - cache
-	if usedApp < 0 {
-		usedApp = 0
-	}
-
-	usedPct := usedApp / total
+	usedPct := used / total
 	cachePct := cache / total
-	// freePct := free / total
 
 	barWidth := max(width, 10)
 	usedWidth := int(usedPct * float64(barWidth))
@@ -131,7 +125,7 @@ func (c *MemoryCard) renderMemoryBar(width int) string {
 	// bar := usedStyle.Render(usedBar) + availableStyle.Render(availableBar) + freeStyle.Render(freeBar)
 
 	// Create labels
-	usedLabel := fmt.Sprintf("Used: %s (%.0f%%)", c.formatBytes(uint64(usedApp)), usedPct*100)
+	usedLabel := fmt.Sprintf("Used: %s (%.0f%%)", c.formatBytes(uint64(used)), usedPct*100)
 	availableLabel := fmt.Sprintf("Cache: %s (%.0f%%)", c.formatBytes(uint64(cache)), cachePct*100)
 
 	// Style labels

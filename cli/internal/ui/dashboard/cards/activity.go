@@ -109,15 +109,37 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 		return a.renderNoData(width, height)
 	}
 
-	// Sort data for consistent chart rendering
-	sortedRequests := sortPoints(a.requests)
-	sortedUsers := sortPoints(a.users)
+	// Determine time range based on period
+	var startTime, endTime time.Time
+	if a.period == period.PeriodAllTime {
+		// For all-time, use the actual data range
+		sortedTemp := sortPoints(a.requests)
+		startTime = sortedTemp[0].timestamp
+		endTime = sortedTemp[len(sortedTemp)-1].timestamp
+	} else {
+		// For other periods, use the full period range
+		startTime = a.period.Start()
+		endTime = time.Now()
+	}
+
+	// Sort and fill data for consistent chart rendering
+	sortedRequests := fillTimeRange(sortPoints(a.requests), startTime, endTime, 0)
+	sortedUsers := fillTimeRange(sortPoints(a.users), startTime, endTime, 0)
 
 	// Calculate chart dimensions
 	usableWidth := width
 	// Reserve space for success rate graph and time range
 	chartHeight := max(height-4, 3) // -4 for success rate (2 rows) + time range line + padding
 	chartWidth := max(usableWidth-2, 15)
+
+	// Calculate y-axis width for alignment
+	maxRequests := 0
+	for _, req := range sortedRequests {
+		if req.value > maxRequests {
+			maxRequests = req.value
+		}
+	}
+	yAxisWidth := len(fmt.Sprintf("%d", maxRequests)) + 1
 
 	var lines []string
 
@@ -128,11 +150,12 @@ func (a *ActivityCard) RenderContent(width, height int) string {
 	// Add time range info
 	lines = append(lines, a.renderTimeRange(sortedRequests, usableWidth))
 
-	// Add success rate label
-	lines = append(lines, a.styles.faint.Render("    Success Rate:"))
+	// Add success rate label (padded to align with y-axis)
+	successRateLabel := strings.Repeat(" ", yAxisWidth) + a.styles.faint.Render("Success Rate:")
+	lines = append(lines, successRateLabel)
 
-	// Generate and append success rate graph
-	successRateGraph := a.generateSuccessRateGraph(usableWidth)
+	// Generate and append success rate graph with matching y-axis alignment
+	successRateGraph := a.generateSuccessRateGraph(usableWidth, yAxisWidth)
 	lines = append(lines, successRateGraph...)
 
 	// Fill or trim lines to match the required height
@@ -167,15 +190,18 @@ func (a *ActivityCard) renderNoData(width, height int) string {
 }
 
 func (a *ActivityCard) renderTimeRange(sortedRequests []point[int], usableWidth int) string {
-	if len(sortedRequests) == 0 {
-		return ""
-	}
+	var firstTime, lastTime time.Time
 
-	firstTime := sortedRequests[0].timestamp.Local()
-	var lastTime time.Time
 	if a.period == period.PeriodAllTime {
+		// For all-time, use the actual log range
+		if len(sortedRequests) == 0 {
+			return ""
+		}
+		firstTime = sortedRequests[0].timestamp.Local()
 		lastTime = sortedRequests[len(sortedRequests)-1].timestamp.Local()
 	} else {
+		// For other periods, use the full period range (e.g., -24h to now)
+		firstTime = a.period.Start().Local()
 		lastTime = time.Now().Local()
 	}
 
@@ -283,12 +309,17 @@ func (a *ActivityCard) generateBrailleBarChart(requests []point[int], users []po
 	a.convertCanvasToBraille(chartGrid, canvas, userCanvas, yAxisWidth, effectiveChartWidth, chartHeight, brailleHeight)
 
 	// Convert chart grid to string
-	lines := make([]string, chartHeight)
+	var buf strings.Builder
 	for i, row := range chartGrid {
-		lines[i] = strings.Join(row, "")
+		if i > 0 {
+			buf.WriteByte('\n')
+		}
+		for _, cell := range row {
+			buf.WriteString(cell)
+		}
 	}
 
-	return strings.Join(lines, "\n")
+	return buf.String()
 }
 
 func (a *ActivityCard) renderYAxisLabels(chartGrid [][]string, maxRequests, height, yAxisWidth int) {
@@ -431,14 +462,25 @@ func (a *ActivityCard) convertCanvasToBraille(chartGrid [][]string, canvas, user
 	}
 }
 
-func (a *ActivityCard) generateSuccessRateGraph(width int) []string {
+func (a *ActivityCard) generateSuccessRateGraph(width int, yAxisWidth int) []string {
 	if len(a.successRate) == 0 {
 		return []string{"", ""} // Return empty lines if no success rate data
 	}
 
-	sortedSuccessRate := sortPoints(a.successRate)
+	// Determine time range based on period
+	var startTime, endTime time.Time
+	if a.period == period.PeriodAllTime {
+		sortedTemp := sortPoints(a.successRate)
+		startTime = sortedTemp[0].timestamp
+		endTime = sortedTemp[len(sortedTemp)-1].timestamp
+	} else {
+		startTime = a.period.Start()
+		endTime = time.Now()
+	}
 
-	leftPadding := 4
+	sortedSuccessRate := fillTimeRange(sortPoints(a.successRate), startTime, endTime, -1.0) // -1 means no data
+
+	leftPadding := yAxisWidth // Use calculated y-axis width for alignment
 	rightPadding := 2
 	graphWidth := width - leftPadding - rightPadding
 
@@ -446,8 +488,12 @@ func (a *ActivityCard) generateSuccessRateGraph(width int) []string {
 		return []string{"", ""}
 	}
 
-	topRow := make([]string, graphWidth)
-	bottomRow := make([]string, graphWidth)
+	leftPadStr := strings.Repeat(" ", leftPadding)
+	rightPadStr := strings.Repeat(" ", rightPadding)
+
+	var topBuf, bottomBuf strings.Builder
+	topBuf.WriteString(leftPadStr)
+	bottomBuf.WriteString(leftPadStr)
 
 	dataPoints := len(sortedSuccessRate)
 
@@ -458,20 +504,15 @@ func (a *ActivityCard) generateSuccessRateGraph(width int) []string {
 		}
 
 		successRate := sortedSuccessRate[dataIndex].value
-		color := lipgloss.NewStyle().Foreground(a.getSuccessRateColor(successRate))
-
-		coloredChar := color.Render("█")
-		topRow[i] = coloredChar
-		bottomRow[i] = coloredChar
+		coloredChar := lipgloss.NewStyle().Foreground(a.getSuccessRateColor(successRate)).Render("█")
+		topBuf.WriteString(coloredChar)
+		bottomBuf.WriteString(coloredChar)
 	}
 
-	leftPadStr := strings.Repeat(" ", leftPadding)
-	rightPadStr := strings.Repeat(" ", rightPadding)
+	topBuf.WriteString(rightPadStr)
+	bottomBuf.WriteString(rightPadStr)
 
-	return []string{
-		leftPadStr + strings.Join(topRow, "") + rightPadStr,
-		leftPadStr + strings.Join(bottomRow, "") + rightPadStr,
-	}
+	return []string{topBuf.String(), bottomBuf.String()}
 }
 
 func (a *ActivityCard) getSuccessRateColor(rate float64) lipgloss.Color {
@@ -521,7 +562,10 @@ func sortPoints[T ~int | ~float32 | ~float64](points []point[T]) []point[T] {
 func getRequests(logs []nginx.NGINXLog) []point[int] {
 	requestBuckets := make(map[time.Time]int)
 	for _, log := range logs {
-		timeBucket := nearestHour(*log.Timestamp)
+		if log.Timestamp == nil {
+			continue
+		}
+		timeBucket := nearestBucket(*log.Timestamp)
 		requestBuckets[timeBucket]++
 	}
 
@@ -536,7 +580,10 @@ func getRequests(logs []nginx.NGINXLog) []point[int] {
 func getUsers(logs []nginx.NGINXLog) []point[int] {
 	userBuckets := make(map[time.Time]map[string]struct{})
 	for _, log := range logs {
-		timeBucket := nearestHour(*log.Timestamp)
+		if log.Timestamp == nil {
+			continue
+		}
+		timeBucket := nearestBucket(*log.Timestamp)
 		userID := u.UserID(log)
 		if userBuckets[timeBucket] == nil {
 			userBuckets[timeBucket] = make(map[string]struct{})
@@ -560,12 +607,13 @@ func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
 	})
 
 	for _, log := range logs {
-		t := nearestHour(*log.Timestamp)
+		if log.Timestamp == nil || log.Status == nil {
+			continue
+		}
+		t := nearestBucket(*log.Timestamp)
 		bucket := successRateBuckets[t]
 
-		// NGINX status codes: 2xx are success, 3xx are redirection, 4xx are client errors, 5xx are server errors.
-		// A common definition of success is 2xx and 3xx. Let's stick to the current [200, 400) logic.
-		success := *log.Status >= 200 && *log.Status < 400
+		success := *log.Status >= 100 && *log.Status < 400
 		if success {
 			bucket.success++
 		}
@@ -589,6 +637,37 @@ func getSuccessRates(logs []nginx.NGINXLog) []point[float64] {
 	return successRates
 }
 
-func nearestHour(timestamp time.Time) time.Time {
-	return timestamp.Truncate(time.Hour)
+const bucketInterval = 5 * time.Minute
+
+func nearestBucket(timestamp time.Time) time.Time {
+	return timestamp.Truncate(bucketInterval)
+}
+
+// fillTimeRange fills in missing buckets with zero values for complete time coverage
+func fillTimeRange[T ~int | ~float64](points []point[T], startTime, endTime time.Time, defaultValue T) []point[T] {
+	if len(points) == 0 && startTime.IsZero() {
+		return points
+	}
+
+	// Create a map of existing points
+	pointMap := make(map[time.Time]T)
+	for _, p := range points {
+		pointMap[nearestBucket(p.timestamp)] = p.value
+	}
+
+	// Determine start and end times
+	start := nearestBucket(startTime)
+	end := nearestBucket(endTime)
+
+	// Generate all buckets in the range
+	var filledPoints []point[T]
+	for t := start; !t.After(end); t = t.Add(bucketInterval) {
+		if val, exists := pointMap[t]; exists {
+			filledPoints = append(filledPoints, point[T]{timestamp: t, value: val})
+		} else {
+			filledPoints = append(filledPoints, point[T]{timestamp: t, value: defaultValue})
+		}
+	}
+
+	return filledPoints
 }

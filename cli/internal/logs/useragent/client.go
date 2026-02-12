@@ -1,221 +1,303 @@
 package useragent
 
-import (
-	"regexp"
-	"strings"
-	"sync"
-)
+import "strings"
 
-type Candidate struct {
-	Name    string
-	Regex   *regexp.Regexp
-	Matches uint64
-}
-
-type UserAgentDetector struct {
-	candidates []*Candidate
-	mu         sync.RWMutex
-}
+type UserAgentDetector struct{}
 
 func NewUserAgentDetector() *UserAgentDetector {
-	candidates := []*Candidate{
-		{"Curl", regexp.MustCompile(`curl/`), 0},
-		{"Postman", regexp.MustCompile(`PostmanRuntime/`), 0},
-		{"Insomnia", regexp.MustCompile(`insomnia/`), 0},
-		{"Python requests", regexp.MustCompile(`python-requests/`), 0},
-		{"Nodejs fetch", regexp.MustCompile(`node-fetch/`), 0},
-		{"Seamonkey", regexp.MustCompile(`Seamonkey/`), 0},
-		{"Firefox", regexp.MustCompile(`Firefox/`), 0},
-		{"Chrome", regexp.MustCompile(`Chrome/`), 0},
-		{"Chromium", regexp.MustCompile(`Chromium/`), 0},
-		{"aiohttp", regexp.MustCompile(`aiohttp/`), 0},
-		{"Python", regexp.MustCompile(`Python/`), 0},
-		{"Go http", regexp.MustCompile(`[Gg]o-http-client/`), 0},
-		{"Java", regexp.MustCompile(`Java/`), 0},
-		{"axios", regexp.MustCompile(`axios/`), 0},
-		{"Dart", regexp.MustCompile(`Dart/`), 0},
-		{"OkHttp", regexp.MustCompile(`OkHttp/`), 0},
-		{"Uptime Kuma", regexp.MustCompile(`Uptime-Kuma/`), 0},
-		{"undici", regexp.MustCompile(`undici/`), 0},
-		{"Lush", regexp.MustCompile(`Lush/`), 0},
-		{"Zabbix", regexp.MustCompile(`Zabbix`), 0},
-		{"Guzzle", regexp.MustCompile(`GuzzleHttp/`), 0},
-		{"Uptime", regexp.MustCompile(`Better Uptime`), 0},
-		{"GitHub Camo", regexp.MustCompile(`github-camo`), 0},
-		{"Ruby", regexp.MustCompile(`Ruby`), 0},
-		{"Node.js", regexp.MustCompile(`node`), 0},
-		{"Next.js", regexp.MustCompile(`Next\.js`), 0},
-		{"Vercel Edge Functions", regexp.MustCompile(`Vercel Edge Functions`), 0},
-		{"OpenAI Image Downloader", regexp.MustCompile(`OpenAI Image Downloader`), 0},
-		{"OpenAI", regexp.MustCompile(`OpenAI`), 0},
-		{"Tsunami Security Scanner", regexp.MustCompile(`TsunamiSecurityScanner`), 0},
-		{"iOS", regexp.MustCompile(`iOS/`), 0},
-		{"Safari", regexp.MustCompile(`Safari/`), 0},
-		{"Edge", regexp.MustCompile(`Edg/`), 0},
-		{"Opera", regexp.MustCompile(`(OPR|Opera)/`), 0},
-		{"Internet Explorer", regexp.MustCompile(`(; MSIE |Trident/)`), 0},
-	}
-
-	return &UserAgentDetector{
-		candidates: candidates,
-	}
+	return &UserAgentDetector{}
 }
 
+// GetClient identifies the client/browser from a user agent string.
+// Uses two-path branching: browser UAs (starting with "Mozilla/") skip all
+// tool checks, and tool UAs skip all browser checks. No regex, no mutex,
+// no allocations.
 func (d *UserAgentDetector) GetClient(userAgent string) string {
 	if userAgent == "" {
 		return "Unknown"
 	}
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	// Fast path: ~90% of browser traffic starts with "Mozilla/"
+	// Skip 20+ tool checks and go straight to browser detection
+	if strings.HasPrefix(userAgent, "Mozilla/") {
+		return detectBrowserClient(userAgent)
+	}
 
-	for i, candidate := range d.candidates {
-		if candidate.Regex.MatchString(userAgent) {
-			candidate.Matches++
-			// Move matched candidate towards front for better cache locality
-			d.moveTowardsFront(i)
-			return candidate.Name
-		}
+	// Non-Mozilla UAs: tools, libraries, bots
+	return detectToolClient(userAgent)
+}
+
+func detectBrowserClient(userAgent string) string {
+	// Order matters: check more-specific UAs before less-specific ones.
+	// Edge/Opera UAs contain "Chrome/", Chrome UAs contain "Safari/".
+	if strings.Contains(userAgent, "Seamonkey/") {
+		return "Seamonkey"
+	}
+	if strings.Contains(userAgent, "Firefox/") {
+		return "Firefox"
+	}
+	if strings.Contains(userAgent, "Edg/") {
+		return "Edge"
+	}
+	if strings.Contains(userAgent, "OPR/") || strings.Contains(userAgent, "Opera/") {
+		return "Opera"
+	}
+	if strings.Contains(userAgent, "Chromium/") {
+		return "Chromium"
+	}
+	if strings.Contains(userAgent, "Chrome/") {
+		return "Chrome"
+	}
+	if strings.Contains(userAgent, "; MSIE ") || strings.Contains(userAgent, "Trident/") {
+		return "Internet Explorer"
+	}
+	if strings.Contains(userAgent, "iOS/") {
+		return "iOS"
+	}
+	if strings.Contains(userAgent, "Safari/") {
+		return "Safari"
+	}
+
+	// Some non-browser UAs still use a Mozilla/ prefix
+	return detectToolClient(userAgent)
+}
+
+func detectToolClient(userAgent string) string {
+	// HTTP tools and libraries
+	if strings.Contains(userAgent, "curl/") {
+		return "Curl"
+	}
+	if strings.Contains(userAgent, "PostmanRuntime/") {
+		return "Postman"
+	}
+	if strings.Contains(userAgent, "insomnia/") {
+		return "Insomnia"
+	}
+	if strings.Contains(userAgent, "python-requests/") {
+		return "Python requests"
+	}
+	if strings.Contains(userAgent, "node-fetch/") {
+		return "Nodejs fetch"
+	}
+	if strings.Contains(userAgent, "aiohttp/") {
+		return "aiohttp"
+	}
+	if strings.Contains(userAgent, "Python/") {
+		return "Python"
+	}
+	if strings.Contains(userAgent, "Go-http-client/") || strings.Contains(userAgent, "go-http-client/") {
+		return "Go http"
+	}
+	if strings.Contains(userAgent, "Java/") {
+		return "Java"
+	}
+	if strings.Contains(userAgent, "axios/") {
+		return "axios"
+	}
+	if strings.Contains(userAgent, "Dart/") {
+		return "Dart"
+	}
+	if strings.Contains(userAgent, "okhttp/") || strings.Contains(userAgent, "OkHttp/") {
+		return "OkHttp"
+	}
+	if strings.Contains(userAgent, "Uptime-Kuma/") {
+		return "Uptime Kuma"
+	}
+	if strings.Contains(userAgent, "undici/") {
+		return "undici"
+	}
+	if strings.Contains(userAgent, "Lush/") {
+		return "Lush"
+	}
+	if strings.Contains(userAgent, "Zabbix") {
+		return "Zabbix"
+	}
+	if strings.Contains(userAgent, "GuzzleHttp/") {
+		return "Guzzle"
+	}
+	if strings.Contains(userAgent, "Better Uptime") {
+		return "Uptime"
+	}
+	if strings.Contains(userAgent, "github-camo") {
+		return "GitHub Camo"
+	}
+	if strings.Contains(userAgent, "Ruby") {
+		return "Ruby"
+	}
+
+	// Platforms and services — check specific before generic
+	if strings.Contains(userAgent, "Next.js") {
+		return "Next.js"
+	}
+	if strings.Contains(userAgent, "Vercel Edge Functions") {
+		return "Vercel Edge Functions"
+	}
+	if strings.Contains(userAgent, "OpenAI Image Downloader") {
+		return "OpenAI Image Downloader"
+	}
+	if strings.Contains(userAgent, "OpenAI") {
+		return "OpenAI"
+	}
+	if strings.Contains(userAgent, "TsunamiSecurityScanner") {
+		return "Tsunami Security Scanner"
+	}
+	// "node" is very generic — must be last
+	if strings.Contains(userAgent, "node") {
+		return "Node.js"
 	}
 
 	return "Other"
 }
 
-func (d *UserAgentDetector) moveTowardsFront(index int) {
-	if index == 0 {
-		return
-	}
-
-	current := d.candidates[index]
-	previous := d.candidates[index-1]
-
-	// If current has more matches than previous, swap them
-	if current.Matches > previous.Matches {
-		d.candidates[index-1], d.candidates[index] = current, previous
-	}
-}
-
-func (d *UserAgentDetector) GetStats() map[string]uint64 {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	stats := make(map[string]uint64)
-	for _, candidate := range d.candidates {
-		stats[candidate.Name] = candidate.Matches
-	}
-	return stats
-}
-
-func (d *UserAgentDetector) GetClientConcurrent(userAgent string) string {
+// GetOS uses hierarchical branching to identify the OS in 1-3 string scans
+// instead of iterating N candidates. All Windows versions resolve from a single
+// strings.Index call. No regex, no allocations, no mutex.
+func (d *UserAgentDetector) GetOS(userAgent string) string {
 	if userAgent == "" {
 		return "Unknown"
 	}
 
-	// First, try read-only check
-	d.mu.RLock()
-	for _, candidate := range d.candidates {
-		if candidate.Regex.MatchString(userAgent) {
-			d.mu.RUnlock()
-			// Now acquire write lock to update counter
-			d.mu.Lock()
-			candidate.Matches++
-			name := candidate.Name
-			d.mu.Unlock()
-			return name
+	// Windows family: one Index call resolves all versions via prefix check
+	if idx := strings.Index(userAgent, "Windows NT "); idx >= 0 {
+		ver := userAgent[idx+11:] // skip past "Windows NT "
+		switch {
+		case strings.HasPrefix(ver, "10.0"):
+			return "Windows 10/11"
+		case strings.HasPrefix(ver, "6.3"):
+			return "Windows 8.1"
+		case strings.HasPrefix(ver, "6.2"):
+			return "Windows 8"
+		case strings.HasPrefix(ver, "6.1"):
+			return "Windows 7"
+		case strings.HasPrefix(ver, "6.0"):
+			return "Windows Vista"
+		case strings.HasPrefix(ver, "5.2"):
+			return "Windows Server 2003"
+		case strings.HasPrefix(ver, "5.1"):
+			return "Windows XP"
+		case strings.HasPrefix(ver, "5.0"):
+			return "Windows 2000"
+		case strings.HasPrefix(ver, "4.0"):
+			return "Windows NT 4.0"
+		default:
+			return "Windows"
 		}
 	}
-	d.mu.RUnlock()
+	// Legacy Windows (pre-NT)
+	if strings.Contains(userAgent, "Win16") {
+		return "Windows 3.11"
+	}
+	if strings.Contains(userAgent, "Windows 95") || strings.Contains(userAgent, "Win95") {
+		return "Windows 95"
+	}
+	if strings.Contains(userAgent, "Windows 98") || strings.Contains(userAgent, "Win98") {
+		return "Windows 98"
+	}
+	if strings.Contains(userAgent, "Windows ME") {
+		return "Windows ME"
+	}
+
+	// Mobile platforms
+	if strings.Contains(userAgent, "iPhone OS") {
+		return "iOS"
+	}
+	if strings.Contains(userAgent, "iPad") {
+		return "iOS"
+	}
+	if strings.Contains(userAgent, "Android") {
+		return "Android"
+	}
+
+	// Desktop platforms
+	if strings.Contains(userAgent, "CrOS") {
+		return "ChromeOS"
+	}
+	if strings.Contains(userAgent, "Macintosh") || strings.Contains(userAgent, "Mac_PowerPC") {
+		return "macOS"
+	}
+
+	// Unix-like
+	if strings.Contains(userAgent, "OpenBSD") {
+		return "OpenBSD"
+	}
+	if strings.Contains(userAgent, "SunOS") {
+		return "SunOS"
+	}
+	if strings.Contains(userAgent, "QNX") {
+		return "QNX"
+	}
+	if strings.Contains(userAgent, "BeOS") {
+		return "BeOS"
+	}
+	if strings.Contains(userAgent, "OS/2") {
+		return "OS/2"
+	}
+	if strings.Contains(userAgent, "Linux") || strings.Contains(userAgent, "X11") {
+		return "Linux"
+	}
+
+	// Bot detection last — most traffic is real users, so checking bots
+	// last avoids the cost for the common case. Bots that spoof a real OS
+	// (e.g. Googlebot with Android UA) get classified by that OS, matching
+	// the web app behavior.
+	if isBot(userAgent) {
+		return "Bot"
+	}
 
 	return "Other"
 }
 
-type FastUserAgentDetector struct {
-	candidates []FastCandidate
-	mu         sync.RWMutex
-}
-
-type FastCandidate struct {
-	Name     string
-	Pattern  string
-	IsRegex  bool
-	Regex    *regexp.Regexp
-	Matches  uint64
-}
-
-func NewFastUserAgentDetector() *FastUserAgentDetector {
-	candidates := []FastCandidate{
-		// Simple string patterns (fastest)
-		{"Curl", "curl/", false, nil, 0},
-		{"Postman", "PostmanRuntime/", false, nil, 0},
-		{"Insomnia", "insomnia/", false, nil, 0},
-		{"Python requests", "python-requests/", false, nil, 0},
-		{"Nodejs fetch", "node-fetch/", false, nil, 0},
-		{"Seamonkey", "Seamonkey/", false, nil, 0},
-		{"Firefox", "Firefox/", false, nil, 0},
-		{"Chrome", "Chrome/", false, nil, 0},
-		{"Chromium", "Chromium/", false, nil, 0},
-		{"aiohttp", "aiohttp/", false, nil, 0},
-		{"Python", "Python/", false, nil, 0},
-		{"Java", "Java/", false, nil, 0},
-		{"axios", "axios/", false, nil, 0},
-		{"Dart", "Dart/", false, nil, 0},
-		{"OkHttp", "OkHttp/", false, nil, 0},
-		{"Uptime Kuma", "Uptime-Kuma/", false, nil, 0},
-		{"undici", "undici/", false, nil, 0},
-		{"Lush", "Lush/", false, nil, 0},
-		{"Zabbix", "Zabbix", false, nil, 0},
-		{"Guzzle", "GuzzleHttp/", false, nil, 0},
-		{"Uptime", "Better Uptime", false, nil, 0},
-		{"GitHub Camo", "github-camo", false, nil, 0},
-		{"Ruby", "Ruby", false, nil, 0},
-		{"Node.js", "node", false, nil, 0},
-		{"Vercel Edge Functions", "Vercel Edge Functions", false, nil, 0},
-		{"OpenAI Image Downloader", "OpenAI Image Downloader", false, nil, 0},
-		{"OpenAI", "OpenAI", false, nil, 0},
-		{"Tsunami Security Scanner", "TsunamiSecurityScanner", false, nil, 0},
-		{"iOS", "iOS/", false, nil, 0},
-		{"Safari", "Safari/", false, nil, 0},
-		{"Edge", "Edg/", false, nil, 0},
-		
-		// Complex regex patterns (slower but necessary)
-		{"Go http", "", true, regexp.MustCompile(`[Gg]o-http-client/`), 0},
-		{"Opera", "", true, regexp.MustCompile(`(OPR|Opera)/`), 0},
-		{"Internet Explorer", "", true, regexp.MustCompile(`(; MSIE |Trident/)`), 0},
-		{"Next.js", "", true, regexp.MustCompile(`Next\.js`), 0},
-	}
-
-	return &FastUserAgentDetector{
-		candidates: candidates,
-	}
-}
-
-func (d *FastUserAgentDetector) GetClient(userAgent string) string {
+// GetDevice uses the same branching strategy as GetOS.
+func (d *UserAgentDetector) GetDevice(userAgent string) string {
 	if userAgent == "" {
 		return "Unknown"
 	}
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	for i := range d.candidates {
-		candidate := &d.candidates[i]
-		
-		var matched bool
-		if candidate.IsRegex {
-			matched = candidate.Regex.MatchString(userAgent)
-		} else {
-			matched = strings.Contains(userAgent, candidate.Pattern)
+	if strings.Contains(userAgent, "iPhone") {
+		return "iPhone"
+	}
+	if strings.Contains(userAgent, "iPad") {
+		return "iPad"
+	}
+	if strings.Contains(userAgent, "Android") {
+		if strings.Contains(userAgent, "Mobile") {
+			return "Android Phone"
 		}
-
-		if matched {
-			candidate.Matches++
-			// Simple bubble-up optimization
-			if i > 0 && candidate.Matches > d.candidates[i-1].Matches {
-				d.candidates[i-1], d.candidates[i] = d.candidates[i], d.candidates[i-1]
-			}
-			return candidate.Name
-		}
+		return "Android Tablet"
+	}
+	if strings.Contains(userAgent, "Tizen/") {
+		return "Samsung"
+	}
+	if strings.Contains(userAgent, "Macintosh") || strings.Contains(userAgent, "Mac_PowerPC") {
+		return "Mac"
+	}
+	if strings.Contains(userAgent, "Windows NT") {
+		return "Windows PC"
+	}
+	if strings.Contains(userAgent, "CrOS") {
+		return "Chromebook"
+	}
+	if strings.Contains(userAgent, "Linux") || strings.Contains(userAgent, "X11") {
+		return "Linux"
+	}
+	if isBot(userAgent) {
+		return "Bot"
 	}
 
 	return "Other"
+}
+
+// isBot checks for common bot indicators without allocating a lowercase copy.
+func isBot(userAgent string) bool {
+	return strings.Contains(userAgent, "bot") ||
+		strings.Contains(userAgent, "Bot") ||
+		strings.Contains(userAgent, "spider") ||
+		strings.Contains(userAgent, "Spider") ||
+		strings.Contains(userAgent, "crawl") ||
+		strings.Contains(userAgent, "Crawl") ||
+		strings.Contains(userAgent, "Slurp") ||
+		strings.Contains(userAgent, "APIs-Google") ||
+		strings.Contains(userAgent, "AdsBot") ||
+		strings.Contains(userAgent, "Mediapartners") ||
+		strings.Contains(userAgent, "ia_archiver")
 }

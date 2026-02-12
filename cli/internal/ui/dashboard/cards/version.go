@@ -18,8 +18,11 @@ type versionEntry struct {
 }
 
 type VersionCard struct {
-	detector version.InlineVersionDetector
-	versions map[string]int
+	detector      version.InlineVersionDetector
+	versions      map[string]int
+	sorted        []versionEntry
+	selectMode     bool
+	selectedIndex int
 }
 
 const maxVersions = 35 // Maximum number of versions to display
@@ -31,7 +34,7 @@ func NewVersionCard(logs []nginx.NGINXLog, period period.Period) *VersionCard {
 }
 
 func (p *VersionCard) RenderContent(width, height int) string {
-	if len(p.versions) == 0 {
+	if len(p.sorted) == 0 {
 		faintStyle := lipgloss.NewStyle().
 			Foreground(styles.LightGray).
 			Bold(true)
@@ -57,46 +60,40 @@ func (p *VersionCard) RenderContent(width, height int) string {
 		return strings.Join(lines[:height], "\n")
 	}
 
-	// Convert map to slice and sort by count (descending)
-	var sortedVersions []versionEntry
-	for name, count := range p.versions {
-		sortedVersions = append(sortedVersions, versionEntry{name: name, count: count})
-	}
-
-	sort.Slice(sortedVersions, func(i, j int) bool {
-		if sortedVersions[i].count != sortedVersions[j].count {
-			return sortedVersions[i].count > sortedVersions[j].count
-		}
-		// Tie-breaker: version name
-		return sortedVersions[i].name < sortedVersions[j].name
-	})
+	versions := p.sorted
 
 	// Find max count for scaling bars
-	maxCount := sortedVersions[0].count
-
-	var versions []versionEntry
-	if len(sortedVersions) > maxVersions {
-		// Limit to maxVersions if more than allowed
-		versions = sortedVersions[:maxVersions]
-	} else {
-		versions = sortedVersions
-	}
+	maxCount := versions[0].count
 
 	normalTextStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")) // White/default text
 
-	// Define bar style (using purple for versions)
 	barStyle := lipgloss.NewStyle().
-		Background(styles.Green).  // Purple background
-		Foreground(styles.Black)    // Black text
+		Background(styles.Green).
+		Foreground(styles.Black)
 
-	var lines []string
+	selectedBarStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("15")).
+		Foreground(styles.Black).
+		Bold(true)
+
+	selectedTextStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).
+		Bold(true)
+
+	var buf strings.Builder
 
 	// Render each version as a horizontal bar with overlaid text
 	for i, ver := range versions {
 		if i >= height {
 			break // Don't exceed available height
 		}
+
+		if i > 0 {
+			buf.WriteByte('\n')
+		}
+
+		isSelected := p.selectMode && i == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -108,7 +105,12 @@ func (p *VersionCard) RenderContent(width, height int) string {
 		}
 
 		// Create the text to overlay: "count version_name"
-		overlayText := fmt.Sprintf("%d %s", ver.count, ver.name)
+		var overlayText string
+		if isSelected {
+			overlayText = fmt.Sprintf("> %d %s", ver.count, ver.name)
+		} else {
+			overlayText = fmt.Sprintf("%d %s", ver.count, ver.name)
+		}
 
 		// Truncate overlay text if it's longer than the card width
 		if len(overlayText) > width {
@@ -119,45 +121,59 @@ func (p *VersionCard) RenderContent(width, height int) string {
 			}
 		}
 
-		// Build the line using lipgloss styles
-		var lineParts []string
+		currentBarStyle := barStyle
+		textStyle := normalTextStyle
+		if isSelected {
+			currentBarStyle = selectedBarStyle
+			textStyle = selectedTextStyle
+		}
 
 		for j := range width {
 			if j < len(overlayText) {
-				// Text character position
-				char := string(overlayText[j])
-				if j < barLength {
-					// Text over purple bar - use bar style
-					lineParts = append(lineParts, barStyle.Render(char))
+				char := overlayText[j : j+1]
+				if j < barLength || isSelected {
+					buf.WriteString(currentBarStyle.Render(char))
 				} else {
-					// Text over empty space - use normal text style
-					lineParts = append(lineParts, normalTextStyle.Render(char))
+					buf.WriteString(textStyle.Render(char))
 				}
 			} else {
-				// No text character at this position
-				if j < barLength {
-					// Purple bar space
-					lineParts = append(lineParts, barStyle.Render(" "))
+				if j < barLength || isSelected {
+					buf.WriteString(currentBarStyle.Render(" "))
 				} else {
-					// Empty space
-					lineParts = append(lineParts, " ")
+					buf.WriteByte(' ')
 				}
 			}
 		}
-
-		lines = append(lines, strings.Join(lineParts, ""))
 	}
 
 	// Fill remaining height with empty lines
-	for len(lines) < height {
-		lines = append(lines, "")
+	for i := min(len(versions), height); i < height; i++ {
+		buf.WriteByte('\n')
 	}
 
-	return strings.Join(lines[:height], "\n")
+	return buf.String()
 }
 
 func (c *VersionCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
 	c.versions = c.getVersions(logs)
+	c.sorted = c.sortVersions()
+}
+
+func (c *VersionCard) sortVersions() []versionEntry {
+	sorted := make([]versionEntry, 0, len(c.versions))
+	for name, count := range c.versions {
+		sorted = append(sorted, versionEntry{name: name, count: count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].count != sorted[j].count {
+			return sorted[i].count > sorted[j].count
+		}
+		return sorted[i].name < sorted[j].name
+	})
+	if len(sorted) > maxVersions {
+		sorted = sorted[:maxVersions]
+	}
+	return sorted
 }
 
 func (c *VersionCard) getVersions(logs []nginx.NGINXLog) map[string]int {
@@ -172,10 +188,69 @@ func (c *VersionCard) getVersions(logs []nginx.NGINXLog) map[string]int {
 }
 
 func (c *VersionCard) GetRequiredHeight(width int) int {
-	if len(c.versions) == 0 {
+	if len(c.sorted) == 0 {
 		return 3 // Minimum height for "No versions found" message
 	}
 
 	// Each version needs one line
-	return min(len(c.versions), maxVersions)
+	return len(c.sorted)
+}
+
+// SelectableCard interface implementation
+
+func (c *VersionCard) EnterSelectMode() {
+	c.selectMode = true
+	c.selectedIndex = 0
+}
+
+func (c *VersionCard) ExitSelectMode() {
+	c.selectMode = false
+}
+
+func (c *VersionCard) IsInSelectMode() bool {
+	return c.selectMode
+}
+
+func (c *VersionCard) SelectUp() {
+	if c.selectedIndex > 0 {
+		c.selectedIndex--
+	}
+}
+
+func (c *VersionCard) SelectDown() {
+	if c.selectedIndex < len(c.sorted)-1 {
+		c.selectedIndex++
+	}
+}
+
+func (c *VersionCard) SelectLeft() {
+	// No-op for version card - uses up/down navigation
+}
+
+func (c *VersionCard) SelectRight() {
+	// No-op for version card - uses up/down navigation
+}
+
+func (c *VersionCard) HasSelection() bool {
+	_, ok := selectedItem(c.selectMode, c.selectedIndex, c.sorted)
+	return ok
+}
+
+func (c *VersionCard) ClearSelection() {
+	c.selectedIndex = 0
+	c.selectMode = false
+}
+
+// GetSelectedVersion returns the currently selected version filter
+func (c *VersionCard) GetSelectedVersion() *VersionFilter {
+	ver, ok := selectedItem(c.selectMode, c.selectedIndex, c.sorted)
+	if !ok {
+		return nil
+	}
+	return &VersionFilter{Version: ver.name}
+}
+
+// GetVersionLookup returns the version lookup function for filtering
+func (c *VersionCard) GetVersionLookup() func(string) string {
+	return c.detector.GetVersion
 }

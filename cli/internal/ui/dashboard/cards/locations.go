@@ -97,15 +97,18 @@ func (r *LocationsCard) getMaxCount(locations []loc.Location) int {
 
 func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeight, width int) []string {
 	barStyle := lipgloss.NewStyle().Foreground(styles.Green)
+	selectedBarStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
 	lines := make([]string, chartHeight)
 
 	// Build chart from top to bottom
 	for row := range chartHeight {
-		line := ""
+		var buf strings.Builder
 		for i, loc := range locations {
 			if i > 0 {
-				line += " " // Space between bars
+				buf.WriteByte(' ') // Space between bars
 			}
+
+			isSelected := r.selectMode && i == r.selectedIndex
 
 			// Calculate the target height for this bar (in eighths)
 			targetHeightFloat := float64(loc.Count) / float64(maxCount) * float64(chartHeight) * 8
@@ -127,16 +130,23 @@ func (r *LocationsCard) buildChart(locations []loc.Location, maxCount, chartHeig
 				char = "  " // Two spaces
 			}
 
-			line += char
+			if isSelected {
+				buf.WriteString(selectedBarStyle.Render(char))
+			} else {
+				buf.WriteString(barStyle.Render(char))
+			}
 		}
-		lines[row] = barStyle.Render(line)
+		lines[row] = buf.String()
 	}
 
 	return lines
 }
 
 func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
-	labelLine := ""
+	normalStyle := lipgloss.NewStyle()
+	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
+
+	var buf strings.Builder
 	for i, l := range locations {
 		var displayStr string
 		if len(l.Location) >= 2 {
@@ -147,13 +157,19 @@ func (r *LocationsCard) buildLabelLine(locations []loc.Location) string {
 			displayStr = "??"
 		}
 
-		labelLine += displayStr
+		isSelected := r.selectMode && i == r.selectedIndex
 
-		if i < len(locations)-1 {
-			labelLine += " "
+		if i > 0 {
+			buf.WriteByte(' ')
+		}
+
+		if isSelected {
+			buf.WriteString(selectedStyle.Render(displayStr))
+		} else {
+			buf.WriteString(normalStyle.Render(displayStr))
 		}
 	}
-	return labelLine
+	return buf.String()
 }
 
 func (r *LocationsCard) addCountOverlay(line string, totalLocations, width int) string {
@@ -198,4 +214,66 @@ func (r *LocationsCard) padToHeight(lines []string, targetHeight int) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// SelectableCard interface implementation
+
+func (r *LocationsCard) EnterSelectMode() {
+	r.selectMode = true
+	r.selectedIndex = 0
+}
+
+func (r *LocationsCard) ExitSelectMode() {
+	r.selectMode = false
+}
+
+func (r *LocationsCard) IsInSelectMode() bool {
+	return r.selectMode
+}
+
+func (r *LocationsCard) SelectUp() {
+	// No-op for locations card - use left/right instead
+}
+
+func (r *LocationsCard) SelectDown() {
+	// No-op for locations card - use left/right instead
+}
+
+func (r *LocationsCard) SelectLeft() {
+	// Navigate left through horizontal location bars
+	if r.selectedIndex > 0 {
+		r.selectedIndex--
+	}
+}
+
+func (r *LocationsCard) SelectRight() {
+	// Navigate right through horizontal location bars
+	maxIndex := len(r.locations.Locations) - 1
+	if r.selectedIndex < maxIndex {
+		r.selectedIndex++
+	}
+}
+
+func (r *LocationsCard) HasSelection() bool {
+	_, ok := selectedItem(r.selectMode, r.selectedIndex, r.locations.Locations)
+	return ok
+}
+
+func (r *LocationsCard) ClearSelection() {
+	r.selectedIndex = 0
+	r.selectMode = false
+}
+
+// GetSelectedLocation returns the currently selected location filter
+func (r *LocationsCard) GetSelectedLocation() *LocationFilter {
+	l, ok := selectedItem(r.selectMode, r.selectedIndex, r.locations.Locations)
+	if !ok {
+		return nil
+	}
+	return &LocationFilter{Location: l.Location}
+}
+
+// GetLocationLookup returns the location lookup function for filtering
+func (r *LocationsCard) GetLocationLookup() func(string) string {
+	return r.locations.GetLocationForIP
 }

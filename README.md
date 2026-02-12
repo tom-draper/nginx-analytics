@@ -1,11 +1,11 @@
 # NGINX Analytics
 
-A modern, flexible and privacy-focused analytics solution for NGINX.
+Transform your existing NGINX logs into an interactive real-time analytics dashboard.
 
 ![NGINX Analytics](https://github.com/user-attachments/assets/b0fc1334-22e0-4d2c-9219-29d69a86a679)
 
 <p align="center">
-  <a href="https://nginx.apianalytics.dev/dashboard/demo">Demo</a>
+  <a href="https://nginx.apianalytics.dev/dashboard/demo">Try the demo</a>
 </p>
 
 ## Getting Started

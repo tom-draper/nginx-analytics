@@ -42,6 +42,11 @@ func LogRange(logs []nginx.NGINXLog) (time.Time, time.Time) {
 	start := logs[0].Timestamp
 	end := logs[len(logs)-1].Timestamp
 
+	// Check for nil pointers before dereferencing
+	if start == nil || end == nil {
+		return time.Time{}, time.Time{}
+	}
+
 	return *start, *end
 }
 
@@ -51,6 +56,11 @@ func LogRangeDuration(logs []nginx.NGINXLog) time.Duration {
 	}
 	start := logs[0].Timestamp
 	end := logs[len(logs)-1].Timestamp
+
+	// Check for nil pointers before dereferencing
+	if start == nil || end == nil {
+		return 0
+	}
 
 	return end.Sub(*start)
 }

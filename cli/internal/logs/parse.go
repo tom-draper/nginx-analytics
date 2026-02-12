@@ -9,14 +9,27 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
 )
 
-func ParseNginxLogs(logs []string) []nginx.NGINXLog {
-	// Regex pattern for common nginx access log format
-	regex := regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]+)" "([^"]+)"`)
+// Pre-compiled regex patterns for better performance
+var (
+	nginxLogRegex       = regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]+)" "([^"]+)"`)
+	dateColonRegex      = regexp.MustCompile(`^([^:]+):`)
+	monthRegex          = regexp.MustCompile(`([A-Za-z]{3})`)
+	timestampPattern    = regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})`)
+	levelPattern        = regexp.MustCompile(`\[(debug|info|notice|warn|error|crit|alert|emerg)\]`)
+	pidPattern          = regexp.MustCompile(`(\d+)#(\d+)`)
+	cidPattern          = regexp.MustCompile(`\*(\d+)`)
+	clientPattern       = regexp.MustCompile(`client: (\d+\.\d+\.\d+\.\d+)`)
+	serverPattern       = regexp.MustCompile(`server: (\S+)`)
+	requestPattern      = regexp.MustCompile(`request: "([^"]+)"`)
+	referrerPattern     = regexp.MustCompile(`referrer: "([^"]+)"`)
+	hostPattern         = regexp.MustCompile(`host: "([^"]+)"`)
+)
 
+func ParseNginxLogs(logs []string) []nginx.NGINXLog {
 	var data []nginx.NGINXLog
 
 	for _, row := range logs {
-		matches := regex.FindStringSubmatch(row)
+		matches := nginxLogRegex.FindStringSubmatch(row)
 
 		if len(matches) >= 10 {
 			logData := nginx.NGINXLog{
@@ -43,10 +56,9 @@ func parseDate(dateStr string) *time.Time {
 	}
 
 	// Replace first colon with space and capitalize month abbreviation
-	dateStr = regexp.MustCompile(`^([^:]+):`).ReplaceAllString(dateStr, "$1 ")
+	dateStr = dateColonRegex.ReplaceAllString(dateStr, "$1 ")
 
 	// Capitalize month abbreviation
-	monthRegex := regexp.MustCompile(`([A-Za-z]{3})`)
 	dateStr = monthRegex.ReplaceAllStringFunc(dateStr, func(match string) string {
 		return strings.ToUpper(match[:1]) + strings.ToLower(match[1:])
 	})
@@ -79,17 +91,6 @@ func parseIntPtr(s string) *int {
 
 func ParseNginxErrors(logLines []string) []nginx.NGINXError {
 	var errors []nginx.NGINXError
-
-	// Compile regex patterns once
-	timestampPattern := regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})`)
-	levelPattern := regexp.MustCompile(`\[(debug|info|notice|warn|error|crit|alert|emerg)\]`)
-	pidPattern := regexp.MustCompile(`(\d+)#(\d+)`)
-	cidPattern := regexp.MustCompile(`\*(\d+)`)
-	clientPattern := regexp.MustCompile(`client: (\d+\.\d+\.\d+\.\d+)`)
-	serverPattern := regexp.MustCompile(`server: (\S+)`)
-	requestPattern := regexp.MustCompile(`request: "([^"]+)"`)
-	referrerPattern := regexp.MustCompile(`referrer: "([^"]+)"`)
-	hostPattern := regexp.MustCompile(`host: "([^"]+)"`)
 
 	for _, line := range logLines {
 		line = strings.TrimSpace(line)

@@ -1,15 +1,24 @@
 package location
 
 import (
-	"fmt"
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/location"
 	loc "github.com/tom-draper/nginx-analytics/agent/pkg/location"
 	"github.com/tom-draper/nginx-analytics/cli/internal/logs/nginx"
+)
+
+var (
+	// HTTP client with timeout for location fetching
+	locationClient = &http.Client{
+		Timeout: 10 * time.Second,
+	}
 )
 
 type Location struct {
@@ -86,7 +95,7 @@ func (l *Locations) maintainCache(logs []nginx.NGINXLog, serverURL string, authT
 func fetchLocations(serverURL string, ipAddresses []string, authToken string) ([]location.Location, error) {
 	reqBody, err := json.Marshal(ipAddresses)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal IP addresses: %w", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, serverURL+"/api/location", bytes.NewReader(reqBody))
@@ -100,17 +109,26 @@ func fetchLocations(serverURL string, ipAddresses []string, authToken string) ([
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := locationClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch locations: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, resp.Status)
 	}
 
 	var locations []location.Location
-	err = json.NewDecoder(resp.Body).Decode(&locations)
-	return locations, err
+	if err := json.NewDecoder(resp.Body).Decode(&locations); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return locations, nil
 }
 
 func (l *Locations) updateCache(locations []loc.Location, ipAddresses []string) {
@@ -150,4 +168,15 @@ func filterCached(ipAddresses []string, cache map[string]loc.Location) []string 
 	}
 
 	return filtered
+}
+
+// GetLocationForIP returns the country for a given IP address
+func (l *Locations) GetLocationForIP(ip string) string {
+	if l.cache == nil {
+		return ""
+	}
+	if location, ok := l.cache[ip]; ok {
+		return location.Country
+	}
+	return ""
 }

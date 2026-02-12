@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +23,24 @@ import (
 	"github.com/tom-draper/nginx-analytics/cli/internal/ui/dashboard/cards"
 )
 
+var (
+	// HTTP client with timeout configured
+	httpClient = &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        10,
+			IdleConnTimeout:     30 * time.Second,
+			DisableCompression:  false,
+			DisableKeepAlives:   false,
+		},
+	}
+
+	// Retry configuration
+	maxRetries     = 3
+	retryDelay     = 1 * time.Second
+	retryBackoff   = 2.0 // Exponential backoff multiplier
+)
+
 type LogService struct {
 	serverURL string
 	authToken string
@@ -36,7 +55,10 @@ func NewLogService(serverURL string, authToken string) *LogService {
 
 // LoadLogs loads and parses nginx logs from either local file or remote server
 func (ls *LogService) LoadLogs(accessPath string, positions []parse.Position, isErrorLog bool, includeCompressed bool) ([]nginx.NGINXLog, []parse.Position, error) {
-	result := ls.getLogs(accessPath, positions, isErrorLog, includeCompressed)
+	result, err := ls.getLogs(accessPath, positions, isErrorLog, includeCompressed)
+	if err != nil {
+		return nil, positions, fmt.Errorf("failed to load logs: %w", err)
+	}
 	return l.ParseNginxLogs(result.Logs), result.Positions, nil
 }
 
@@ -52,7 +74,7 @@ func (ls *LogService) FilterLogsByPeriod(logs []nginx.NGINXLog, period period.Pe
 	return l.FilterLogs(logs, period)
 }
 
-func (ls *LogService) getLogs(accessPath string, positions []parse.Position, isErrorLog bool, includeCompressed bool) parse.LogResult {
+func (ls *LogService) getLogs(accessPath string, positions []parse.Position, isErrorLog bool, includeCompressed bool) (parse.LogResult, error) {
 	var logs parse.LogResult
 	var err error
 
@@ -64,9 +86,10 @@ func (ls *LogService) getLogs(accessPath string, positions []parse.Position, isE
 
 	if err != nil {
 		logger.Log.Printf("Error getting logs: %v", err)
+		return parse.LogResult{}, fmt.Errorf("failed to retrieve logs: %w", err)
 	}
 
-	return logs
+	return logs, nil
 }
 
 func (ls *LogService) readLogs(path string, positions []parse.Position, isErrorLog bool, includeCompressed bool) (parse.LogResult, error) {
@@ -153,12 +176,57 @@ func (ls *LogService) httpGetAndReadBody(url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body from %s: %w", url, err)
+// httpGetWithRetry performs an HTTP GET with retry logic and exponential backoff
+func httpGetWithRetry(client *http.Client, url string, maxRetries int, initialDelay time.Duration) ([]byte, error) {
+	var lastErr error
+	delay := initialDelay
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			logger.Log.Printf("Retry attempt %d/%d for %s after %v", attempt, maxRetries, url, delay)
+			time.Sleep(delay)
+			delay = time.Duration(float64(delay) * retryBackoff)
+		}
+
+		// Create context for this attempt only - don't defer in loop
+		ctx, cancel := context.WithTimeout(context.Background(), client.Timeout)
+
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			cancel() // Clean up context
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			cancel() // Clean up context
+			lastErr = fmt.Errorf("request failed: %w", err)
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		cancel() // Clean up context after response is read
+
+		if err != nil {
+			lastErr = fmt.Errorf("failed to read response body: %w", err)
+			continue
+		}
+
+		// Check for successful response
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return body, nil
+		}
+
+		// For 5xx errors, retry; for 4xx errors, fail immediately
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			return nil, fmt.Errorf("client error %d: %s", resp.StatusCode, string(body))
+		}
+
+		lastErr = fmt.Errorf("server error %d: %s", resp.StatusCode, string(body))
 	}
 
-	return body, nil
+	return nil, fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
 }
 
 type SystemService struct {
@@ -193,13 +261,7 @@ func (ss *SystemService) fetchSystemInfo() (system.SystemInfo, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return system.SystemInfo{}, fmt.Errorf("failed to make request to %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return system.SystemInfo{}, fmt.Errorf("failed to read response body from %s: %w", url, err)
+		return system.SystemInfo{}, fmt.Errorf("failed to fetch system info: %w", err)
 	}
 
 	var sysInfo system.SystemInfo
@@ -549,7 +611,7 @@ func (mc *MetricsCollector) CollectRequestMetrics(logs []nginx.NGINXLog) map[str
 	successfulRequests := 0
 
 	for _, log := range logs {
-		if *log.Status >= 200 && *log.Status < 400 {
+		if log.Status != nil && *log.Status >= 200 && *log.Status < 400 {
 			successfulRequests++
 		}
 	}
