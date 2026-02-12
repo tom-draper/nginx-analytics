@@ -22,6 +22,7 @@ import { SystemResources } from "@/lib/components/system-resources";
 import { generateNginxLogs } from "@/lib/demo";
 import { NginxLog } from "@/lib/types";
 import Errors from "@/lib/components/errors";
+import LiveGlobeCard from "@/lib/components/live-globe-card";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
@@ -337,21 +338,22 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                     <div className="min-[950px]:flex-1 min-w-0">
                         <Activity data={filteredData} period={currentPeriod} />
 
-                        <div className="flex max-xl:flex-col">
+                        <div className="flex max-[1500px]:flex-col">
                             <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
-                            <div className="xl:w-[27em]">
+                            <div className="min-[1500px]:w-[27em]">
                                 <Device data={filteredData} />
                             </div>
                         </div>
 
                         <SystemResources demo={demo} />
 
-                        <div className="w-inherit flex max-xl:flex-col">
-                            <div className="max-xl:!w-full flex-1 min-w-0">
+                        <div className="w-inherit flex max-[1500px]:flex-col">
+                            <div className="max-[1500px]:!w-full flex-1 min-w-0">
                                 <UsageTime data={filteredData} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
+                                <LiveGlobeCard logs={logs} locationMap={locationMap} />
                             </div>
-                            <div className="self-start">
+                            <div className="self-start order-first min-[1500px]:order-last max-[1500px]:w-full">
                                 <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                             </div>
                         </div>

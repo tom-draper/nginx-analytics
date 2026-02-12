@@ -8,9 +8,9 @@ export function Navigation({ filterPeriod, setFilterPeriod, setShowSettings, isD
     return (
         <nav className="mb-1 flex">
 
-            <div className="flex flex-grow">
+            <div className="flex flex-grow items-center gap-2 ml-3">
                 {isDemo && (
-                    <div className="hidden min-[750px]:flex border rounded-[var(--border-radius)] border-[var(--border-color)] text-[0.9em] text-[var(--text-muted3)] overflow-hidden ml-3">
+                    <div className="hidden min-[750px]:flex border rounded-[var(--border-radius)] border-[var(--border-color)] text-[0.9em] text-[var(--text-muted3)] overflow-hidden">
                         <a
                             href="https://github.com/tom-draper/nginx-analytics"
                             target="_blank"

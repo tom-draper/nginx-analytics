@@ -36,7 +36,7 @@ export const Referrals = memo(function Referrals({ data, filterReferrer, setFilt
     return (
         <>
             {referrals.length > 0 && (
-                <div className="w-[27em] max-xl:w-full" style={{ height: 'calc(100% - 1.5rem)' }}>
+                <div className="w-[27em] max-[1500px]:w-full" style={{ height: 'calc(100% - 1.5rem)' }}>
                     <div className="card flex-1 px-4 py-3 m-3 h-full">
                         <h2 className="font-semibold">
                             Referrals
