@@ -1,12 +1,14 @@
 package logs
 
 import (
+	"bufio"
 	"compress/gzip"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
@@ -84,11 +86,6 @@ func readLogFile(filePath string, position int64) (LogResult, error) {
 		return LogResult{Logs: []string{}, Positions: []Position{{Position: position}}}, nil
 	}
 
-	// Special handling for error logs with size 0
-	if fileSize == 0 && strings.Contains(filePath, "error") {
-		return readErrorLogDirectly(filePath, position)
-	}
-
 	// Open file for reading
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -97,83 +94,24 @@ func readLogFile(filePath string, position int64) (LogResult, error) {
 	defer file.Close()
 
 	// Seek to position
-	_, err = file.Seek(position, 0)
-	if err != nil {
+	if _, err = file.Seek(position, 0); err != nil {
 		return LogResult{}, err
 	}
 
-	// Read file content
 	var logs []string
-	var buffer strings.Builder
-	buf := make([]byte, 4096)
-
-	for {
-		n, err := file.Read(buf)
-		if err != nil && err != io.EOF {
-			return LogResult{}, err
-		}
-		if n == 0 {
-			break
-		}
-
-		for i := 0; i < n; i++ {
-			c := buf[i]
-			if c == '\n' {
-				// We have a complete line
-				line := buffer.String()
-				if line != "" {
-					logs = append(logs, line)
-				}
-				buffer.Reset()
-			} else {
-				buffer.WriteByte(c)
-			}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if line := scanner.Text(); line != "" {
+			logs = append(logs, line)
 		}
 	}
-
-	// Add the last line if it's not empty and doesn't end with newline
-	lastLine := buffer.String()
-	if lastLine != "" {
-		logs = append(logs, lastLine)
+	if err := scanner.Err(); err != nil {
+		return LogResult{}, err
 	}
-
-	newPosition := fileSize
 
 	return LogResult{
 		Logs:      logs,
-		Positions: []Position{{Position: newPosition}},
-	}, nil
-}
-
-func readErrorLogDirectly(filePath string, position int64) (LogResult, error) {
-	// Read file content directly
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return LogResult{}, err
-	}
-
-	// Convert to string
-	strContent := string(content)
-
-	// If position is beyond content length, nothing new to read
-	if position >= int64(len(strContent)) {
-		return LogResult{Logs: []string{}, Positions: []Position{{Position: position}}}, nil
-	}
-
-	// Get new content from position
-	newContent := strContent[position:]
-
-	// Split into lines and filter out empty lines
-	lines := []string{}
-	for line := range strings.SplitSeq(newContent, "\n") {
-		if strings.TrimSpace(line) != "" {
-			lines = append(lines, line)
-		}
-	}
-
-	return LogResult{
-		Logs:      lines,
-		Positions: []Position{{Position: int64(len(strContent))}},
+		Positions: []Position{{Position: fileSize}},
 	}, nil
 }
 
@@ -192,18 +130,15 @@ func readCompressedLogFile(filePath string) (LogResult, error) {
 	}
 	defer gzReader.Close()
 
-	// Read decompressed content
-	content, err := io.ReadAll(gzReader)
-	if err != nil {
-		return LogResult{}, err
-	}
-
-	// Split into lines and filter out empty lines
 	var logs []string
-	for _, line := range strings.Split(string(content), "\n") {
-		if strings.TrimSpace(line) != "" {
+	scanner := bufio.NewScanner(gzReader)
+	for scanner.Scan() {
+		if line := scanner.Text(); line != "" {
 			logs = append(logs, line)
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return LogResult{}, err
 	}
 
 	return LogResult{
@@ -235,13 +170,7 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 	}
 
 	// Sort log files alphabetically
-	for i := range len(logFiles) - 1 {
-		for j := i + 1; j < len(logFiles); j++ {
-			if logFiles[i] > logFiles[j] {
-				logFiles[i], logFiles[j] = logFiles[j], logFiles[i]
-			}
-		}
-	}
+	sort.Strings(logFiles)
 
 	if len(logFiles) == 0 {
 		return LogResult{Logs: []string{}}, nil
@@ -250,52 +179,65 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 	// Initialize file positions
 	filePositions := initializeFilePositions(logFiles, positions)
 
-	// Read logs from all files
-	var allLogs []string
-	var newPositions []Position
+	type fileResult struct {
+		logs     []string
+		position Position
+		hasPos   bool
+	}
 
-	for _, filePos := range filePositions {
-		fullPath := filepath.Join(dirPath, filePos.Filename)
+	// Read all files concurrently, preserving order
+	results := make([]fileResult, len(filePositions))
+	var wg sync.WaitGroup
+
+	for i, filePos := range filePositions {
 		isGzFile := strings.HasSuffix(filePos.Filename, ".gz")
-
-		// Skip gz files if not first request
 		if isGzFile && !includeCompressed {
 			continue
 		}
 
-		var result LogResult
-		var err error
+		wg.Add(1)
+		go func(idx int, fp Position) {
+			defer wg.Done()
+			fullPath := filepath.Join(dirPath, fp.Filename)
+			isGz := strings.HasSuffix(fp.Filename, ".gz")
 
-		if isGzFile {
-			result, err = readCompressedLogFile(fullPath)
-		} else {
-			result, err = readLogFile(fullPath, filePos.Position)
-		}
-
-		if err != nil {
-			logger.Log.Printf("Error reading file %s: %v", fullPath, err)
-			continue
-		}
-
-		// Add logs to result
-		if len(result.Logs) > 0 {
-			allLogs = append(allLogs, result.Logs...)
-		}
-
-		// Only track positions for .log files
-		if strings.HasSuffix(filePos.Filename, ".log") {
-			var position int64 = 0
-			if len(result.Positions) > 0 {
-				position = result.Positions[0].Position
+			var result LogResult
+			var err error
+			if isGz {
+				result, err = readCompressedLogFile(fullPath)
+			} else {
+				result, err = readLogFile(fullPath, fp.Position)
 			}
-			newPositions = append(newPositions, Position{
-				Filename: filePos.Filename,
-				Position: position,
-			})
+			if err != nil {
+				logger.Log.Printf("Error reading file %s: %v", fullPath, err)
+				return
+			}
+
+			r := fileResult{logs: result.Logs}
+			if strings.HasSuffix(fp.Filename, ".log") {
+				var pos int64
+				if len(result.Positions) > 0 {
+					pos = result.Positions[0].Position
+				}
+				r.position = Position{Filename: fp.Filename, Position: pos}
+				r.hasPos = true
+			}
+			results[idx] = r
+		}(i, filePos)
+	}
+
+	wg.Wait()
+
+	// Collect results in order
+	var allLogs []string
+	var newPositions []Position
+	for _, r := range results {
+		allLogs = append(allLogs, r.logs...)
+		if r.hasPos {
+			newPositions = append(newPositions, r.position)
 		}
 	}
 
-	// Respond with combined results
 	return LogResult{
 		Logs:      allLogs,
 		Positions: newPositions,
@@ -304,27 +246,18 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 
 // initializeFilePositions initializes positions for each log file
 func initializeFilePositions(logFiles []string, positions []Position) []Position {
-	var filePositions []Position
+	posMap := make(map[string]int64, len(positions))
+	for _, pos := range positions {
+		posMap[pos.Filename] = pos.Position
+	}
 
-	for _, filename := range logFiles {
-		// Find position for this file if it exists
-		var position int64 = 0
-		for _, pos := range positions {
-			if pos.Filename == filename {
-				position = pos.Position
-				break
-			}
-		}
-
-		// For .gz files, always use position 0
+	filePositions := make([]Position, len(logFiles))
+	for i, filename := range logFiles {
+		position := posMap[filename] // 0 if not found
 		if strings.HasSuffix(filename, ".gz") {
 			position = 0
 		}
-
-		filePositions = append(filePositions, Position{
-			Filename: filename,
-			Position: position,
-		})
+		filePositions[i] = Position{Filename: filename, Position: position}
 	}
 
 	return filePositions

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -14,8 +15,10 @@ import (
 	"github.com/tom-draper/nginx-analytics/agent/internal/config"
 	"github.com/tom-draper/nginx-analytics/agent/internal/routes"
 	"github.com/tom-draper/nginx-analytics/agent/internal/utils"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/location"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 	"github.com/tom-draper/nginx-analytics/agent/pkg/logs"
+	"github.com/tom-draper/nginx-analytics/agent/pkg/system"
 )
 
 var startTime = time.Now()
@@ -23,6 +26,10 @@ var startTime = time.Now()
 func main() {
 	cfg := config.LoadConfig()
 	logConfig(cfg)
+
+	if cfg.SystemMonitoring {
+		system.StartSampler(2 * time.Second)
+	}
 
 	// Define HTTP routes
 	setupRoute := func(path string, method string, logMessage string, handler func(http.ResponseWriter, *http.Request)) {
@@ -134,20 +141,37 @@ func main() {
 		routes.ServeSystemResources(w, r)
 	})
 
-	// Handle graceful shutdown
+	server := &http.Server{
+		Addr:         ":" + cfg.Port,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	serverErr := make(chan error, 1)
 	go func() {
 		logger.Log.Printf("Agent running on port %s...\n", cfg.Port)
-		if err := http.ListenAndServe(":"+cfg.Port, nil); err != nil {
-			log.Fatalf("Server failed: %v", err)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- err
 		}
 	}()
 
-	// Wait for an interrupt signal to gracefully shut down the server
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigchan
+
+	select {
+	case err := <-serverErr:
+		log.Fatalf("Server failed: %v", err)
+	case <-sigchan:
+	}
 
 	logger.Log.Println("Shutting down...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		logger.Log.Printf("Server shutdown error: %v", err)
+	}
+	location.Close()
 }
 
 func logConfig(cfg config.Config) {

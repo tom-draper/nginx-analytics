@@ -22,12 +22,12 @@ type Locations struct {
 	cache     map[string]loc.Location
 }
 
-func (l *Locations) UpdateLocations(logs []nginx.NGINXLog, serverURL string) {
+func (l *Locations) UpdateLocations(logs []nginx.NGINXLog, serverURL string, authToken string) {
 	if !loc.LocationsEnabled() {
 		return
 	}
 
-	l.maintainCache(logs, serverURL)
+	l.maintainCache(logs, serverURL, authToken)
 	l.updateLocations(logs)
 }
 
@@ -55,42 +55,50 @@ func (l *Locations) updateLocations(logs []nginx.NGINXLog) {
 	l.Locations = locations
 }
 
-func (l *Locations) maintainCache(logs []nginx.NGINXLog, serverURL string) {
+func (l *Locations) maintainCache(logs []nginx.NGINXLog, serverURL string, authToken string) {
 	ipAddresses := getIPAddresses(logs)
 	if len(ipAddresses) == 0 {
 		return
 	}
 
-	filterCached := filterCached(ipAddresses, l.cache)
-	if len(filterCached) == 0 {
+	uncached := filterCached(ipAddresses, l.cache)
+	if len(uncached) == 0 {
 		return
 	}
 
 	var locations []loc.Location
 	var err error
 	if serverURL != "" {
-		locations, err = fetchLocations(serverURL)
+		locations, err = fetchLocations(serverURL, uncached, authToken)
 		if err != nil {
 			return
 		}
 	} else {
-		locations, err = loc.ResolveLocations(filterCached)
+		locations, err = loc.ResolveLocations(uncached)
 		if err != nil {
 			return
 		}
 	}
-	
-	l.updateCache(locations, filterCached)
+
+	l.updateCache(locations, uncached)
 }
 
-func fetchLocations(serverURL string) ([]location.Location, error) {
-	reqBody, err := json.Marshal(filterCached)
+func fetchLocations(serverURL string, ipAddresses []string, authToken string) ([]location.Location, error) {
+	reqBody, err := json.Marshal(ipAddresses)
 	if err != nil {
 		return nil, err
 	}
 
-	url := serverURL + "/api/location"
-	resp, err := http.Post(url, "application/json", bytes.NewReader(reqBody))
+	req, err := http.NewRequest(http.MethodPost, serverURL+"/api/location", bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+authToken)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

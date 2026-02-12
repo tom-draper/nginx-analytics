@@ -15,16 +15,17 @@ import (
 type LocationsCard struct {
 	locations loc.Locations
 	serverURL string
+	authToken string
 }
 
-func NewLocationsCard(logs []nginx.NGINXLog, period period.Period, serverURL string) *LocationsCard {
-	card := &LocationsCard{serverURL: serverURL}
+func NewLocationsCard(logs []nginx.NGINXLog, period period.Period, serverURL string, authToken string) *LocationsCard {
+	card := &LocationsCard{serverURL: serverURL, authToken: authToken}
 	card.UpdateCalculated(logs, period)
 	return card
 }
 
 func (r *LocationsCard) UpdateCalculated(logs []nginx.NGINXLog, period period.Period) {
-	r.locations.UpdateLocations(logs, r.serverURL)
+	r.locations.UpdateLocations(logs, r.serverURL, r.authToken)
 }
 
 func (r *LocationsCard) RenderContent(width, height int) string {

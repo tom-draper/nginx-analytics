@@ -36,6 +36,7 @@ type Model struct {
 // DataManager handles all data operations
 type DataManager struct {
 	serverURL    string
+	authToken    string
 	logs         []nginx.NGINXLog
 	logSizes     parse.LogSizes
 	currentLogs  []nginx.NGINXLog
@@ -70,13 +71,13 @@ type UpdateLogsMsg struct {
 }
 
 // New creates a new Model instance
-func New(cfg config.Config, serverURL string) Model {
-	return NewModel(cfg, serverURL)
+func New(cfg config.Config, serverURL string, authToken string) Model {
+	return NewModel(cfg, serverURL, authToken)
 }
 
-func NewModel(cfg config.Config, serverURL string) Model {
+func NewModel(cfg config.Config, serverURL string, authToken string) Model {
 	// Initialize data manager
-	dataManager := newDataManager(cfg, serverURL)
+	dataManager := newDataManager(cfg, serverURL, authToken)
 
 	// Initialize navigation manager
 	navManager := newNavigationManager(dataManager.logs)
@@ -85,7 +86,7 @@ func NewModel(cfg config.Config, serverURL string) Model {
 	currentLogs := dataManager.getCurrentLogs(navManager.getCurrentPeriod())
 
 	// Initialize UI manager
-	uiManager := newUIManager(currentLogs, navManager.getCurrentPeriod(), dataManager.getLogSizes(), serverURL)
+	uiManager := newUIManager(currentLogs, navManager.getCurrentPeriod(), dataManager.getLogSizes(), serverURL, authToken)
 
 	// Collect calculatable cards
 	dataManager.collectCalculatableCards(uiManager.getCards())
@@ -99,8 +100,8 @@ func NewModel(cfg config.Config, serverURL string) Model {
 	}
 }
 
-func newDataManager(cfg config.Config, serverURL string) *DataManager {
-	logService := NewLogService(serverURL)
+func newDataManager(cfg config.Config, serverURL string, authToken string) *DataManager {
+	logService := NewLogService(serverURL, authToken)
 
 	// Load initial logs
 	logs, positions, err := logService.LoadLogs(cfg.AccessPath, []parse.Position{}, false, true)
@@ -115,6 +116,7 @@ func newDataManager(cfg config.Config, serverURL string) *DataManager {
 
 	return &DataManager{
 		serverURL: serverURL,
+		authToken: authToken,
 		logs:      logs,
 		logSizes:  logSizes,
 		positions: positions,
@@ -142,10 +144,10 @@ func newNavigationManager(logs []nginx.NGINXLog) *NavigationManager {
 
 // newUIManager creates a new UIManager
 func newUIManager(currentLogs []nginx.NGINXLog, period period.Period,
-	logSizes parse.LogSizes, serverURL string) *UIManager {
+	logSizes parse.LogSizes, serverURL string, authToken string) *UIManager {
 
 	cardFactory := NewCardFactory()
-	cardInstances := cardFactory.CreateCards(currentLogs, period, logSizes, serverURL)
+	cardInstances := cardFactory.CreateCards(currentLogs, period, logSizes, serverURL, authToken)
 
 	gridFactory := NewGridFactory()
 	grid := gridFactory.SetupGrid(cardInstances)
@@ -332,8 +334,8 @@ func (um *UIManager) navigateDown() {
 
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
-		periodicSystemInfoCmd(0, m.dataManager.serverURL),
-		periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.getPositions()),
+		periodicSystemInfoCmd(0, m.dataManager.serverURL, m.dataManager.authToken),
+		periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.authToken, m.dataManager.getPositions()),
 	)
 }
 
@@ -342,7 +344,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case UpdateSystemDataMsg:
 		m.dataManager.updateSystemCardData(msg.SysInfo)
-		return m, periodicSystemInfoCmd(time.Second*2, m.dataManager.serverURL)
+		return m, periodicSystemInfoCmd(time.Second*2, m.dataManager.serverURL, m.dataManager.authToken)
 
 	case UpdateLogsMsg:
 		// Append new logs to existing logs
@@ -351,7 +353,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update current data to reflect new logs
 		m.updateCurrentData()
 		// Schedule next log refresh
-		return m, periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.getPositions())
+		return m, periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.authToken, m.dataManager.getPositions())
 
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
@@ -529,9 +531,9 @@ func calculateInitialPeriod(periods []period.Period, logs []nginx.NGINXLog) int 
 	return selectedPeriod
 }
 
-func periodicSystemInfoCmd(d time.Duration, serverURL string) tea.Cmd {
+func periodicSystemInfoCmd(d time.Duration, serverURL string, authToken string) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg {
-		systemService := NewSystemService(serverURL)
+		systemService := NewSystemService(serverURL, authToken)
 		sysInfo, err := systemService.GetSystemInfo()
 		if err != nil {
 			return nil
@@ -541,9 +543,9 @@ func periodicSystemInfoCmd(d time.Duration, serverURL string) tea.Cmd {
 }
 
 // periodicLogRefreshCmd creates a command that periodically fetches new logs
-func periodicLogRefreshCmd(d time.Duration, accessPath, serverURL string, positions []parse.Position) tea.Cmd {
+func periodicLogRefreshCmd(d time.Duration, accessPath, serverURL string, authToken string, positions []parse.Position) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg {
-		logService := NewLogService(serverURL)
+		logService := NewLogService(serverURL, authToken)
 
 		// Load new logs starting from the last position
 		// You'll need to modify LoadLogsFromPosition to accept a position parameter

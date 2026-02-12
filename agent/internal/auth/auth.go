@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"strings"
 )
@@ -20,5 +21,5 @@ func IsAuthenticated(r *http.Request, authToken string) bool {
 	}
 
 	providedAuthToken := strings.TrimPrefix(authHeader, "Bearer ")
-	return providedAuthToken == authToken
+	return subtle.ConstantTimeCompare([]byte(providedAuthToken), []byte(authToken)) == 1
 }

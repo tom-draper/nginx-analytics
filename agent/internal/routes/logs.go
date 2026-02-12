@@ -81,6 +81,7 @@ func respondWithJSON(w http.ResponseWriter, data interface{}) {
 func respondWithError(w http.ResponseWriter, message string, status int) {
 	errorResp := map[string]string{"error": message}
 	jsonData, _ := json.Marshal(errorResp)
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	w.Write(jsonData)
 }

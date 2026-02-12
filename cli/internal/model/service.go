@@ -24,11 +24,13 @@ import (
 
 type LogService struct {
 	serverURL string
+	authToken string
 }
 
-func NewLogService(serverURL string) *LogService {
+func NewLogService(serverURL string, authToken string) *LogService {
 	return &LogService{
 		serverURL: serverURL,
+		authToken: authToken,
 	}
 }
 
@@ -137,7 +139,15 @@ func (ls *LogService) positionsToJSON(positions []parse.Position) (string, error
 }
 
 func (ls *LogService) httpGetAndReadBody(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for %s: %w", url, err)
+	}
+	if ls.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+ls.authToken)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request to %s: %w", url, err)
 	}
@@ -153,11 +163,13 @@ func (ls *LogService) httpGetAndReadBody(url string) ([]byte, error) {
 
 type SystemService struct {
 	serverURL string
+	authToken string
 }
 
-func NewSystemService(serverURL string) *SystemService {
+func NewSystemService(serverURL string, authToken string) *SystemService {
 	return &SystemService{
 		serverURL: serverURL,
+		authToken: authToken,
 	}
 }
 
@@ -171,7 +183,15 @@ func (ss *SystemService) GetSystemInfo() (system.SystemInfo, error) {
 func (ss *SystemService) fetchSystemInfo() (system.SystemInfo, error) {
 	url := ss.serverURL + "/api/system"
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return system.SystemInfo{}, fmt.Errorf("failed to create request for %s: %w", url, err)
+	}
+	if ss.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+ss.authToken)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return system.SystemInfo{}, fmt.Errorf("failed to make request to %s: %w", url, err)
 	}
@@ -199,14 +219,14 @@ func NewCardFactory() *CardFactory {
 }
 
 // CreateCards creates all dashboard cards with the given data
-func (cf *CardFactory) CreateCards(currentLogs []nginx.NGINXLog, p period.Period, logSizes parse.LogSizes, serverURL string) map[string]*cards.Card {
+func (cf *CardFactory) CreateCards(currentLogs []nginx.NGINXLog, p period.Period, logSizes parse.LogSizes, serverURL string, authToken string) map[string]*cards.Card {
 	// Create specific card instances
 	successRateCard := cards.NewSuccessRateCard(currentLogs, p)
 	requestsCard := cards.NewRequestsCard(currentLogs, p)
 	usersCard := cards.NewUsersCard(currentLogs, p)
 	endpointsCard := cards.NewEndpointsCard(currentLogs, p)
 	versionsCard := cards.NewVersionCard(currentLogs, p)
-	locationsCard := cards.NewLocationsCard(currentLogs, p, serverURL)
+	locationsCard := cards.NewLocationsCard(currentLogs, p, serverURL, authToken)
 	devicesCard := cards.NewDeviceCard(currentLogs, p)
 	activitiesCard := cards.NewActivityCard(currentLogs, p)
 	cpusCard := cards.NewCPUCard()
@@ -417,6 +437,7 @@ func (dc *DataCache) ClearCache() {
 type ModelBuilder struct {
 	config       *config.Config
 	serverURL    string
+	authToken    string
 	cache        *DataCache
 	validator    *ConfigValidator
 	errorHandler *ErrorHandler
@@ -443,6 +464,12 @@ func (mb *ModelBuilder) WithServerURL(serverURL string) *ModelBuilder {
 	return mb
 }
 
+// WithAuthToken sets the auth token
+func (mb *ModelBuilder) WithAuthToken(authToken string) *ModelBuilder {
+	mb.authToken = authToken
+	return mb
+}
+
 // Build creates and returns a new Model instance
 func (mb *ModelBuilder) Build() (*Model, error) {
 	if mb.config == nil {
@@ -459,7 +486,7 @@ func (mb *ModelBuilder) Build() (*Model, error) {
 	}
 
 	// Create the model
-	model := NewModel(*mb.config, mb.serverURL)
+	model := NewModel(*mb.config, mb.serverURL, mb.authToken)
 
 	return &model, nil
 }

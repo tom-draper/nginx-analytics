@@ -14,6 +14,7 @@ func ServeLocations(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure request body is closed after reading
 	defer r.Body.Close()
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB limit
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {

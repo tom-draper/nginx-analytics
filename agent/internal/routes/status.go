@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+
 type Status struct {
 	Status           string `json:"status"`
 	Uptime           string `json:"uptime"`
@@ -40,9 +41,11 @@ func ServeServerStatus(w http.ResponseWriter, nginxAccessPath string, nginxError
 	}
 
 	// Send status as JSON response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(status); err != nil {
+	data, err := json.Marshal(status)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }
