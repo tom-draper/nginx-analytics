@@ -50,18 +50,6 @@ function latLonToVec3(lat: number, lon: number, radius: number): Vector3 {
     );
 }
 
-function isInPolygon(point: number[], polygon: number[][]): boolean {
-    let inside = false;
-    const [x, y] = point;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const [xi, yi] = polygon[i];
-        const [xj, yj] = polygon[j];
-        if (((yi > y) !== (yj > y)) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
-            inside = !inside;
-        }
-    }
-    return inside;
-}
 
 interface Props {
     events: LiveEvent[];
@@ -126,25 +114,9 @@ export default function LiveGlobe({ events }: Props) {
 
         // ── Land dots ────────────────────────────────────────────────────────
         const landPositions: number[] = [];
-        landPoints.forEach((continent: number[][]) => {
-            let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-            continent.forEach((p: number[]) => {
-                if (p[0] < minLat) minLat = p[0]; if (p[0] > maxLat) maxLat = p[0];
-                if (p[1] < minLon) minLon = p[1]; if (p[1] > maxLon) maxLon = p[1];
-            });
-            const step = Math.max(maxLon - minLon, maxLat - minLat) / 50;
-            for (let lat = minLat; lat <= maxLat; lat += step) {
-                for (let lon = minLon; lon <= maxLon; lon += step) {
-                    if (isInPolygon([lat, lon], continent)) {
-                        const v = latLonToVec3(lat, lon, globeRadius);
-                        landPositions.push(v.x, v.y, v.z);
-                    }
-                }
-            }
-            continent.forEach((p: number[]) => {
-                const v = latLonToVec3(p[0], p[1], globeRadius);
-                landPositions.push(v.x, v.y, v.z);
-            });
+        landPoints.forEach(([lat, lon]) => {
+            const v = latLonToVec3(lat, lon, globeRadius);
+            landPositions.push(v.x, v.y, v.z);
         });
 
         const landGeo = new BufferGeometry();
