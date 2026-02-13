@@ -10,9 +10,8 @@ import Users from "@/lib/components/users";
 import { Version, getVersion } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import type { WorkerResult } from '@/lib/analytics.worker';
-import type { ParseWorkerResult } from '@/lib/parse.worker';
+import { parseNginxLogs } from "@/lib/parse";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -28,10 +27,36 @@ import LiveGlobeCard from "@/lib/components/live-globe-card";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
+import { getClient, getOS, getDevice } from "@/lib/get-device-info";
 import dynamic from "next/dynamic";
 
 const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
 const FileUpload = dynamic(() => import("./file-upload"));
+
+const EMPTY_MAP = new Map<string, LocationType>();
+const PARSE_CHUNK_SIZE = 5000;
+
+// Comparator: sort NginxLog entries ascending by timestamp (nulls sort to the end)
+const compareByTimestamp = (a: NginxLog, b: NginxLog): number => {
+    if (a.timestamp === null) return 1;
+    if (b.timestamp === null) return -1;
+    return a.timestamp - b.timestamp; // both numbers
+};
+
+// Binary search: returns the first index in (sorted) logs whose timestamp >= targetMs
+function lowerBound(logs: NginxLog[], targetMs: number): number {
+    let lo = 0, hi = logs.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        const t = logs[mid].timestamp;
+        if (t !== null && t < targetMs) { // timestamp is now a number
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    return lo;
+}
 
 export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload: boolean, demo: boolean, logFormat?: string }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
@@ -93,67 +118,66 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         startTransition(() => setFilter((previous) => ({ ...previous, dayOfWeek })))
     }, [])
 
-    // Worker refs and result state
-    const workerRef = useRef<Worker | null>(null);
-    const workerSeqRef = useRef(0);
-    const workerRawCountRef = useRef(0);
-    const computeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const parseWorkerRef = useRef<Worker | null>(null);
-    const [workerResult, setWorkerResult] = useState<WorkerResult | null>(null);
+    const parsedAccessCount = useRef(0);
+    const parseCancelRef = useRef(false);
 
-    // Create workers once on mount
     useEffect(() => {
-        const worker = new Worker(new URL('../analytics.worker.ts', import.meta.url));
-        workerRef.current = worker;
-        worker.onmessage = (e: MessageEvent<WorkerResult>) => {
-            if (e.data.seq === workerSeqRef.current) {
-                setWorkerResult(e.data);
-            }
-        };
+        if (accessLogs.length <= parsedAccessCount.current) return;
 
-        const parseWorker = new Worker(new URL('../parse.worker.ts', import.meta.url));
-        parseWorkerRef.current = parseWorker;
-        parseWorker.onmessage = (e: MessageEvent<ParseWorkerResult>) => {
-            const { logs: newLogs, maxTimestamp, isFirstBatch } = e.data;
-            if (newLogs.length === 0) return;
-            if (isFirstBatch && maxTimestamp !== null) {
-                const maxDate = new Date(maxTimestamp);
+        const newRawLogs = accessLogs.slice(parsedAccessCount.current);
+        const isFirstBatch = parsedAccessCount.current === 0;
+        parsedAccessCount.current = accessLogs.length;
+
+        const initPeriod = (parsed: ReturnType<typeof parseNginxLogs>) => {
+            let maxDate = parsed[0].timestamp;
+            for (const log of parsed) {
+                if (log.timestamp && (!maxDate || log.timestamp > maxDate)) {
+                    maxDate = log.timestamp;
+                }
+            }
+            if (maxDate) {
                 if (inPeriod(maxDate, 'week')) setPeriod('week');
                 else if (inPeriod(maxDate, 'month')) setPeriod('month');
                 else if (inPeriod(maxDate, '6 months')) setPeriod('6 months');
                 else setPeriod('all time');
             }
-            setLogs(prev => [...prev, ...newLogs]);
         };
 
-        return () => {
-            worker.terminate();
-            parseWorker.terminate();
+        // Small batches: parse synchronously
+        if (newRawLogs.length <= PARSE_CHUNK_SIZE) {
+            const newParsed = parseNginxLogs(newRawLogs, logFormat);
+            if (newParsed.length === 0) return;
+            if (isFirstBatch) initPeriod(newParsed);
+            setLogs(prev => [...prev, ...newParsed].sort(compareByTimestamp));
+            return;
+        }
+
+        // Large batches: chunk with setTimeout to avoid blocking the main thread,
+        // but accumulate all results and update state only once at the end.
+        parseCancelRef.current = false;
+        let offset = 0;
+        const allParsed: ReturnType<typeof parseNginxLogs> = [];
+        const processChunk = () => {
+            if (parseCancelRef.current) return;
+            const chunk = newRawLogs.slice(offset, offset + PARSE_CHUNK_SIZE);
+            if (chunk.length === 0) return;
+            const parsed = parseNginxLogs(chunk, logFormat);
+            if (parsed.length > 0) allParsed.push(...parsed);
+            offset += PARSE_CHUNK_SIZE;
+            if (offset < newRawLogs.length) {
+                setTimeout(processChunk, 0);
+            } else {
+                // All chunks done — single state update
+                if (allParsed.length > 0) {
+                    if (isFirstBatch) initPeriod(allParsed);
+                    setLogs(prev => [...prev, ...allParsed].sort(compareByTimestamp));
+                }
+            }
         };
-    }, []);
+        processChunk();
 
-    // Send raw logs to both workers for parsing (fires before compute effect)
-    useEffect(() => {
-        if (accessLogs.length <= workerRawCountRef.current) return;
-        const newRawLogs = accessLogs.slice(workerRawCountRef.current);
-        const isFirstBatch = workerRawCountRef.current === 0;
-        workerRawCountRef.current = accessLogs.length;
-        workerRef.current?.postMessage({ type: 'parseAndStore', rawLogs: newRawLogs, logFormat });
-        parseWorkerRef.current?.postMessage({ rawLogs: newRawLogs, logFormat, isFirstBatch });
-    }, [accessLogs]);
-
-    // Trigger computation when inputs change — debounced to avoid redundant work on rapid changes
-    useEffect(() => {
-        if (!workerRef.current) return;
-        if (computeDebounceRef.current) clearTimeout(computeDebounceRef.current);
-        computeDebounceRef.current = setTimeout(() => {
-            const seq = ++workerSeqRef.current;
-            const locationMapEntries: [string, string][] = filter.location !== null
-                ? Array.from(locationMap.entries()).map(([ip, loc]) => [ip, loc.country])
-                : [];
-            workerRef.current?.postMessage({ type: 'compute', seq, filter, settings, locationMap: locationMapEntries });
-        }, 50);
-    }, [accessLogs, filter, settings, locationMap]);
+        return () => { parseCancelRef.current = true; };
+    }, [accessLogs])
 
     useEffect(() => {
         if (fileUpload) {
@@ -219,42 +243,136 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return url;
     }
 
-
-
-
-    const inPeriod = (date: Date, period: Period) => {
-        const start = periodStart(period);
-        if (!start) {
-            return true;
-        }
+    const inPeriod = (date: number, period: Period) => {
+        const start = periodStart(period); // now a number | null
+        if (!start) return true;
         return date >= start;
     }
 
-    const endpointCounts = useMemo(() => workerResult ? new Map(workerResult.endpointCounts) : new Map<string, number>(), [workerResult]);
-    const referrerCounts = useMemo(() => workerResult ? new Map(workerResult.referrerCounts) : new Map<string, number>(), [workerResult]);
-    const responseSizes = workerResult?.responseSizes ?? [];
-    const versionCounts = workerResult?.versionCounts ?? {};
-    const clientCounts = workerResult?.clientCounts ?? {};
-    const osCounts = workerResult?.osCounts ?? {};
-    const deviceTypeCounts = workerResult?.deviceTypeCounts ?? {};
-    const hourCounts = workerResult?.hourCounts ?? new Array(24).fill(0);
-    const dayCounts = workerResult?.dayCounts ?? new Array(7).fill(0);
+    // Only track locationMap when a location filter is active — avoids recomputing
+    // filteredData on every IP-resolution batch when no location filter is set.
+    const effectiveLocationMap = filter.location !== null ? locationMap : EMPTY_MAP;
 
-    const activityBuckets = workerResult?.activityBuckets ?? [];
-    const activitySuccessRates = workerResult?.activitySuccessRates ?? [];
-    const activityPeriodLabels = workerResult?.activityPeriodLabels ?? { start: '', end: '' };
-    const activityStepSize = workerResult?.activityStepSize ?? 86400000;
-    const activityTimeUnit = workerResult?.activityTimeUnit ?? 'day';
-    const requestsTotal = workerResult?.requestsTotal ?? 0;
-    const requestsPerHour = workerResult?.requestsPerHour ?? 0;
-    const requestsTrend = workerResult?.requestsTrend ?? [];
-    const usersTotal = workerResult?.usersTotal ?? 0;
-    const usersPerHour = workerResult?.usersPerHour ?? 0;
-    const usersTrend = workerResult?.usersTrend ?? [];
-    const overallSuccessRate = workerResult?.overallSuccessRate ?? null;
-    const successRateTrend = workerResult?.successRateTrend ?? [];
-    const locationCounts = workerResult?.locationCounts ?? [];
-    const unknownIPs = workerResult?.unknownIPs ?? [];
+    const filteredData = useMemo(() => {
+        const hasOtherFilters =
+            filter.location !== null
+            || filter.path !== null
+            || filter.method !== null
+            || filter.status !== null
+            || settings.ignore404
+            || filter.referrer !== null;
+
+        const start = periodStart(filter.period);
+
+        // Fast path: "all time" with no other active filters — return logs directly
+        if (start === null && !hasOtherFilters) {
+            return logs;
+        }
+
+        // Binary search to skip logs that are before the period start
+        const startIdx = start !== null ? lowerBound(logs, start) : 0;
+
+        // Fast path: period-only filter with nothing else — return the slice directly
+        if (!hasOtherFilters) {
+            return startIdx === 0 ? logs : logs.slice(startIdx);
+        }
+
+        const validStatus = (status: number | null) => {
+            if (status === null || filter.status === null) {
+                return true;
+            }
+            if (typeof filter.status === 'number') {
+                return status === filter.status;
+            }
+            for (const range of filter.status) {
+                if (range[0] <= status && range[1] >= status) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        const result: NginxLog[] = [];
+        for (let i = startIdx; i < logs.length; i++) {
+            const row = logs[i];
+            if (
+                (filter.location === null || effectiveLocationMap.get(row.ipAddress)?.country === filter.location)
+                && (filter.path === null || row.path === filter.path)
+                && (filter.method === null || row.method === filter.method)
+                && (filter.status === null || validStatus(row.status))
+                && (!settings.ignore404 || row.status !== 404)
+                && (filter.referrer === null || row.referrer === filter.referrer)
+            ) {
+                result.push(row);
+            }
+        }
+        return result;
+    }, [logs, filter, settings, effectiveLocationMap]);
+
+    // Defer heavy re-renders when filteredData changes (e.g. switching to "All time").
+    // Components receive the previous dataset while React computes the new one in the
+    // background, keeping the UI responsive instead of freezing for seconds.
+    const deferredFilteredData = useDeferredValue(filteredData);
+
+    // Compute derived data for components that still use the old pre-computed prop interface
+    const endpointCounts = useMemo(() => {
+        const counts = new Map<string, number>();
+        for (const row of deferredFilteredData) {
+            const key = `${row.path}::${row.method}::${row.status ?? ''}`;
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        return counts;
+    }, [deferredFilteredData]);
+
+    const referrerCounts = useMemo(() => {
+        const counts = new Map<string, number>();
+        for (const row of deferredFilteredData) {
+            if (row.referrer) {
+                counts.set(row.referrer, (counts.get(row.referrer) ?? 0) + 1);
+            }
+        }
+        return counts;
+    }, [deferredFilteredData]);
+
+    const responseSizes = useMemo(() => {
+        const sizes: number[] = [];
+        for (const row of deferredFilteredData) {
+            if (row.responseSize) sizes.push(row.responseSize);
+        }
+        return sizes;
+    }, [deferredFilteredData]);
+
+    const versionCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const row of deferredFilteredData) {
+            const v = getVersion(row.path);
+            if (v) counts[v] = (counts[v] ?? 0) + 1;
+        }
+        return counts;
+    }, [deferredFilteredData]);
+
+    const { clientCounts, osCounts, deviceTypeCounts } = useMemo(() => {
+        const clientCounts: Record<string, number> = {};
+        const osCounts: Record<string, number> = {};
+        const deviceTypeCounts: Record<string, number> = {};
+        for (const row of deferredFilteredData) {
+            const c = getClient(row.userAgent);
+            const o = getOS(row.userAgent);
+            const d = getDevice(row.userAgent);
+            if (c) clientCounts[c] = (clientCounts[c] ?? 0) + 1;
+            if (o) osCounts[o] = (osCounts[o] ?? 0) + 1;
+            if (d) deviceTypeCounts[d] = (deviceTypeCounts[d] ?? 0) + 1;
+        }
+        return { clientCounts, osCounts, deviceTypeCounts };
+    }, [deferredFilteredData]);
+
+    const dayCounts = useMemo(() => {
+        const counts = new Array(7).fill(0);
+        for (const row of deferredFilteredData) {
+            if (row.timestamp) counts[new Date(row.timestamp).getDay()]++;
+        }
+        return counts;
+    }, [deferredFilteredData]);
 
     if (fileUpload && accessLogs.length === 0) {
     return (
@@ -306,12 +424,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                     <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
-                            <SuccessRate successRate={overallSuccessRate} ratesTrend={successRateTrend} />
+                            <SuccessRate data={deferredFilteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">
-                            <Requests requestsTotal={requestsTotal} requestsPerHour={requestsPerHour} requestsTrend={requestsTrend} />
-                            <Users usersTotal={usersTotal} usersPerHour={usersPerHour} usersTrend={usersTrend} />
+                            <Requests data={deferredFilteredData} period={currentPeriod} />
+                            <Users data={deferredFilteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">
@@ -329,26 +447,10 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                     {/* Right */}
                     <div className="min-[950px]:flex-1 min-w-0">
-                        <Activity
-                            period={currentPeriod}
-                            activityBuckets={activityBuckets}
-                            activitySuccessRates={activitySuccessRates}
-                            activityPeriodLabels={activityPeriodLabels}
-                            activityStepSize={activityStepSize}
-                            activityTimeUnit={activityTimeUnit}
-                        />
+                        <Activity data={deferredFilteredData} period={currentPeriod} />
 
                         <div className="flex max-[1500px]:flex-col">
-                            <Location
-                                locationCounts={locationCounts}
-                                unknownIPs={unknownIPs}
-                                locationMap={locationMap}
-                                setLocationMap={setLocationMap}
-                                filterLocation={filter.location}
-                                setFilterLocation={setLocation}
-                                noFetch={fileUpload}
-                                demo={demo}
-                            />
+                            <Location data={deferredFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
                             <div className="min-[1500px]:w-[27em]">
                                 <Device
                                     clientCounts={clientCounts}
@@ -368,7 +470,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                         <div className="w-inherit flex max-[1500px]:flex-col">
                             <div className="max-[1500px]:!w-full flex-1 min-w-0 flex flex-col">
-                                <UsageTime hourCounts={hourCounts} filterHour={filter.hour} setFilterHour={setHour} />
+                                <UsageTime data={deferredFilteredData} />
                                 <UsageDay dayCounts={dayCounts} filterDayOfWeek={filter.dayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
                                 <LiveGlobeCard logs={logs} locationMap={locationMap} />

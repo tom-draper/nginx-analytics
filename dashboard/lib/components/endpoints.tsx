@@ -39,7 +39,7 @@ export const Endpoints = memo(function Endpoints({ endpointCounts, filterPath, f
             return false;
         }
         const method = endpoints[0].method;
-        for (let i = 1; i < endpoints.length - 1; i++) {
+        for (let i = 1; i < endpoints.length; i++) {
             if (endpoints[i].method !== method) {
                 return false;
             }

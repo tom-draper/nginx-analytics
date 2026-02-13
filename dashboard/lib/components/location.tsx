@@ -1,4 +1,5 @@
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
+import { NginxLog } from "@/lib/types";
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import { type Location } from '@/lib/location'
 import { generateDemoLocations } from "../demo";
 
@@ -6,8 +7,7 @@ import { generateDemoLocations } from "../demo";
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 
 export function Location({
-    locationCounts,
-    unknownIPs,
+    data,
     locationMap,
     setLocationMap,
     filterLocation,
@@ -15,8 +15,7 @@ export function Location({
     noFetch,
     demo,
 }: {
-    locationCounts: { country: string; count: number }[];
-    unknownIPs: string[];
+    data: NginxLog[];
     locationMap: Map<string, Location>;
     setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>;
     filterLocation: string | null;
@@ -26,7 +25,6 @@ export function Location({
 }) {
     const [loading, setLoading] = useState(false);
     const [endpointDisabled, setEndpointDisabled] = useState(false);
-    const attemptedIPsRef = useRef(new Set<string>());
 
     const fetchLocations = async (ipAddresses: string[]) => {
         const response = await fetch('/api/location', {
@@ -76,20 +74,32 @@ export function Location({
         }
     }
 
+    // Derive unknown IPs from data and locationMap
+    const unknownIPs = useMemo(() => {
+        const seen = new Set<string>();
+        const unknown: string[] = [];
+        for (const row of data) {
+            const ip = row.ipAddress;
+            if (!ip || seen.has(ip)) continue;
+            seen.add(ip);
+            if (!locationMap.has(ip)) {
+                unknown.push(ip);
+            }
+        }
+        return unknown;
+    }, [data, locationMap]);
+
     useEffect(() => {
         if (noFetch || endpointDisabled || unknownIPs.length === 0) return;
-        const toFetch = unknownIPs.filter(ip => !attemptedIPsRef.current.has(ip));
-        if (toFetch.length === 0) return;
-        toFetch.forEach(ip => attemptedIPsRef.current.add(ip));
 
         const fetchData = async () => {
             setLoading(true);
             try {
                 let fetchedLocations: Location[];
                 if (demo) {
-                    fetchedLocations = generateDemoLocations(toFetch);
+                    fetchedLocations = generateDemoLocations(unknownIPs);
                 } else {
-                    fetchedLocations = await fetchLocations(toFetch);
+                    fetchedLocations = await fetchLocations(unknownIPs);
                 }
                 if (fetchedLocations.length > 0) {
                     setLocationMap((prevMap) => {
@@ -113,8 +123,15 @@ export function Location({
         fetchData();
     }, [unknownIPs, noFetch, demo, endpointDisabled]);
 
-    // locations comes from prop directly — map to include city field for compatibility
-    const locations = locationCounts.map(({ country, count }) => ({ country, count, city: '' }));
+    const locations = useMemo(() => {
+        const locationCount: { [location: string]: number } = {};
+        for (const row of data) {
+            const location = locationMap.get(row.ipAddress);
+            if (!location || (!location.country && !location.city)) continue;
+            locationCount[location.country] = (locationCount[location.country] ?? 0) + 1;
+        }
+        return Object.entries(locationCount).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' }));
+    }, [data, locationMap]);
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-53">

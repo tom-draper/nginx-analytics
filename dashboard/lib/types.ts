@@ -1,6 +1,6 @@
 export type NginxLog = {
     ipAddress: string;
-    timestamp: Date | null;
+    timestamp: number | null; // epoch milliseconds
     method: string;
     path: string;
     httpVersion: string;

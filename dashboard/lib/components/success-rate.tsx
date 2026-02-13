@@ -1,5 +1,98 @@
 "use client";
 import { useMemo, memo } from "react";
+import { NginxLog } from "../types";
+import { Period, periodStart } from "../period";
+
+// data is already period-filtered by the parent (filteredData), so no re-filter needed
+function getSuccessRate(data: NginxLog[]) {
+    if (!data.length) return null;
+
+    let success = 0;
+    for (const row of data) {
+        if (row.status === null) continue;
+        if (row.status >= 200 && row.status <= 399) success++;
+    }
+    return success / data.length;
+}
+
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_DAY = 86_400_000;
+
+function getSuccessRatesByTime(data: NginxLog[], period: Period) {
+    const startDate = periodStart(period);
+    const endDate = new Date();
+
+    const byHour = period === '24 hours';
+
+    // Generate all time buckets using integer keys — avoids toISOString() / string
+    // allocation on every row in the hot loop below.
+    const allBuckets = new Map<number, { requests: number, successes: number }>();
+
+    if (startDate) {
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const startKey = Math.floor(startDate / step);
+        const endKey = Math.floor(endDate.getTime() / step);
+        for (let key = startKey; key <= endKey; key++) {
+            allBuckets.set(key, { requests: 0, successes: 0 });
+        }
+    }
+
+    // data is already period-filtered and sorted by the parent — no copy, filter, or sort needed
+    for (const row of data) {
+        const ts = row.timestamp;
+        if (!ts) continue;
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const timeKey = Math.floor(ts / step);
+
+        // Ensure the bucket exists
+        if (!allBuckets.has(timeKey)) {
+            allBuckets.set(timeKey, { requests: 1, successes: 0 });
+        } else {
+            allBuckets.get(timeKey)!.requests++;
+        }
+
+        if (row.status !== null && row.status >= 200 && row.status <= 399) {
+            allBuckets.get(timeKey)!.successes++;
+        }
+    }
+
+    const ratesByTime = Array.from(allBuckets.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([date, { requests, successes }]) => ({
+            date,
+            rate: requests > 0 ? successes / requests : 0
+        }));
+
+    // Consolidate into 6 buckets if we have more
+    if (ratesByTime.length > 6) {
+        const bucketSize = Math.ceil(ratesByTime.length / 6);
+        const consolidatedBuckets = [];
+
+        for (let i = 0; i < ratesByTime.length; i += bucketSize) {
+            const chunk = ratesByTime.slice(i, i + bucketSize);
+            const totalRequests = chunk.reduce((sum, b) => {
+                const bucketData = allBuckets.get(b.date);
+                return sum + (bucketData?.requests || 0);
+            }, 0);
+
+            const totalSuccesses = chunk.reduce((sum, b) => {
+                const bucketData = allBuckets.get(b.date);
+                return sum + (bucketData?.successes || 0);
+            }, 0);
+
+            const avgRate = totalRequests > 0 ? totalSuccesses / totalRequests : 0;
+
+            consolidatedBuckets.push({
+                date: chunk[0].date,
+                rate: avgRate
+            });
+        }
+
+        return consolidatedBuckets;
+    }
+
+    return ratesByTime;
+}
 
 function getColor(successRate: number | null) {
     if (successRate === null) {
@@ -13,13 +106,12 @@ function getColor(successRate: number | null) {
     }
 }
 
-export const SuccessRate = memo(function SuccessRate({
-    successRate,
-    ratesTrend,
-}: {
-    successRate: number | null;
-    ratesTrend: { date: string; rate: number }[];
-}) {
+export const SuccessRate = memo(function SuccessRate({ data, period }: { data: NginxLog[], period: Period }) {
+    const { successRate, ratesTrend } = useMemo(() => ({
+        successRate: getSuccessRate(data),
+        ratesTrend: getSuccessRatesByTime(data, period),
+    }), [data, period]);
+
     // Memoize SVG path — only recomputes when ratesTrend or successRate changes
     const backgroundGraph = useMemo(() => {
         if (!ratesTrend.length) return null;

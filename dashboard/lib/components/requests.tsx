@@ -1,20 +1,83 @@
 'use client';
 
 import { useMemo, useState, memo } from "react";
+import { NginxLog } from "@/lib/types";
+import { Period, periodStart, getPeriodRange, hoursInRange } from "@/lib/period";
 
-export const Requests = memo(function Requests({
-    requestsTotal,
-    requestsPerHour,
-    requestsTrend,
-}: {
-    requestsTotal: number;
-    requestsPerHour: number;
-    requestsTrend: { date: string; count: number }[];
-}) {
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_DAY = 86_400_000;
+
+function getRequestsByTime(data: NginxLog[], period: Period) {
+    const startDate = periodStart(period);
+    const endDate = new Date();
+
+    const byHour = period === '24 hours';
+
+    // Generate all time buckets within the period range using integer keys —
+    // avoids toISOString() / string allocation on every row in the hot loop below.
+    const allBuckets = new Map<number, number>();
+
+    if (startDate) {
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const startKey = Math.floor(startDate / step);
+        const endKey = Math.floor(endDate.getTime() / step);
+        for (let key = startKey; key <= endKey; key++) {
+            allBuckets.set(key, 0);
+        }
+    }
+
+    // data is already period-filtered and sorted by the parent — use directly
+    for (const row of data) {
+        const ts = row.timestamp;
+        if (!ts) continue;
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const timeKey = Math.floor(ts / step);
+        allBuckets.set(timeKey, (allBuckets.get(timeKey) ?? 0) + 1);
+    }
+
+    const buckets = Array.from(allBuckets.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([date, count]) => ({ date, count }));
+
+    if (buckets.length === 0) {
+        return [];
+    }
+
+    // Consolidate into 6 buckets if we have more
+    if (buckets.length > 6) {
+        const bucketSize = Math.ceil(buckets.length / 6);
+        const consolidatedBuckets = [];
+
+        for (let i = 0; i < buckets.length; i += bucketSize) {
+            const chunk = buckets.slice(i, i + bucketSize);
+            const totalCount = chunk.reduce((sum, b) => sum + b.count, 0);
+            consolidatedBuckets.push({
+                date: chunk[0].date,
+                count: totalCount
+            });
+        }
+
+        return consolidatedBuckets;
+    }
+
+    return buckets;
+}
+
+export const Requests = memo(function Requests({ data, period }: { data: NginxLog[], period: Period }) {
     const [displayMode, setDisplayMode] = useState<'total' | 'per-hour'>('total');
 
-    const requests = { total: requestsTotal, perHour: requestsPerHour };
-    const requestTrend = requestsTrend;
+    const { requests, requestTrend } = useMemo(() => {
+        const range = getPeriodRange(period, data);
+        if (!range) return { requests: { total: 0, perHour: 0 }, requestTrend: [] };
+
+        const total = data.length;
+        const perHour = total / hoursInRange(range.start, range.end);
+
+        return {
+            requests: { total, perHour },
+            requestTrend: getRequestsByTime(data, period)
+        };
+    }, [data, period]);
 
     // Toggle display mode
     const toggleDisplayMode = () => {

@@ -1,6 +1,7 @@
 import { PolarArea } from "react-chartjs-2";
-import { useMemo, useRef, memo } from "react";
+import { useMemo, useRef, memo, useState } from "react";
 import { Chart as ChartJS, ChartData, RadialLinearScale, ArcElement, Tooltip } from "chart.js";
+import { NginxLog } from "@/lib/types";
 
 ChartJS.register(RadialLinearScale, ArcElement, Tooltip);
 
@@ -51,18 +52,25 @@ const polarAreaPlugins = [{
     }
 }];
 
-export default memo(function UsageTime({
-    hourCounts,
-    filterHour,
-    setFilterHour,
-}: {
-    hourCounts: number[];
-    filterHour: number | null;
-    setFilterHour: (hour: number | null) => void;
-}) {
+export default memo(function UsageTime({ data }: { data: NginxLog[] }) {
+    const [filterHour, setFilterHour] = useState<number | null>(null);
     const chartRef = useRef<ChartJS>(null);
 
     const plotData = useMemo<ChartData<"polarArea"> | null>(() => {
+        const hourCounts = new Array(24).fill(0);
+
+        // Assuming `data` has timestamps
+        for (const row of data) {
+            const date = row.timestamp; // Adjust this based on your data format
+            if (date === null) {
+                continue;
+            }
+            const hour = new Date(date).getHours();
+            hourCounts[hour]++;
+        }
+
+        // Reorder the hours to start with 12 (noon) at the top
+        // This means we need to shift the array so that index 12 becomes index 0
         const reorderedHours = [...hourCounts.slice(12), ...hourCounts.slice(0, 12)];
         const timeLabels = Array.from({ length: 24 }, (_, i) => {
             const hour = (i + 12) % 24;
@@ -77,7 +85,7 @@ export default memo(function UsageTime({
             labels: timeLabels,
             datasets: [{ label: 'Requests per Hour', data: reorderedHours, backgroundColor, borderWidth: 1, borderColor: 'rgba(0,0,0, 0.05)' }]
         };
-    }, [hourCounts, filterHour]);
+    }, [data, filterHour]);
 
     const options = useMemo(() => ({
         plugins: {
@@ -118,7 +126,7 @@ export default memo(function UsageTime({
         },
         responsive: true,
         maintainAspectRatio: false,
-    }), [filterHour, setFilterHour]);
+    }), [filterHour]);
 
     return (
         <div className="card px-4 py-3 m-3">
