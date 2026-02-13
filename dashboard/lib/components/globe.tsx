@@ -83,30 +83,10 @@ export default function Globe() {
       const positions: any[] = [];
       const allLandCoords: number[][] = [];
 
-      // Process each continent
-      landPoints.forEach(continent => {
-        // Create a grid of points for each continent
-        const boundingBox = getBoundingBox(continent);
-        const gridSize = calculateGridSize(boundingBox, 0.5); // Density factor
-
-        // Create points within the grid
-        for (let lat = boundingBox.minLat; lat <= boundingBox.maxLat; lat += gridSize) {
-          for (let lon = boundingBox.minLon; lon <= boundingBox.maxLon; lon += gridSize) {
-            // Check if point is inside the continent polygon
-            if (isPointInPolygon([lat, lon], continent)) {
-              const vector = latLongToVector3(lat, lon, globeRadius);
-              positions.push(vector.x, vector.y, vector.z);
-              allLandCoords.push([lat, lon]);
-            }
-          }
-        }
-
-        // Add the outline points too for better definition
-        continent.forEach(point => {
-          const vector = latLongToVector3(point[0], point[1], globeRadius);
-          positions.push(vector.x, vector.y, vector.z);
-          allLandCoords.push(point);
-        });
+      landPoints.forEach(([lat, lon]) => {
+        const vector = latLongToVector3(lat, lon, globeRadius);
+        positions.push(vector.x, vector.y, vector.z);
+        allLandCoords.push([lat, lon]);
       });
 
       const geometry = new BufferGeometry();
@@ -117,49 +97,6 @@ export default function Globe() {
       globeGroup.add(pointCloud);
 
       return { pointCloud, allLandCoords };
-    }
-
-    // Helper: Calculate bounding box for a continent
-    function getBoundingBox(continent: any[]) {
-      let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-
-      continent.forEach((point: number[]) => {
-        minLat = Math.min(minLat, point[0]);
-        maxLat = Math.max(maxLat, point[0]);
-        minLon = Math.min(minLon, point[1]);
-        maxLon = Math.max(maxLon, point[1]);
-      });
-
-      return { minLat, maxLat, minLon, maxLon };
-    }
-
-    // Helper: Calculate grid size based on bounding box
-    function calculateGridSize(boundingBox: { minLat: any; maxLat: any; minLon: any; maxLon: any; }, densityFactor: number) {
-      const width = boundingBox.maxLon - boundingBox.minLon;
-      const height = boundingBox.maxLat - boundingBox.minLat;
-      const maxDimension = Math.max(width, height);
-
-      // This determines point density - smaller number = more points
-      return maxDimension / (100 * densityFactor);
-    }
-
-    // Helper: Check if a point is inside a polygon using ray casting algorithm
-    function isPointInPolygon(point: any[], polygon: string | any[]) {
-      // Simple implementation of ray-casting algorithm
-      let inside = false;
-      const x = point[0], y = point[1];
-
-      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const xi = polygon[i][0], yi = polygon[i][1];
-        const xj = polygon[j][0], yj = polygon[j][1];
-
-        const intersect = ((yi > y) !== (yj > y)) &&
-          (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-
-        if (intersect) inside = !inside;
-      }
-
-      return inside;
     }
 
     // Convert lat/long to 3D coordinates
@@ -237,8 +174,7 @@ export default function Globe() {
       if (connections.length >= maxConnections) return;
 
       // Get random start point but fixed end point (target)
-      const startContinent = Math.floor(Math.random() * landPoints.length);
-      const startPointArray = landPoints[startContinent][Math.floor(Math.random() * landPoints[startContinent].length)];
+      const startPointArray = landPoints[Math.floor(Math.random() * landPoints.length)];
 
       // Make sure start point is not too close to target
       const distance = Math.sqrt(
