@@ -684,19 +684,59 @@ export function generateDemoLocations(ipAddresses: string[]): Location[] {
     return locations;
 }
 
-const locations = [['US', 'San Francisco'], ['US', 'New York'], ['US', 'Los Angeles'], ['US', 'Chicago'], ['US', 'Houston'], ['US', 'Miami'], ['US', 'Seattle'], ['US', 'Washington'], ['US', 'Boston'], ['US', 'San Diego'], ['GB', 'London'], ['FR', 'Paris'], ['DE', 'Berlin'], ['IT', 'Rome'], ['ES', 'Madrid'], ['NL', 'Amsterdam'], ['CA', 'Toronto'], ['AU', 'Sydney'], ['JP', 'Tokyo'], ['CN', 'Beijing'], ['IN', 'Mumbai'], ['BR', 'Sao Paulo'], ['ZA', 'Johannesburg'], ['MX', 'Mexico City'], ['AR', 'Buenos Aires'], ['CO', 'Bogota'], ['VE', 'Caracas'], ['PE', 'Lima'], ['CL', 'Santiago'], ['BO', 'La Paz'], ['UY', 'Montevideo'], ['PY', 'Asuncion'], ['EC', 'Quito'], ['VE', 'Maracaibo'], ['VE', 'Valencia'], ['VE', 'Maracaibo'], ['VE', 'Valencia'], ['VE', 'Maracaibo'], ['VE', 'Valencia']];
+// [country, city, lat, lon]
+const locations: [string, string, number, number][] = [
+    ['US', 'San Francisco', 37.7749, -122.4194],
+    ['US', 'New York', 40.7128, -74.0060],
+    ['US', 'Los Angeles', 34.0522, -118.2437],
+    ['US', 'Chicago', 41.8781, -87.6298],
+    ['US', 'Houston', 29.7604, -95.3698],
+    ['US', 'Miami', 25.7617, -80.1918],
+    ['US', 'Seattle', 47.6062, -122.3321],
+    ['US', 'Washington', 38.9072, -77.0369],
+    ['US', 'Boston', 42.3601, -71.0589],
+    ['US', 'San Diego', 32.7157, -117.1611],
+    ['GB', 'London', 51.5074, -0.1278],
+    ['FR', 'Paris', 48.8566, 2.3522],
+    ['DE', 'Berlin', 52.5200, 13.4050],
+    ['IT', 'Rome', 41.9028, 12.4964],
+    ['ES', 'Madrid', 40.4168, -3.7038],
+    ['NL', 'Amsterdam', 52.3676, 4.9041],
+    ['CA', 'Toronto', 43.6532, -79.3832],
+    ['AU', 'Sydney', -33.8688, 151.2093],
+    ['JP', 'Tokyo', 35.6762, 139.6503],
+    ['CN', 'Beijing', 39.9042, 116.4074],
+    ['IN', 'Mumbai', 19.0760, 72.8777],
+    ['BR', 'Sao Paulo', -23.5505, -46.6333],
+    ['ZA', 'Johannesburg', -26.2041, 28.0473],
+    ['MX', 'Mexico City', 19.4326, -99.1332],
+    ['AR', 'Buenos Aires', -34.6037, -58.3816],
+    ['CO', 'Bogota', 4.7110, -74.0721],
+    ['VE', 'Caracas', 10.4806, -66.9036],
+    ['PE', 'Lima', -12.0464, -77.0428],
+    ['CL', 'Santiago', -33.4489, -70.6693],
+    ['BO', 'La Paz', -16.5000, -68.1500],
+    ['UY', 'Montevideo', -34.9011, -56.1645],
+    ['PY', 'Asuncion', -25.2867, -57.6473],
+    ['EC', 'Quito', -0.1807, -78.4678],
+    ['NG', 'Lagos', 6.5244, 3.3792],
+    ['KE', 'Nairobi', -1.2921, 36.8219],
+    ['RU', 'Moscow', 55.7558, 37.6173],
+    ['SG', 'Singapore', 1.3521, 103.8198],
+    ['KR', 'Seoul', 37.5665, 126.9780],
+    ['PH', 'Manila', 14.5995, 120.9842],
+];
 
 function randomLocation(ipAddress: string): Location {
     const index = Math.floor(Math.random() * locations.length);
-    const country = locations[index][0];
-    const city = locations[index][1];
+    const [country, city, lat, lon] = locations[index];
 
     return {
         country,
         city,
         ipAddress,
-        lat: null,
-        lon: null,
+        lat,
+        lon,
     };
 }
 

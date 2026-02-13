@@ -122,7 +122,18 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
             const startDate = new Date(endDate);
             startDate.setFullYear(startDate.getFullYear() - 1);
             setAccessLogs(generateNginxLogs({ format: 'extended', count: 120000, startDate, endDate }));
-            return;
+
+            // Simulate real-time polling: append a small batch of fresh logs every 30s,
+            // matching the same interval used by the live dashboard.
+            const interval = setInterval(() => {
+                const pollEnd = new Date();
+                const pollStart = new Date(pollEnd.getTime() - 30000);
+                const count = Math.floor(Math.random() * 16) + 5; // 5–20 requests per poll
+                const newLogs = generateNginxLogs({ format: 'extended', count, startDate: pollStart, endDate: pollEnd });
+                setAccessLogs(prev => [...prev, ...newLogs]);
+            }, 30000);
+
+            return () => clearInterval(interval);
         }
 
         // Store positions in a closure variable within the effect
