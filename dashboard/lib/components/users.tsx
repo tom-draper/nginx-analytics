@@ -5,117 +5,57 @@ import { NginxLog } from "../types";
 import { getUserId } from "../user";
 import { getPeriodRange, hoursInRange, Period, periodStart } from "../period";
 
-function getUsers(data: NginxLog[], period: Period) {
-    const startDate = periodStart(period);
-    const endDate = new Date(); // Current time as end date
-
-    // Filter data by period if startDate is available
-    const filteredData = startDate
-        ? data.filter(log => {
-            const logDate = new Date(log.timestamp || 0);
-            return logDate >= startDate && logDate <= endDate;
-        })
-        : data;
-
+// data is already period-filtered by the parent (filteredData), so no re-filter needed
+function getUsers(data: NginxLog[]) {
     const users = new Set<string>();
-    for (const row of filteredData) {
+    for (const row of data) {
         const userId = getUserId(row.ipAddress, row.userAgent);
-        if (userId) {
-            users.add(userId);
-        }
+        if (userId) users.add(userId);
     }
     return users;
 }
 
-function getUserCount(data: NginxLog[], period: Period) {
-    return getUsers(data, period).size;
+function getUserCount(data: NginxLog[]) {
+    return getUsers(data).size;
 }
 
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_DAY = 86_400_000;
+
 function getUsersByTime(data: NginxLog[], period: Period) {
-    // Get period start date (if applicable)
     const startDate = periodStart(period);
-    const endDate = new Date(); // Current time as end date
+    const endDate = new Date();
 
-    // Filter data by period if startDate is available
-    const filteredData = startDate
-        ? data.filter(log => {
-            const logDate = new Date(log.timestamp || 0);
-            return logDate >= startDate && logDate <= endDate;
-        })
-        : data;
+    const byHour = period === '24 hours';
 
-    // Determine appropriate bucket size based on period
-    const bucketFormat: 'hour' | 'day' = period === '24 hours' ? 'hour' : 'day';
-
-    // Generate all time buckets within the period range
-    const allBuckets = new Map<string, number>();
+    // Generate all time buckets using integer keys — avoids toISOString() / string
+    // allocation on every row in the hot loop below.
+    const allBuckets = new Map<number, number>();
 
     if (startDate) {
-        // Clone dates to avoid modifying the original
-        const currentDate = new Date(startDate.getTime());
-
-        while (currentDate <= endDate) {
-            let timeKey: string;
-
-            if (bucketFormat === 'hour') {
-                // Format: YYYY-MM-DD HH
-                timeKey = `${currentDate.toISOString().split('T')[0]} ${currentDate.getHours()}`;
-                // Advance by 1 hour
-                currentDate.setHours(currentDate.getHours() + 1);
-            } else if (bucketFormat === 'day') {
-                // Format: YYYY-MM-DD
-                timeKey = currentDate.toISOString().split('T')[0];
-                // Advance by 1 day
-                currentDate.setDate(currentDate.getDate() + 1);
-            } else {
-                // Format: YYYY-MM
-                timeKey = currentDate.toISOString().substring(0, 7);
-                // Advance by 1 month
-                currentDate.setMonth(currentDate.getMonth() + 1);
-            }
-
-            allBuckets.set(timeKey, 0);
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const startKey = Math.floor(startDate / step);
+        const endKey = Math.floor(endDate.getTime() / step);
+        for (let key = startKey; key <= endKey; key++) {
+            allBuckets.set(key, 0);
         }
     }
 
-    // Count unique users per time bucket (first appearance only)
-    // const seenUsers = new Set<string>();
-
-    for (const row of filteredData) {
+    // data is already period-filtered and sorted by the parent — use directly
+    for (const row of data) {
+        const ts = row.timestamp;
+        if (!ts) continue;
         const userId = getUserId(row.ipAddress, row.userAgent);
         if (!userId) continue;
 
-        // Skip if we've already counted this user
-        // if (seenUsers.has(userId)) continue;
-        // seenUsers.add(userId);
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const timeKey = Math.floor(ts / step);
 
-        const timestamp = new Date(row.timestamp || 0);
-        let timeKey: string;
-
-        if (bucketFormat === 'hour') {
-            // Format: YYYY-MM-DD HH
-            timeKey = `${timestamp.toISOString().split('T')[0]} ${timestamp.getHours()}`;
-        } else if (bucketFormat === 'day') {
-            // Format: YYYY-MM-DD
-            timeKey = timestamp.toISOString().split('T')[0];
-        } else {
-            // Format: YYYY-MM
-            timeKey = timestamp.toISOString().substring(0, 7);
-        }
-
-        if (!allBuckets.has(timeKey)) {
-            // If we have no defined time period, or data outside our range,
-            // add the bucket dynamically
-            allBuckets.set(timeKey, 1);
-        } else {
-            // Increment existing bucket
-            allBuckets.set(timeKey, allBuckets.get(timeKey)! + 1);
-        }
+        allBuckets.set(timeKey, (allBuckets.get(timeKey) ?? 0) + 1);
     }
 
-    // Convert to array of points for graphing
     const buckets = Array.from(allBuckets.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
+        .sort((a, b) => a[0] - b[0])
         .map(([date, count]) => ({ date, count }));
 
     // If no period is specified and no data, return empty array
@@ -150,7 +90,7 @@ export default memo(function Users({ data, period }: { data: NginxLog[], period:
         const range = getPeriodRange(period, data);
         if (!range) return { users: { total: 0, perHour: 0 }, userTrend: [] };
 
-        const totalUsers = getUserCount(data, period);
+        const totalUsers = getUserCount(data);
         const usersPerHour = totalUsers / hoursInRange(range.start, range.end);
 
         return {

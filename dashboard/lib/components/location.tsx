@@ -1,5 +1,5 @@
 import { NginxLog } from "@/lib/types";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import { type Location } from '@/lib/location'
 import { generateDemoLocations } from "../demo";
 
@@ -109,23 +109,20 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
         }
     }, [data, locationMap, setLocationMap, noFetch, demo, endpointDisabled]);
 
-    useEffect(() => {
+    const aggregatedLocations = useMemo(() => {
         const locationCount: { [location: string]: number } = {};
         for (const row of data) {
             const location = locationMap.get(row.ipAddress);
-            if (!location || (!location.country && !location.city)) {
-                continue;
-            }
-
-            if (!locationCount[location.country]) {
-                locationCount[location.country] = 0;
-            }
-            locationCount[location.country] += 1;
+            if (!location || (!location.country && !location.city)) continue;
+            locationCount[location.country] = (locationCount[location.country] ?? 0) + 1;
         }
+        return Object.entries(locationCount).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' }));
+    }, [data, locationMap]);
 
-        const locations = Object.entries(locationCount).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' })); setLocations(locations);
+    useEffect(() => {
+        setLocations(aggregatedLocations);
         setLoading(false);
-    }, [data, locationMap])
+    }, [aggregatedLocations])
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-53">

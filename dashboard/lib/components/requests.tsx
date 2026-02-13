@@ -4,85 +4,41 @@ import { useMemo, useState, memo } from "react";
 import { NginxLog } from "../types";
 import { getPeriodRange, hoursInRange, Period, periodStart } from "../period";
 
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_DAY = 86_400_000;
+
 function getRequestsByTime(data: NginxLog[], period: Period) {
-    // Get period start date (if applicable)
     const startDate = periodStart(period);
-    const endDate = new Date(); // Current time as end date
+    const endDate = new Date();
 
-    // Filter data by period if startDate is available
-    const filteredData = startDate
-        ? data.filter(log => {
-            const logDate = new Date(log.timestamp || 0);
-            return logDate >= startDate && logDate <= endDate;
-        })
-        : data;
+    const byHour = period === '24 hours';
 
-    // Determine appropriate bucket size based on period
-    const bucketFormat: 'hour' | 'day' = period === '24 hours' ? 'hour' : 'day';
-
-    // Generate all time buckets within the period range
-    const allBuckets = new Map<string, number>();
+    // Generate all time buckets within the period range using integer keys —
+    // avoids toISOString() / string allocation on every row in the hot loop below.
+    const allBuckets = new Map<number, number>();
 
     if (startDate) {
-        // Clone dates to avoid modifying the original
-        const currentDate = new Date(startDate.getTime());
-
-        while (currentDate <= endDate) {
-            let timeKey: string;
-
-            if (bucketFormat === 'hour') {
-                // Format: YYYY-MM-DD HH
-                timeKey = `${currentDate.toISOString().split('T')[0]} ${currentDate.getHours()}`;
-                // Advance by 1 hour
-                currentDate.setHours(currentDate.getHours() + 1);
-            } else if (bucketFormat === 'day') {
-                // Format: YYYY-MM-DD
-                timeKey = currentDate.toISOString().split('T')[0];
-                // Advance by 1 day
-                currentDate.setDate(currentDate.getDate() + 1);
-            } else {
-                // Format: YYYY-MM
-                timeKey = currentDate.toISOString().substring(0, 7);
-                // Advance by 1 month
-                currentDate.setMonth(currentDate.getMonth() + 1);
-            }
-
-            allBuckets.set(timeKey, 0);
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const startKey = Math.floor(startDate / step);
+        const endKey = Math.floor(endDate.getTime() / step);
+        for (let key = startKey; key <= endKey; key++) {
+            allBuckets.set(key, 0);
         }
     }
 
-    // Count actual requests per time bucket
-    for (const row of filteredData) {
-        const timestamp = new Date(row.timestamp || 0);
-        let timeKey: string;
-
-        if (bucketFormat === 'hour') {
-            // Format: YYYY-MM-DD HH
-            timeKey = `${timestamp.toISOString().split('T')[0]} ${timestamp.getHours()}`;
-        } else if (bucketFormat === 'day') {
-            // Format: YYYY-MM-DD
-            timeKey = timestamp.toISOString().split('T')[0];
-        } else {
-            // Format: YYYY-MM
-            timeKey = timestamp.toISOString().substring(0, 7);
-        }
-
-        if (!allBuckets.has(timeKey)) {
-            // If we have no defined time period, or data outside our range,
-            // add the bucket dynamically
-            allBuckets.set(timeKey, 1);
-        } else {
-            // Increment existing bucket
-            allBuckets.set(timeKey, allBuckets.get(timeKey)! + 1);
-        }
+    // data is already period-filtered and sorted by the parent — use directly
+    for (const row of data) {
+        const ts = row.timestamp;
+        if (!ts) continue;
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const timeKey = Math.floor(ts / step);
+        allBuckets.set(timeKey, (allBuckets.get(timeKey) ?? 0) + 1);
     }
 
-    // Convert to array of points for graphing
     const buckets = Array.from(allBuckets.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
+        .sort((a, b) => a[0] - b[0])
         .map(([date, count]) => ({ date, count }));
 
-    // If no period is specified and no data, return empty array
     if (buckets.length === 0) {
         return [];
     }

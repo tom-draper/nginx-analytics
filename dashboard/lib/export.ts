@@ -14,7 +14,7 @@ export const exportCSV = (logs: NginxLog[]) => {
     ]]
     for (const log of logs) {
         csv.push([
-            log.timestamp ? log.timestamp.toISOString() : '',
+            log.timestamp ? new Date(log.timestamp).toISOString() : '',
             log.path ?? '',
             log.method ?? '',
             log.status ? log.status.toString() : '',

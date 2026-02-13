@@ -11,7 +11,7 @@ import { Version } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseNginxLogs } from "@/lib/parse";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -33,6 +33,28 @@ const FileUpload = dynamic(() => import("./file-upload"));
 
 const EMPTY_MAP = new Map<string, LocationType>();
 const PARSE_CHUNK_SIZE = 5000;
+
+// Comparator: sort NginxLog entries ascending by timestamp (nulls sort to the end)
+const compareByTimestamp = (a: NginxLog, b: NginxLog): number => {
+    if (a.timestamp === null) return 1;
+    if (b.timestamp === null) return -1;
+    return a.timestamp - b.timestamp; // both numbers
+};
+
+// Binary search: returns the first index in (sorted) logs whose timestamp >= targetMs
+function lowerBound(logs: NginxLog[], targetMs: number): number {
+    let lo = 0, hi = logs.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        const t = logs[mid].timestamp;
+        if (t !== null && t < targetMs) { // timestamp is now a number
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    return lo;
+}
 
 export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, demo: boolean }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
@@ -181,7 +203,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
             const newParsed = parseNginxLogs(newRawLogs);
             if (newParsed.length === 0) return;
             if (isFirstBatch) initPeriod(newParsed);
-            setLogs(prev => [...prev, ...newParsed]);
+            setLogs(prev => [...prev, ...newParsed].sort(compareByTimestamp));
             return;
         }
 
@@ -203,7 +225,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                 // All chunks done — single state update
                 if (allParsed.length > 0) {
                     if (isFirstBatch) initPeriod(allParsed);
-                    setLogs(prev => [...prev, ...allParsed]);
+                    setLogs(prev => [...prev, ...allParsed].sort(compareByTimestamp));
                 }
             }
         };
@@ -214,11 +236,9 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
 
 
 
-    const inPeriod = (date: Date, period: Period) => {
-        const start = periodStart(period);
-        if (!start) {
-            return true;
-        }
+    const inPeriod = (date: number, period: Period) => {
+        const start = periodStart(period); // now a number | null
+        if (!start) return true;
         return date >= start;
     }
 
@@ -227,34 +247,54 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
     const effectiveLocationMap = filter.location !== null ? locationMap : EMPTY_MAP;
 
     const filteredData = useMemo(() => {
+        const hasOtherFilters =
+            filter.location !== null
+            || filter.path !== null
+            || filter.method !== null
+            || filter.status !== null
+            || settings.ignore404
+            || filter.referrer !== null;
+
+        const start = periodStart(filter.period);
+
+        // Fast path: "all time" with no other active filters — return logs directly
+        if (start === null && !hasOtherFilters) {
+            return logs;
+        }
+
+        // Binary search to skip logs that are before the period start
+        const startIdx = start !== null ? lowerBound(logs, start) : 0;
+
+        // Fast path: period-only filter with nothing else — return the slice directly
+        if (!hasOtherFilters) {
+            return startIdx === 0 ? logs : logs.slice(startIdx);
+        }
+
         const validStatus = (status: number | null) => {
             if (status === null || filter.status === null) {
                 return true;
             }
-
             if (typeof filter.status === 'number') {
                 return status === filter.status;
             }
-
             for (const range of filter.status) {
                 if (range[0] <= status && range[1] >= status) {
                     return true;
                 }
             }
             return false;
-        }
+        };
 
         const result: NginxLog[] = [];
-        const start = periodStart(filter.period);
-        for (const row of logs) {
+        for (let i = startIdx; i < logs.length; i++) {
+            const row = logs[i];
             if (
-                (start === null || (row.timestamp && row.timestamp > start))
-                && (filter.location === null || (effectiveLocationMap.get(row.ipAddress)?.country === filter.location))
-                && (filter.path === null || (row.path === filter.path))
-                && (filter.method === null || (row.method === filter.method))
+                (filter.location === null || effectiveLocationMap.get(row.ipAddress)?.country === filter.location)
+                && (filter.path === null || row.path === filter.path)
+                && (filter.method === null || row.method === filter.method)
                 && (filter.status === null || validStatus(row.status))
                 && (!settings.ignore404 || row.status !== 404)
-                && (filter.referrer === null || (row.referrer === filter.referrer))
+                && (filter.referrer === null || row.referrer === filter.referrer)
             ) {
                 result.push(row);
             }
@@ -262,6 +302,10 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
         return result;
     }, [logs, filter, settings, effectiveLocationMap]);
 
+    // Defer heavy re-renders when filteredData changes (e.g. switching to "All time").
+    // Components receive the previous dataset while React computes the new one in the
+    // background, keeping the UI responsive instead of freezing for seconds.
+    const deferredFilteredData = useDeferredValue(filteredData);
 
     if (fileUpload && accessLogs.length === 0) {
     return (
@@ -313,35 +357,35 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
                     <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
-                            <SuccessRate data={filteredData} period={currentPeriod} />
+                            <SuccessRate data={deferredFilteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">
-                            <Requests data={filteredData} period={currentPeriod} />
-                            <Users data={filteredData} period={currentPeriod} />
+                            <Requests data={deferredFilteredData} period={currentPeriod} />
+                            <Users data={deferredFilteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">
-                            <Endpoints data={filteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} ignoreParams={ignoreParams} />
+                            <Endpoints data={deferredFilteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} ignoreParams={ignoreParams} />
                         </div>
 
                         <div className="flex">
-                            <ResponseSize data={filteredData} />
+                            <ResponseSize data={deferredFilteredData} />
                         </div>
 
                         <div className="flex">
-                            <Version data={filteredData} />
+                            <Version data={deferredFilteredData} />
                         </div>
                     </div>
 
                     {/* Right */}
                     <div className="min-[950px]:flex-1 min-w-0">
-                        <Activity data={filteredData} period={currentPeriod} />
+                        <Activity data={deferredFilteredData} period={currentPeriod} />
 
                         <div className="flex max-[1500px]:flex-col">
-                            <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
+                            <Location data={deferredFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
                             <div className="min-[1500px]:w-[27em]">
-                                <Device data={filteredData} />
+                                <Device data={deferredFilteredData} />
                             </div>
                         </div>
 
@@ -349,12 +393,12 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
 
                         <div className="w-inherit flex max-[1500px]:flex-col">
                             <div className="max-[1500px]:!w-full flex-1 min-w-0">
-                                <UsageTime data={filteredData} />
+                                <UsageTime data={deferredFilteredData} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
                                 <LiveGlobeCard logs={logs} locationMap={locationMap} />
                             </div>
                             <div className="self-start order-first min-[1500px]:order-last max-[1500px]:w-full">
-                                <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
+                                <Referrals data={deferredFilteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                             </div>
                         </div>
 

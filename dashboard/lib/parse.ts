@@ -7,8 +7,8 @@ const MONTH_MAP: Record<string, number> = {
     Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
 };
 
-// Parse NGINX timestamp: DD/Mon/YYYY:HH:MM:SS +HHMM
-function parseDate(date: string): Date | undefined {
+// Parse NGINX timestamp: DD/Mon/YYYY:HH:MM:SS +HHMM → epoch milliseconds
+function parseDate(date: string): number | undefined {
     if (!date || date.length < 20) return undefined;
 
     const day = (date.charCodeAt(0) - 48) * 10 + (date.charCodeAt(1) - 48);
@@ -28,7 +28,7 @@ function parseDate(date: string): Date | undefined {
         tzOffsetMs = tzSign * (tzHours * 60 + tzMins) * 60000;
     }
 
-    return new Date(Date.UTC(year, month, day, hours, minutes, seconds) - tzOffsetMs);
+    return Date.UTC(year, month, day, hours, minutes, seconds) - tzOffsetMs;
 }
 
 export function parseNginxLogs(logs: string[]) {

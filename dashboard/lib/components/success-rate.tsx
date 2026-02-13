@@ -3,118 +3,65 @@ import { useMemo, memo } from "react";
 import { NginxLog } from "../types";
 import { Period, periodStart } from "../period";
 
-function getSuccessRate(data: NginxLog[], period: Period) {
-    // Filter data by period if applicable
-    const startDate = periodStart(period);
-    const endDate = new Date(); // Current time as end date
-
-    let filteredData = [...data];
-    if (startDate) {
-        filteredData = filteredData.filter(log => {
-            const logDate = new Date(log.timestamp || 0);
-            return logDate >= startDate && logDate <= endDate;
-        });
-    }
-
-    if (!filteredData.length) {
-        return null;
-    }
+// data is already period-filtered by the parent (filteredData), so no re-filter needed
+function getSuccessRate(data: NginxLog[]) {
+    if (!data.length) return null;
 
     let success = 0;
-    for (const row of filteredData) {
-        if (row.status === null) {
-            continue;
-        }
-        if (row.status >= 200 && row.status <= 399) {
-            success++;
-        }
+    for (const row of data) {
+        if (row.status === null) continue;
+        if (row.status >= 200 && row.status <= 399) success++;
     }
-    return success / filteredData.length;
+    return success / data.length;
 }
 
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_DAY = 86_400_000;
+
 function getSuccessRatesByTime(data: NginxLog[], period: Period) {
-    // Get period start date (if applicable)
     const startDate = periodStart(period);
-    const endDate = new Date(); // Current time as end date
+    const endDate = new Date();
 
-    // Filter data by period if startDate is available
-    let filteredData = [...data];
-    if (startDate) {
-        filteredData = filteredData.filter(log => {
-            const logDate = new Date(log.timestamp || 0);
-            return logDate >= startDate && logDate <= endDate;
-        });
-    }
+    const byHour = period === '24 hours';
 
-    // Determine appropriate bucket size based on period
-    const bucketFormat: 'hour' | 'day' = period === '24 hours' ? 'hour' : 'day';
-
-    // Sort data by timestamp if available
-    const sortedData = filteredData.sort((a, b) => {
-        return new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime();
-    });
-
-    // Generate all time buckets within the period range
-    const allBuckets = new Map<string, { requests: number, successes: number }>();
+    // Generate all time buckets using integer keys — avoids toISOString() / string
+    // allocation on every row in the hot loop below.
+    const allBuckets = new Map<number, { requests: number, successes: number }>();
 
     if (startDate) {
-        // Clone dates to avoid modifying the original
-        const currentDate = new Date(startDate.getTime());
-
-        while (currentDate <= endDate) {
-            let timeKey: string;
-
-            if (bucketFormat === 'hour') {
-                // Format: YYYY-MM-DD HH
-                timeKey = `${currentDate.toISOString().split('T')[0]} ${currentDate.getHours()}`;
-                // Advance by 1 hour
-                currentDate.setHours(currentDate.getHours() + 1);
-            } else {
-                // Format: YYYY-MM-DD
-                timeKey = currentDate.toISOString().split('T')[0];
-                // Advance by 1 day
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-
-            allBuckets.set(timeKey, { requests: 0, successes: 0 });
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const startKey = Math.floor(startDate / step);
+        const endKey = Math.floor(endDate.getTime() / step);
+        for (let key = startKey; key <= endKey; key++) {
+            allBuckets.set(key, { requests: 0, successes: 0 });
         }
     }
 
-    // Count actual requests and successes per time bucket
-    for (const row of sortedData) {
-        const timestamp = new Date(row.timestamp || 0);
-        let timeKey: string;
-
-        if (bucketFormat === 'hour') {
-            // Format: YYYY-MM-DD HH
-            timeKey = `${timestamp.toISOString().split('T')[0]} ${timestamp.getHours()}`;
-        } else {
-            // Format: YYYY-MM-DD
-            timeKey = timestamp.toISOString().split('T')[0];
-        }
+    // data is already period-filtered and sorted by the parent — no copy, filter, or sort needed
+    for (const row of data) {
+        const ts = row.timestamp;
+        if (!ts) continue;
+        const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
+        const timeKey = Math.floor(ts / step);
 
         // Ensure the bucket exists
         if (!allBuckets.has(timeKey)) {
             allBuckets.set(timeKey, { requests: 1, successes: 0 });
         } else {
-            const bucket = allBuckets.get(timeKey)!;
-            bucket.requests++;
+            allBuckets.get(timeKey)!.requests++;
         }
 
-        // Count successful requests
         if (row.status !== null && row.status >= 200 && row.status <= 399) {
-            const bucket = allBuckets.get(timeKey)!;
-            bucket.successes++;
+            allBuckets.get(timeKey)!.successes++;
         }
     }
 
-    // Convert to array of points for graphing
     const ratesByTime = Array.from(allBuckets.entries())
+        .sort((a, b) => a[0] - b[0])
         .map(([date, { requests, successes }]) => ({
             date,
             rate: requests > 0 ? successes / requests : 0
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date));
+        }));
 
     // Consolidate into 6 buckets if we have more
     if (ratesByTime.length > 6) {
@@ -161,7 +108,7 @@ function getColor(successRate: number | null) {
 
 export const SuccessRate = memo(function SuccessRate({ data, period }: { data: NginxLog[], period: Period }) {
     const { successRate, ratesTrend } = useMemo(() => ({
-        successRate: getSuccessRate(data, period),
+        successRate: getSuccessRate(data),
         ratesTrend: getSuccessRatesByTime(data, period),
     }), [data, period]);
 

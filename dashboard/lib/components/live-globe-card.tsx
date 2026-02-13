@@ -48,7 +48,7 @@ export default function LiveGlobeCard({ logs, locationMap }: Props) {
 
         for (const log of newLogs) {
             // Skip historical data — only show recent requests
-            if (!log.timestamp || log.timestamp.getTime() < cutoff) continue;
+            if (!log.timestamp || log.timestamp < cutoff) continue;
 
             const loc = locationMap.get(log.ipAddress);
             if (loc) {

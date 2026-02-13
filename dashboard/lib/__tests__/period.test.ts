@@ -8,7 +8,7 @@ import type { NginxLog } from '../types'
 
 const makeLog = (timestamp: Date | null): NginxLog => ({
     ipAddress: '1.1.1.1',
-    timestamp,
+    timestamp: timestamp ? timestamp.getTime() : null,
     method: 'GET',
     path: '/',
     httpVersion: 'HTTP/1.1',
@@ -23,33 +23,33 @@ const makeLog = (timestamp: Date | null): NginxLog => ({
 // ---------------------------------------------------------------------------
 
 describe('periodStart', () => {
-    it('returns a Date for "24 hours"', () => {
-        const before = new Date()
+    it('returns a number for "24 hours"', () => {
+        const before = Date.now()
         const result = periodStart('24 hours')
-        const after = new Date()
-        expect(result).toBeInstanceOf(Date)
+        const after = Date.now()
+        expect(typeof result).toBe('number')
         const expectedMs = 24 * 60 * 60 * 1000
-        expect(before.getTime() - result!.getTime()).toBeGreaterThanOrEqual(expectedMs - 100)
-        expect(after.getTime() - result!.getTime()).toBeLessThanOrEqual(expectedMs + 100)
+        expect(before - result!).toBeGreaterThanOrEqual(expectedMs - 100)
+        expect(after - result!).toBeLessThanOrEqual(expectedMs + 100)
     })
 
-    it('returns a Date for "week"', () => {
-        const before = new Date()
+    it('returns a number for "week"', () => {
+        const before = Date.now()
         const result = periodStart('week')
-        expect(result).toBeInstanceOf(Date)
-        expect(before.getTime() - result!.getTime()).toBeGreaterThanOrEqual(7 * 24 * 60 * 60 * 1000 - 100)
+        expect(typeof result).toBe('number')
+        expect(before - result!).toBeGreaterThanOrEqual(7 * 24 * 60 * 60 * 1000 - 100)
     })
 
-    it('returns a Date for "month"', () => {
+    it('returns a number for "month"', () => {
         const result = periodStart('month')
-        expect(result).toBeInstanceOf(Date)
-        expect(result!.getTime()).toBeLessThan(Date.now())
+        expect(typeof result).toBe('number')
+        expect(result!).toBeLessThan(Date.now())
     })
 
-    it('returns a Date for "6 months"', () => {
+    it('returns a number for "6 months"', () => {
         const result = periodStart('6 months')
-        expect(result).toBeInstanceOf(Date)
-        expect(result!.getTime()).toBeLessThan(Date.now())
+        expect(typeof result).toBe('number')
+        expect(result!).toBeLessThan(Date.now())
     })
 
     it('returns null for "all time"', () => {

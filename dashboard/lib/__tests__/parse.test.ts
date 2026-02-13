@@ -25,20 +25,20 @@ describe('parseNginxLogs', () => {
 
     it('parses the timestamp correctly (UTC)', () => {
         const [log] = parseNginxLogs([COMBINED_LOG])
-        expect(log.timestamp).toBeInstanceOf(Date)
-        expect(log.timestamp?.toISOString()).toBe('2024-01-10T08:30:00.000Z')
+        expect(typeof log.timestamp).toBe('number')
+        expect(new Date(log.timestamp!).toISOString()).toBe('2024-01-10T08:30:00.000Z')
     })
 
     it('applies timezone offset correctly (negative offset)', () => {
         const [log] = parseNginxLogs([POST_LOG])
         // 14:22:05 -0500 == 19:22:05 UTC
-        expect(log.timestamp?.toISOString()).toBe('2023-06-15T19:22:05.000Z')
+        expect(new Date(log.timestamp!).toISOString()).toBe('2023-06-15T19:22:05.000Z')
     })
 
     it('applies timezone offset correctly (positive offset)', () => {
         const [log] = parseNginxLogs([ERROR_LOG])
         // 00:00:01 +0100 == 23:00:01 UTC previous day
-        expect(log.timestamp?.toISOString()).toBe('2024-02-29T23:00:01.000Z')
+        expect(new Date(log.timestamp!).toISOString()).toBe('2024-02-29T23:00:01.000Z')
     })
 
     it('parses a POST request with 201 status', () => {

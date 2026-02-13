@@ -96,7 +96,7 @@ export default memo(function UsageTime({ data }: { data: NginxLog[] }) {
             if (date === null) {
                 continue;
             }
-            const hour = date.getHours();
+            const hour = new Date(date).getHours();
             hourCounts[hour]++;
         }
 

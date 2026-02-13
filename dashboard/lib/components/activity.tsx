@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useRef, memo } from "react";
 import { Bar } from "react-chartjs-2";
 import { NginxLog } from "@/lib/types";
 import 'chartjs-adapter-date-fns';
-import { getDateRange, Period, periodStart } from "@/lib/period";
+import { getDateRangeSorted, Period, periodStart } from "@/lib/period";
 
 ChartJS.register(
     BarElement,
@@ -16,48 +16,31 @@ ChartJS.register(
     Legend
 );
 
-function getDayId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-
-    return new Date(date).setHours(0, 0, 0, 0); // Set minutes, seconds, and milliseconds to zero
+// All bucket-ID functions take a numeric timestamp (epoch ms) and return the
+// epoch ms of the start of the containing bucket — pure integer arithmetic,
+// no Date object allocation.
+function getDayId(ts: number) {
+    return Math.floor(ts / 86400000) * 86400000;
 }
 
-function getHourId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-
-    return new Date(date).setMinutes(0, 0, 0); // Set minutes, seconds, and milliseconds to zero
+function getHourId(ts: number) {
+    return Math.floor(ts / 3600000) * 3600000;
 }
 
-function get6HourId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-    const ms6h = 6 * 60 * 60 * 1000;
-    return Math.floor(date.getTime() / ms6h) * ms6h;
+function get6HourId(ts: number) {
+    const ms6h = 6 * 3600000;
+    return Math.floor(ts / ms6h) * ms6h;
 }
 
-function get5MinuteId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-
-    const msPer5Min = 5 * 60 * 1000; // 5 minutes in milliseconds
-    return (new Date(Math.round(date.getTime() / msPer5Min) * msPer5Min)).getTime();
+function get5MinuteId(ts: number) {
+    return Math.floor(ts / 300000) * 300000;
 }
 
-function getMinuteId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-
-    return new Date(date).setSeconds(0, 0); // Changed to use setSeconds instead
+function getMinuteId(ts: number) {
+    return Math.floor(ts / 60000) * 60000;
 }
 
-const getStepSize = (period: Period, data: NginxLog[]) => {
+const getStepSize = (period: Period, range: { start: number; end: number } | null) => {
     switch (period) {
         case '24 hours':
             return 300000; // 5 minutes
@@ -67,41 +50,20 @@ const getStepSize = (period: Period, data: NginxLog[]) => {
             return 21600000; // 6 hours
         case '6 months':
             return 86400000; // 1 day
-        case 'all time':
-            const range = getDateRange(data);
-            if (!range) {
-                return 8.64e+7; // day
-            }
-
+        case 'all time': {
+            if (!range) return 8.64e+7; // day
             const diff = range.end - range.start;
-            if (diff <= 86400000) {
-                return 300000; // 5 minutes
-            } else if (diff <= 604800000) {
-                return 3600000; // hour
-            } else {
-                return 8.64e+7; // day
-            }
+            if (diff <= 86400000) return 300000; // 5 minutes
+            if (diff <= 604800000) return 3600000; // hour
+            return 8.64e+7; // day
+        }
         default:
             return 8.64e+7; // day
     }
 }
 
-const incrementDate = (date: Date, period: Period) => {
-    switch (period) {
-        case '24 hours':
-            return new Date(date.setMinutes(date.getMinutes() + 5));
-        case 'week':
-            return new Date(date.setHours(date.getHours() + 1));
-        case 'month':
-            return new Date(date.setHours(date.getHours() + 6));
-        case '6 months':
-        case 'all time':
-        default:
-            return new Date(date.setDate(date.getDate() + 1));
-    }
-}
 
-const getTimeIdGetter = (period: Period, data: NginxLog[]) => {
+const getTimeIdGetter = (period: Period, range: { start: number; end: number } | null) => {
     switch (period) {
         case '24 hours':
             return get5MinuteId
@@ -111,26 +73,19 @@ const getTimeIdGetter = (period: Period, data: NginxLog[]) => {
             return get6HourId
         case '6 months':
             return getDayId
-        case 'all time':
-            const range = getDateRange(data);
-            if (!range) {
-                return getDayId;
-            }
-
+        case 'all time': {
+            if (!range) return getDayId;
             const diff = range.end - range.start;
-            if (diff <= 86400000) {
-                return get5MinuteId;
-            } else if (diff <= 604800000) {
-                return getHourId;
-            } else {
-                return getDayId;
-            }
+            if (diff <= 86400000) return get5MinuteId;
+            if (diff <= 604800000) return getHourId;
+            return getDayId;
+        }
         default:
             return getDayId
     }
 }
 
-const getTimeUnit = (period: Period, data: NginxLog[]) => {
+const getTimeUnit = (period: Period, range: { start: number; end: number } | null) => {
     switch (period) {
         case '24 hours':
             return 'minute'
@@ -140,20 +95,13 @@ const getTimeUnit = (period: Period, data: NginxLog[]) => {
             return 'hour'
         case '6 months':
             return 'day'
-        case 'all time':
-            const range = getDateRange(data);
-            if (!range) {
-                return 'day';
-            }
-
+        case 'all time': {
+            if (!range) return 'day';
             const diff = range.end - range.start;
-            if (diff <= 86400000) {
-                return 'minute';
-            } else if (diff <= 604800000) {
-                return 'hour';
-            } else {
-                return 'day';
-            }
+            if (diff <= 86400000) return 'minute';
+            if (diff <= 604800000) return 'hour';
+            return 'day';
+        }
         default:
             return 'day'
     }
@@ -245,27 +193,21 @@ function Activity({ data, period }: { data: NginxLog[], period: Period }) {
         const ratePoints: { [id: string]: { success: number, total: number } } = {};
 
         const start = periodStart(period);
-        const getTimeId = getTimeIdGetter(period, data);
+        // Compute date range once for "all time" — O(1) since data is sorted
+        const range = start === null ? getDateRangeSorted(data) : null;
+        const getTimeId = getTimeIdGetter(period, range);
 
-        let currentDate: Date;
-        let end: Date;
-        if (start === null) {
-            const range = getDateRange(data);
-            if (!range) {
-                return { plotData: null, plotOptions: null, successRates: [], periodLabels: { start: '', end: '' } };
-            }
-            currentDate = new Date(range.start);
-            end = new Date(range.end);
-        } else {
-            end = new Date();
-            currentDate = new Date(start);
+        if (start === null && !range) {
+            return { plotData: null, plotOptions: null, successRates: [], periodLabels: { start: '', end: '' } };
         }
 
-        while (currentDate <= end) {
-            const timeId = getTimeId(currentDate);
-            chartPoints[timeId] = { requests: 0, users: new Set() };
-            ratePoints[timeId] = { success: 0, total: 0 };
-            currentDate = incrementDate(currentDate, period);
+        const startMs = start !== null ? start : range!.start;
+        const endMs = start !== null ? Date.now() : range!.end;
+        const step = getStepSize(period, range);
+
+        for (let t = getTimeId(startMs); t <= getTimeId(endMs); t += step) {
+            chartPoints[t] = { requests: 0, users: new Set() };
+            ratePoints[t] = { success: 0, total: 0 };
         }
 
         // Single loop over data for both chart points and success rates
@@ -328,7 +270,7 @@ function Activity({ data, period }: { data: NginxLog[], period: Period }) {
                     grid: {
                         display: false
                     },
-                    max: period === 'all time' ? undefined : getTimeId(new Date())
+                    max: period === 'all time' ? undefined : getTimeId(Date.now())
                 },
                 y: {
                     display: false,
@@ -388,7 +330,6 @@ function Activity({ data, period }: { data: NginxLog[], period: Period }) {
                 periodLabels = { start: 'Six months ago', end: 'Now' };
                 break;
             default: {
-                const range = getDateRange(data);
                 if (range) {
                     periodLabels = {
                         start: new Date(range.start).toLocaleDateString(),
