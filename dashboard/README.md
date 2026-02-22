@@ -22,9 +22,25 @@ npm start
 
 Or use Docker if preferred.
 
+Pull the prebuilt image from GitHub Container Registry:
+
 ```bash
-docker build -t nginx-analytics .
-docker run -d -p 3000:3000 nginx-analytics
+docker pull ghcr.io/tom-draper/nginx-analytics-dashboard:latest
+```
+
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -v /var/log/nginx:/var/log/nginx:ro \
+  -e NGINX_ANALYTICS_ACCESS_PATH=/var/log/nginx \
+  ghcr.io/tom-draper/nginx-analytics-dashboard:latest
+```
+
+Or build locally:
+
+```bash
+docker build -t nginx-analytics-dashboard .
+docker run -d -p 3000:3000 nginx-analytics-dashboard
 ```
 
 In a `.env` file, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory containing your log files. It's likely to be the default location `/var/log/nginx/`.

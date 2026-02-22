@@ -1,0 +1,7 @@
+bin/
+*.log
+*.mmdb
+.env
+.env.*
+access*.log
+error*.log

@@ -25,6 +25,44 @@ chmod +x /usr/local/bin/agent
 > ```
 <br>
 
+Or use Docker if preferred.
+
+Pull the prebuilt image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/tom-draper/nginx-analytics-agent:latest
+```
+
+```bash
+docker run -d \
+  -p 5000:5000 \
+  -v /var/log/nginx:/var/log/nginx:ro \
+  -e NGINX_ANALYTICS_ACCESS_PATH=/var/log/nginx \
+  -e NGINX_ANALYTICS_AUTH_TOKEN=your-auth-token \
+  ghcr.io/tom-draper/nginx-analytics-agent:latest
+```
+
+To enable location lookups, mount a [MaxMind GeoLite2](https://www.maxmind.com/en/geolite2/signup) database:
+
+```bash
+docker run -d \
+  -p 5000:5000 \
+  -v /var/log/nginx:/var/log/nginx:ro \
+  -v /path/to/GeoLite2-Country.mmdb:/app/GeoLite2-Country.mmdb \
+  -e NGINX_ANALYTICS_ACCESS_PATH=/var/log/nginx \
+  -e NGINX_ANALYTICS_AUTH_TOKEN=your-auth-token \
+  ghcr.io/tom-draper/nginx-analytics-agent:latest
+```
+
+Or build locally:
+
+```bash
+docker build -t nginx-analytics-agent .
+docker run -d -p 5000:5000 nginx-analytics-agent
+```
+
+<br>
+
 Update your existing NGINX configuration to redirect to the agent, or copy the below config into `/etc/nginx/conf.d/agent.conf`.
 
 ```nginx
