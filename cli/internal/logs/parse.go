@@ -11,7 +11,7 @@ import (
 
 // Pre-compiled regex patterns for better performance
 var (
-	nginxLogRegex       = regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]+)" "([^"]+)"`)
+	nginxLogRegex       = regexp.MustCompile(`^(?:\S+ )?(\S+) - \S+ \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]*)" "([^"]*)"`)
 	dateColonRegex      = regexp.MustCompile(`^([^:]+):`)
 	monthRegex          = regexp.MustCompile(`([A-Za-z]{3})`)
 	timestampPattern    = regexp.MustCompile(`^(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})`)

@@ -1,6 +1,6 @@
 import { NginxError, NginxLog } from "./types";
 
-const LOG_REGEX = /^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]+)" "([^"]+)"/;
+const LOG_REGEX = /^(?:\S+ )?(\S+) - \S+ \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]*)" "([^"]*)"/;
 
 const MONTH_MAP: Record<string, number> = {
     Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,

@@ -9,6 +9,8 @@ const COMBINED_LOG = '192.168.1.1 - - [10/Jan/2024:08:30:00 +0000] "GET /api/dat
 const POST_LOG    = '10.0.0.1 - - [15/Jun/2023:14:22:05 -0500] "POST /submit HTTP/2.0" 201 512 "-" "curl/7.68.0"'
 const ERROR_LOG   = '172.16.0.5 - - [01/Mar/2024:00:00:01 +0100] "DELETE /resource/42 HTTP/1.1" 404 98 "-" "python-requests/2.28"'
 const PATH_QUERY  = '1.2.3.4 - - [20/Dec/2023:12:00:00 +0000] "GET /search?q=nginx&page=2 HTTP/1.1" 200 4096 "-" "Googlebot/2.1"'
+// Nginx Proxy Manager vcombined format: $host:$server_port prepended
+const NPM_LOG     = 'example.com:443 192.168.1.1 - - [10/Jan/2024:08:30:00 +0000] "GET /api/data HTTP/2.0" 200 1234 "https://example.com" "Mozilla/5.0"'
 
 describe('parseNginxLogs', () => {
     it('parses a standard combined log line', () => {
@@ -69,6 +71,14 @@ describe('parseNginxLogs', () => {
 
     it('returns an empty array for empty input', () => {
         expect(parseNginxLogs([])).toEqual([])
+    })
+
+    it('parses Nginx Proxy Manager vcombined format (host:port prefix)', () => {
+        const [log] = parseNginxLogs([NPM_LOG])
+        expect(log.ipAddress).toBe('192.168.1.1')
+        expect(log.method).toBe('GET')
+        expect(log.path).toBe('/api/data')
+        expect(log.status).toBe(200)
     })
 
     it('returns null timestamp for an invalid date string', () => {

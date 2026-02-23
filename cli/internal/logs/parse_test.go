@@ -53,6 +53,14 @@ func TestParseNginxLogs(t *testing.T) {
 			expected: 0,
 			wantErr:  false,
 		},
+		{
+			name: "nginx proxy manager vcombined format (host:port prefix)",
+			input: []string{
+				`example.com:443 192.168.1.1 - - [01/Jan/2024:12:00:00 +0000] "GET /api/users HTTP/2.0" 200 1234 "https://example.com" "Mozilla/5.0"`,
+			},
+			expected: 1,
+			wantErr:  false,
+		},
 	}
 
 	for _, tt := range tests {
