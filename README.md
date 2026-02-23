@@ -82,7 +82,20 @@ Deploying with HTTPS is always recommended. Without this, you risk exposing any 
 
 #### NGINX
 
-Only the default NGINX log format is supported currently, but future plans include support for custom formats.
+By default, the standard NGINX combined log format is supported. If you use a custom log format, set `NGINX_ANALYTICS_LOG_FORMAT` to match the `log_format` directive in your NGINX config.
+
+```env
+NGINX_ANALYTICS_LOG_FORMAT=$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
+```
+
+**Nginx Proxy Manager** uses the `vcombined` format, which prepends `$host:$server_port` to each line. Set the following on your agent (or dashboard):
+
+```env
+NGINX_ANALYTICS_LOG_FORMAT=$host:$server_port $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
+```
+
+> [!NOTE]
+> Nginx Proxy Manager stores logs under `/data/logs/` (e.g. `proxy-host-1_access.log`), not `/var/log/nginx/`. Mount and point `NGINX_ANALYTICS_ACCESS_PATH` accordingly.
 
 To better configure NGINX to get the most out of your analytics, take a look at the <a href="./nginx/README.md">NGINX configuration guide</a>.
 

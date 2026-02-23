@@ -65,7 +65,7 @@ func TestParseNginxLogs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ParseNginxLogs(tt.input)
+			result := ParseNginxLogs(tt.input, "")
 
 			if len(result) != tt.expected {
 				t.Errorf("ParseNginxLogs() returned %d logs, expected %d", len(result), tt.expected)
@@ -99,7 +99,7 @@ func TestParseNginxLogsFieldExtraction(t *testing.T) {
 		`10.0.0.1 - - [15/Mar/2024:10:30:45 +0000] "GET /api/endpoint HTTP/1.1" 404 2048 "https://referrer.com" "TestAgent/1.0"`,
 	}
 
-	result := ParseNginxLogs(input)
+	result := ParseNginxLogs(input, "")
 
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 log entry, got %d", len(result))
@@ -107,52 +107,126 @@ func TestParseNginxLogsFieldExtraction(t *testing.T) {
 
 	log := result[0]
 
-	// Test IP address
 	if log.IPAddress != "10.0.0.1" {
 		t.Errorf("Expected IPAddress '10.0.0.1', got '%s'", log.IPAddress)
 	}
-
-	// Test method
 	if log.Method != "GET" {
 		t.Errorf("Expected Method 'GET', got '%s'", log.Method)
 	}
-
-	// Test path
 	if log.Path != "/api/endpoint" {
 		t.Errorf("Expected Path '/api/endpoint', got '%s'", log.Path)
 	}
-
-	// Test HTTP version
 	if log.HTTPVersion != "HTTP/1.1" {
 		t.Errorf("Expected HTTPVersion 'HTTP/1.1', got '%s'", log.HTTPVersion)
 	}
-
-	// Test status code
 	if log.Status == nil {
 		t.Fatal("Expected Status to be set")
 	}
 	if *log.Status != 404 {
 		t.Errorf("Expected Status 404, got %d", *log.Status)
 	}
-
-	// Test response size
 	if log.ResponseSize == nil {
 		t.Fatal("Expected ResponseSize to be set")
 	}
 	if *log.ResponseSize != 2048 {
 		t.Errorf("Expected ResponseSize 2048, got %d", *log.ResponseSize)
 	}
-
-	// Test referrer
 	if log.Referrer != "https://referrer.com" {
 		t.Errorf("Expected Referrer 'https://referrer.com', got '%s'", log.Referrer)
 	}
-
-	// Test user agent
 	if log.UserAgent != "TestAgent/1.0" {
 		t.Errorf("Expected UserAgent 'TestAgent/1.0', got '%s'", log.UserAgent)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// buildLogRegex / custom log format tests
+// ---------------------------------------------------------------------------
+
+func TestBuildLogRegexStandardFormat(t *testing.T) {
+	format := `$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"`
+	line := `192.168.1.1 - - [01/Jan/2024:12:00:00 +0000] "GET /path HTTP/1.1" 200 1234 "https://example.com" "Mozilla/5.0"`
+
+	result := ParseNginxLogs([]string{line}, format)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	log := result[0]
+	if log.IPAddress != "192.168.1.1" {
+		t.Errorf("IPAddress: got %q, want %q", log.IPAddress, "192.168.1.1")
+	}
+	if log.Method != "GET" {
+		t.Errorf("Method: got %q, want %q", log.Method, "GET")
+	}
+	if log.Path != "/path" {
+		t.Errorf("Path: got %q, want %q", log.Path, "/path")
+	}
+	if log.Status == nil || *log.Status != 200 {
+		t.Errorf("Status: got %v, want 200", log.Status)
+	}
+	if log.Referrer != "https://example.com" {
+		t.Errorf("Referrer: got %q, want %q", log.Referrer, "https://example.com")
+	}
+}
+
+func TestBuildLogRegexNPMVcombinedFormat(t *testing.T) {
+	format := `$host:$server_port $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"`
+	line := `example.com:443 192.168.1.1 - - [01/Jan/2024:12:00:00 +0000] "GET /path HTTP/2.0" 200 529 "https://example.com" "Mozilla/5.0"`
+
+	result := ParseNginxLogs([]string{line}, format)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	log := result[0]
+	if log.IPAddress != "192.168.1.1" {
+		t.Errorf("IPAddress: got %q, want %q", log.IPAddress, "192.168.1.1")
+	}
+	if log.Method != "GET" {
+		t.Errorf("Method: got %q, want %q", log.Method, "GET")
+	}
+	if log.Status == nil || *log.Status != 200 {
+		t.Errorf("Status: got %v, want 200", log.Status)
+	}
+}
+
+func TestBuildLogRegexCustomFormat(t *testing.T) {
+	// A format with upstream timing added
+	format := `$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" rt=$request_time`
+	line := `10.0.0.1 - - [15/Jun/2023:14:22:05 +0000] "POST /submit HTTP/1.1" 201 512 "-" "curl/7.68.0" rt=0.042`
+
+	result := ParseNginxLogs([]string{line}, format)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	log := result[0]
+	if log.IPAddress != "10.0.0.1" {
+		t.Errorf("IPAddress: got %q, want %q", log.IPAddress, "10.0.0.1")
+	}
+	if log.Method != "POST" {
+		t.Errorf("Method: got %q, want %q", log.Method, "POST")
+	}
+	if log.Status == nil || *log.Status != 201 {
+		t.Errorf("Status: got %v, want 201", log.Status)
+	}
+}
+
+func TestBuildLogRegexUnknownVariableFallback(t *testing.T) {
+	// $custom_var is unknown — should fall back to \S+ and not panic
+	format := `$remote_addr $custom_var [$time_local] "$request" $status $body_bytes_sent`
+	line := `1.2.3.4 somevalue [10/Jan/2024:08:30:00 +0000] "GET / HTTP/1.1" 200 99`
+
+	result := ParseNginxLogs([]string{line}, format)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	if result[0].IPAddress != "1.2.3.4" {
+		t.Errorf("IPAddress: got %q, want %q", result[0].IPAddress, "1.2.3.4")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Other unit tests
+// ---------------------------------------------------------------------------
 
 func TestParseDate(t *testing.T) {
 	tests := []struct {
@@ -225,31 +299,11 @@ func TestParseIntPtr(t *testing.T) {
 		input    string
 		expected *int
 	}{
-		{
-			name:     "valid integer",
-			input:    "200",
-			expected: intPtr(200),
-		},
-		{
-			name:     "zero",
-			input:    "0",
-			expected: intPtr(0),
-		},
-		{
-			name:     "large number",
-			input:    "1234567",
-			expected: intPtr(1234567),
-		},
-		{
-			name:     "empty string",
-			input:    "",
-			expected: nil,
-		},
-		{
-			name:     "invalid string",
-			input:    "abc",
-			expected: nil,
-		},
+		{name: "valid integer", input: "200", expected: intPtr(200)},
+		{name: "zero", input: "0", expected: intPtr(0)},
+		{name: "large number", input: "1234567", expected: intPtr(1234567)},
+		{name: "empty string", input: "", expected: nil},
+		{name: "invalid string", input: "abc", expected: nil},
 	}
 
 	for _, tt := range tests {
@@ -262,11 +316,9 @@ func TestParseIntPtr(t *testing.T) {
 				}
 				return
 			}
-
 			if result == nil {
 				t.Fatalf("Expected %d, got nil", *tt.expected)
 			}
-
 			if *result != *tt.expected {
 				t.Errorf("Expected %d, got %d", *tt.expected, *result)
 			}
@@ -295,19 +347,8 @@ func TestParseNginxErrors(t *testing.T) {
 			},
 			expected: 2,
 		},
-		{
-			name:     "empty input",
-			input:    []string{},
-			expected: 0,
-		},
-		{
-			name: "blank lines",
-			input: []string{
-				``,
-				`   `,
-			},
-			expected: 0,
-		},
+		{name: "empty input", input: []string{}, expected: 0},
+		{name: "blank lines", input: []string{``, `   `}, expected: 0},
 	}
 
 	for _, tt := range tests {
@@ -318,7 +359,6 @@ func TestParseNginxErrors(t *testing.T) {
 				t.Errorf("ParseNginxErrors() returned %d errors, expected %d", len(result), tt.expected)
 			}
 
-			// Validate first error entry if we expect results
 			if tt.expected > 0 && len(result) > 0 {
 				err := result[0]
 				if err.Level == "" {
@@ -332,22 +372,19 @@ func TestParseNginxErrors(t *testing.T) {
 	}
 }
 
-// Helper function to create int pointer
-func intPtr(i int) *int {
-	return &i
-}
+// Helper
+func intPtr(i int) *int { return &i }
 
-// Benchmark tests
+// Benchmarks
 func BenchmarkParseNginxLogs(b *testing.B) {
 	input := []string{
 		`192.168.1.1 - - [01/Jan/2024:12:00:00 +0000] "GET /api/users HTTP/1.1" 200 1234 "https://example.com" "Mozilla/5.0"`,
 		`192.168.1.2 - - [01/Jan/2024:12:01:00 +0000] "POST /api/data HTTP/1.1" 201 567 "https://example.com" "Chrome/90.0"`,
 		`192.168.1.3 - - [01/Jan/2024:12:02:00 +0000] "GET /api/status HTTP/1.1" 200 89 "https://example.com" "Safari/14.0"`,
 	}
-
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ParseNginxLogs(input)
+		ParseNginxLogs(input, "")
 	}
 }
 
@@ -356,7 +393,6 @@ func BenchmarkParseNginxErrors(b *testing.B) {
 		`2024/01/15 10:30:45 [error] 12345#0: *1 connect() failed (111: Connection refused)`,
 		`2024/01/15 10:31:00 [warn] 12345#0: *2 upstream server temporarily disabled`,
 	}
-
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ParseNginxErrors(input)

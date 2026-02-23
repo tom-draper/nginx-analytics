@@ -44,12 +44,14 @@ var (
 type LogService struct {
 	serverURL string
 	authToken string
+	logFormat string
 }
 
-func NewLogService(serverURL string, authToken string) *LogService {
+func NewLogService(serverURL string, authToken string, logFormat string) *LogService {
 	return &LogService{
 		serverURL: serverURL,
 		authToken: authToken,
+		logFormat: logFormat,
 	}
 }
 
@@ -59,7 +61,7 @@ func (ls *LogService) LoadLogs(accessPath string, positions []parse.Position, is
 	if err != nil {
 		return nil, positions, fmt.Errorf("failed to load logs: %w", err)
 	}
-	return l.ParseNginxLogs(result.Logs), result.Positions, nil
+	return l.ParseNginxLogs(result.Logs, ls.logFormat), result.Positions, nil
 }
 
 // LoadLogSizes loads log size information

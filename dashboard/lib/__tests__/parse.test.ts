@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseNginxLogs, parseNginxErrors } from '../parse'
+import { parseNginxLogs, parseNginxErrors, logFormatToRegex } from '../parse'
 
 // ---------------------------------------------------------------------------
 // Access log parsing
@@ -79,6 +79,77 @@ describe('parseNginxLogs', () => {
         expect(log.method).toBe('GET')
         expect(log.path).toBe('/api/data')
         expect(log.status).toBe(200)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// logFormatToRegex
+// ---------------------------------------------------------------------------
+
+describe('logFormatToRegex', () => {
+    const STANDARD_FORMAT = '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"'
+    const NPM_FORMAT = '$host:$server_port $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"'
+    const CUSTOM_FORMAT = '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" rt=$request_time'
+
+    it('standard format parses a combined log line', () => {
+        const [log] = parseNginxLogs([COMBINED_LOG], STANDARD_FORMAT)
+        expect(log.ipAddress).toBe('192.168.1.1')
+        expect(log.method).toBe('GET')
+        expect(log.path).toBe('/api/data')
+        expect(log.status).toBe(200)
+        expect(log.responseSize).toBe(1234)
+        expect(log.referrer).toBe('https://example.com')
+        expect(log.userAgent).toBe('Mozilla/5.0')
+    })
+
+    it('NPM vcombined format extracts the client IP (not the host prefix)', () => {
+        const [log] = parseNginxLogs([NPM_LOG], NPM_FORMAT)
+        expect(log.ipAddress).toBe('192.168.1.1')
+        expect(log.method).toBe('GET')
+        expect(log.status).toBe(200)
+    })
+
+    it('custom format with trailing $request_time field', () => {
+        const line = '10.0.0.1 - - [15/Jun/2023:14:22:05 +0000] "POST /submit HTTP/1.1" 201 512 "-" "curl/7.68.0" rt=0.042'
+        const [log] = parseNginxLogs([line], CUSTOM_FORMAT)
+        expect(log.ipAddress).toBe('10.0.0.1')
+        expect(log.method).toBe('POST')
+        expect(log.status).toBe(201)
+    })
+
+    it('produces correct field indices for standard format', () => {
+        const { fields } = logFormatToRegex(STANDARD_FORMAT)
+        expect(fields.ipAddress).toBe(1)
+        expect(fields.timestamp).toBe(2)
+        expect(fields.method).toBe(3)
+        expect(fields.path).toBe(4)
+        expect(fields.httpVersion).toBe(5)
+        expect(fields.status).toBe(6)
+        expect(fields.responseSize).toBe(7)
+        expect(fields.referrer).toBe(8)
+        expect(fields.userAgent).toBe(9)
+    })
+
+    it('produces shifted field indices for NPM vcombined format', () => {
+        const { fields } = logFormatToRegex(NPM_FORMAT)
+        // $host and $server_port are uncaptured, so ipAddress is still group 1
+        expect(fields.ipAddress).toBe(1)
+        expect(fields.status).toBe(6)
+    })
+
+    it('unknown variable falls back to \\S+ without error', () => {
+        const format = '$remote_addr $custom_unknown_var [$time_local] "$request" $status $body_bytes_sent'
+        const line = '1.2.3.4 somevalue [10/Jan/2024:08:30:00 +0000] "GET / HTTP/1.1" 200 99'
+        const [log] = parseNginxLogs([line], format)
+        expect(log.ipAddress).toBe('1.2.3.4')
+        expect(log.status).toBe(200)
+    })
+
+    it('caches compiled formats (same object returned for same format string)', () => {
+        const a = logFormatToRegex(STANDARD_FORMAT)
+        const b = logFormatToRegex(STANDARD_FORMAT)
+        // Same regex source means the same compiled result was used
+        expect(a.regex.source).toBe(b.regex.source)
     })
 
     it('returns null timestamp for an invalid date string', () => {

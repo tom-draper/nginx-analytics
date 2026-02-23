@@ -115,7 +115,7 @@ func NewModel(cfg config.Config, serverURL string, authToken string) Model {
 }
 
 func newDataManager(cfg config.Config, serverURL string, authToken string) *DataManager {
-	logService := NewLogService(serverURL, authToken)
+	logService := NewLogService(serverURL, authToken, cfg.LogFormat)
 
 	// Load initial logs
 	logs, positions, err := logService.LoadLogs(cfg.AccessPath, []parse.Position{}, false, true)
@@ -555,7 +555,7 @@ func (um *UIManager) navigateDown() {
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		periodicSystemInfoCmd(0, m.dataManager.serverURL, m.dataManager.authToken),
-		periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.authToken, m.dataManager.getPositions()),
+		periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.authToken, m.config.LogFormat, m.dataManager.getPositions()),
 	)
 }
 
@@ -573,7 +573,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update current data to reflect new logs
 		m.updateCurrentData()
 		// Schedule next log refresh
-		return m, periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.authToken, m.dataManager.getPositions())
+		return m, periodicLogRefreshCmd(30*time.Second, m.config.AccessPath, m.dataManager.serverURL, m.dataManager.authToken, m.config.LogFormat, m.dataManager.getPositions())
 
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
@@ -902,9 +902,9 @@ func periodicSystemInfoCmd(d time.Duration, serverURL string, authToken string) 
 }
 
 // periodicLogRefreshCmd creates a command that periodically fetches new logs
-func periodicLogRefreshCmd(d time.Duration, accessPath, serverURL string, authToken string, positions []parse.Position) tea.Cmd {
+func periodicLogRefreshCmd(d time.Duration, accessPath, serverURL string, authToken string, logFormat string, positions []parse.Position) tea.Cmd {
 	return tea.Tick(d, func(t time.Time) tea.Msg {
-		logService := NewLogService(serverURL, authToken)
+		logService := NewLogService(serverURL, authToken, logFormat)
 
 		// Load new logs starting from the last position
 		// You'll need to modify LoadLogsFromPosition to accept a position parameter

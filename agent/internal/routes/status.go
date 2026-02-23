@@ -15,15 +15,17 @@ type Status struct {
 	Version          string `json:"version"`
 	AccessLogStatus  string `json:"accessLogStatus"`
 	ErrorLogStatus   string `json:"errorLogStatus"`
+	LogFormat        string `json:"logFormat,omitempty"`
 }
 
-func ServeServerStatus(w http.ResponseWriter, nginxAccessPath string, nginxErrorPath string, startTime time.Time) {
+func ServeServerStatus(w http.ResponseWriter, nginxAccessPath string, nginxErrorPath string, startTime time.Time, logFormat string) {
 	// Create an instance of Status struct
 	status := Status{
-		Status:  "ok",
-		Uptime:  time.Since(startTime).String(),
+		Status:    "ok",
+		Uptime:    time.Since(startTime).String(),
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Version: "1.0.0",
+		Version:   "1.0.0",
+		LogFormat: logFormat,
 	}
 
 	// Check if the access log file exists

@@ -183,6 +183,21 @@ The default port is 5000. If this is already is use, specify an alternative with
 
 IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
 
+### Log Format
+
+By default, the standard NGINX combined log format is assumed. If you use a custom `log_format` in your NGINX config, set `NGINX_ANALYTICS_LOG_FORMAT` to the same value so the parser knows how to read your log lines.
+
+```env
+NGINX_ANALYTICS_LOG_FORMAT=$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
+```
+
+**Nginx Proxy Manager** uses the `vcombined` format which prepends `$host:$server_port` before the client IP. Point the agent at `/data/logs/` and set:
+
+```env
+NGINX_ANALYTICS_ACCESS_PATH=/data/logs
+NGINX_ANALYTICS_LOG_FORMAT=$host:$server_port $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
+```
+
 ### System Monitoring
 
 By default, system monitoring is disabled. To enable it, set the `NGINX_ANALYTICS_SYSTEM_MONITORING` environment variable to `true`, or with the `--system-monitoring` command line argument.

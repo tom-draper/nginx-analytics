@@ -101,7 +101,7 @@ func TestServeServerStatus(t *testing.T) {
 			// Create a response recorder to capture the output
 			rr := httptest.NewRecorder()
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				ServeServerStatus(w, tt.nginxAccessPath, tt.nginxErrorPath, startTime)
+				ServeServerStatus(w, tt.nginxAccessPath, tt.nginxErrorPath, startTime, "")
 			})
 
 			// Execute the handler

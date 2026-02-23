@@ -33,7 +33,7 @@ const FileUpload = dynamic(() => import("./file-upload"));
 const EMPTY_MAP = new Map<string, LocationType>();
 const PARSE_CHUNK_SIZE = 5000;
 
-export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, demo: boolean }) {
+export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload: boolean, demo: boolean, logFormat?: string }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [logs, setLogs] = useState<NginxLog[]>([]);
     const parsedAccessCount = useRef(0);
@@ -177,7 +177,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
 
         // Small batches: parse synchronously
         if (newRawLogs.length <= PARSE_CHUNK_SIZE) {
-            const newParsed = parseNginxLogs(newRawLogs);
+            const newParsed = parseNginxLogs(newRawLogs, logFormat);
             if (newParsed.length === 0) return;
             if (isFirstBatch) initPeriod(newParsed);
             setLogs(prev => [...prev, ...newParsed]);
@@ -193,7 +193,7 @@ export default function Dashboard({ fileUpload, demo }: { fileUpload: boolean, d
             if (parseCancelRef.current) return;
             const chunk = newRawLogs.slice(offset, offset + PARSE_CHUNK_SIZE);
             if (chunk.length === 0) return;
-            const parsed = parseNginxLogs(chunk);
+            const parsed = parseNginxLogs(chunk, logFormat);
             if (parsed.length > 0) allParsed.push(...parsed);
             offset += PARSE_CHUNK_SIZE;
             if (offset < newRawLogs.length) {

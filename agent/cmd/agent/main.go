@@ -128,7 +128,7 @@ func main() {
 	})
 
 	setupRoute("/api/status", http.MethodGet, "Checking status", func(w http.ResponseWriter, r *http.Request) {
-		routes.ServeServerStatus(w, cfg.AccessPath, cfg.ErrorPath, startTime)
+		routes.ServeServerStatus(w, cfg.AccessPath, cfg.ErrorPath, startTime, cfg.LogFormat)
 	})
 
 	setupRoute("/api/system", http.MethodGet, "Checking system resources", func(w http.ResponseWriter, r *http.Request) {

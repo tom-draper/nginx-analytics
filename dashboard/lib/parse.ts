@@ -1,6 +1,137 @@
 import { NginxError, NginxLog } from "./types";
 
+// ---------------------------------------------------------------------------
+// Default compiled regex (handles standard combined + NPM vcombined prefix)
+// ---------------------------------------------------------------------------
+
 const LOG_REGEX = /^(?:\S+ )?(\S+) - \S+ \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+) "([^"]*)" "([^"]*)"/;
+
+const DEFAULT_FIELDS: FieldMapping = {
+    ipAddress: 1, timestamp: 2, method: 3, path: 4,
+    httpVersion: 5, status: 6, responseSize: 7, referrer: 8, userAgent: 9,
+};
+
+// ---------------------------------------------------------------------------
+// Log format → regex conversion
+// ---------------------------------------------------------------------------
+
+type FieldName = 'ipAddress' | 'timestamp' | 'method' | 'path' | 'httpVersion' | 'status' | 'responseSize' | 'referrer' | 'userAgent';
+
+interface FieldMapping {
+    ipAddress?: number;
+    timestamp?: number;
+    method?: number;
+    path?: number;
+    httpVersion?: number;
+    status?: number;
+    responseSize?: number;
+    referrer?: number;
+    userAgent?: number;
+}
+
+interface CompiledFormat {
+    regex: RegExp;
+    fields: FieldMapping;
+}
+
+// Nginx variables that map to NginxLog fields (captured groups)
+const CAPTURED_VARS: Record<string, { pattern: string; field?: FieldName; fields?: FieldName[] }> = {
+    remote_addr:        { pattern: '(\\S+)',         field: 'ipAddress' },
+    time_local:         { pattern: '([^\\]]+)',       field: 'timestamp' },
+    time_iso8601:       { pattern: '(\\S+)',          field: 'timestamp' },
+    request:            { pattern: '(\\S+) (\\S+) (\\S+)', fields: ['method', 'path', 'httpVersion'] },
+    request_method:     { pattern: '(\\S+)',          field: 'method' },
+    request_uri:        { pattern: '(\\S+)',          field: 'path' },
+    uri:                { pattern: '(\\S+)',          field: 'path' },
+    server_protocol:    { pattern: '(\\S+)',          field: 'httpVersion' },
+    status:             { pattern: '(\\d{3})',        field: 'status' },
+    body_bytes_sent:    { pattern: '(\\d+)',          field: 'responseSize' },
+    bytes_sent:         { pattern: '(\\d+)',          field: 'responseSize' },
+    http_referer:       { pattern: '([^"]*)',         field: 'referrer' },
+    http_user_agent:    { pattern: '([^"]*)',         field: 'userAgent' },
+};
+
+// Nginx variables that are consumed but not stored (non-capturing)
+const UNCAPTURED_VARS: Record<string, string> = {
+    remote_user:            '\\S+',
+    host:                   '\\S+',
+    server_name:            '\\S+',
+    server_port:            '\\d+',
+    scheme:                 '\\S+',
+    upstream_addr:          '\\S+',
+    upstream_cache_status:  '\\S+',
+    upstream_status:        '\\d+',
+    request_time:           '[\\d.]+',
+    upstream_response_time: '[\\d.-]+',
+    upstream_connect_time:  '[\\d.-]+',
+    upstream_header_time:   '[\\d.-]+',
+    gzip_ratio:             '[\\d.]+',
+    connection:             '\\d+',
+    connection_requests:    '\\d+',
+    pipe:                   '\\S+',
+    http_x_forwarded_for:   '[^"]*',
+    http_cookie:            '[^"]*',
+    msec:                   '[\\d.]+',
+    request_length:         '\\d+',
+    ssl_protocol:           '\\S+',
+    ssl_cipher:             '\\S+',
+};
+
+export function logFormatToRegex(format: string): CompiledFormat {
+    let pattern = '^';
+    let groupIndex = 0;
+    const fields: FieldMapping = {};
+
+    let i = 0;
+    while (i < format.length) {
+        if (format[i] === '$') {
+            // Extract variable name (word chars only)
+            let j = i + 1;
+            while (j < format.length && /\w/.test(format[j])) j++;
+            const varName = format.slice(i + 1, j);
+
+            const captured = CAPTURED_VARS[varName];
+            if (captured) {
+                if (captured.fields) {
+                    captured.fields.forEach((f, idx) => {
+                        fields[f] = groupIndex + 1 + idx;
+                    });
+                    groupIndex += captured.fields.length;
+                } else if (captured.field) {
+                    fields[captured.field] = ++groupIndex;
+                }
+                pattern += captured.pattern;
+            } else {
+                pattern += UNCAPTURED_VARS[varName] ?? '\\S+';
+            }
+            i = j;
+        } else {
+            // Escape regex special chars in literal text
+            pattern += format[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            i++;
+        }
+    }
+
+    return { regex: new RegExp(pattern), fields };
+}
+
+// Cache compiled formats so we don't recompile on every parse call
+const formatCache = new Map<string, CompiledFormat>();
+
+function getCompiledFormat(logFormat?: string): CompiledFormat {
+    if (!logFormat) return { regex: LOG_REGEX, fields: DEFAULT_FIELDS };
+
+    let compiled = formatCache.get(logFormat);
+    if (!compiled) {
+        compiled = logFormatToRegex(logFormat);
+        formatCache.set(logFormat, compiled);
+    }
+    return compiled;
+}
+
+// ---------------------------------------------------------------------------
+// Timestamp parsing
+// ---------------------------------------------------------------------------
 
 const MONTH_MAP: Record<string, number> = {
     Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
@@ -31,28 +162,38 @@ function parseDate(date: string): Date | undefined {
     return new Date(Date.UTC(year, month, day, hours, minutes, seconds) - tzOffsetMs);
 }
 
-export function parseNginxLogs(logs: string[]) {
+// ---------------------------------------------------------------------------
+// Access log parsing
+// ---------------------------------------------------------------------------
+
+export function parseNginxLogs(logs: string[], logFormat?: string): NginxLog[] {
+    const { regex, fields } = getCompiledFormat(logFormat);
+
     const data: NginxLog[] = [];
     for (const row of logs) {
-        const matches = row.match(LOG_REGEX);
+        const matches = row.match(regex);
+        if (!matches) continue;
 
-        if (matches) {
-            const logData: NginxLog = {
-                ipAddress: matches[1],
-                timestamp: matches[2] ? parseDate(matches[2]) || null : null,
-                method: matches[3],
-                path: matches[4],
-                httpVersion: matches[5],
-                status: matches[6] ? parseInt(matches[6]) || null : null,
-                responseSize: matches[7] ? parseInt(matches[7]) || null : null,
-                referrer: matches[8],
-                userAgent: matches[9]
-            };
-            data.push(logData);
-        }
+        const get = (idx?: number) => (idx && idx < matches.length) ? matches[idx] : '';
+
+        data.push({
+            ipAddress:    get(fields.ipAddress),
+            timestamp:    fields.timestamp ? parseDate(get(fields.timestamp)) || null : null,
+            method:       get(fields.method),
+            path:         get(fields.path),
+            httpVersion:  get(fields.httpVersion),
+            status:       fields.status ? parseInt(get(fields.status)) || null : null,
+            responseSize: fields.responseSize ? parseInt(get(fields.responseSize)) || null : null,
+            referrer:     get(fields.referrer),
+            userAgent:    get(fields.userAgent),
+        });
     }
     return data;
 }
+
+// ---------------------------------------------------------------------------
+// Error log parsing
+// ---------------------------------------------------------------------------
 
 const TIMESTAMP_PATTERN = /^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})/;
 const LEVEL_PATTERN = /\[(debug|info|notice|warn|error|crit|alert|emerg)\]/i;
