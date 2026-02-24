@@ -38,21 +38,21 @@ Follow the <a href="./dashboard/nginx/README.md">NGINX configuration guide</a>.
 
 Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="https://nginx.apianalytics.dev/dashboard">our deployment</a>.
 
-### Command-Line Interface
+### Terminal UI (TUI)
 
-If you prefer to work in the terminal, a CLI is available as an alternative to the dashboard. 
+For those that prefer to work in the terminal, a TUI is available as an alternative to the dashboard. 
 
 ![Screenshot 2025-07-07 152340](https://github.com/user-attachments/assets/a9b4bdd7-0773-46da-8811-9bd47046a22c)
 
-#### Option 1: CLI
+#### Option 1: TUI
 
-Deploy the CLI to the server running NGINX. Access via SSH.
+Deploy the TUI to the server running NGINX. Access via SSH.
 
-Follow the <a href="./cli/README.md">CLI deployment guide</a>.
+Follow the <a href="./cli/README.md">TUI deployment guide</a>.
 
-#### Option 2: CLI + Agent 
+#### Option 2: TUI + Agent 
 
-Deploy the agent to the server. Run the CLI from anywhere.
+Deploy the agent to the server. Run the TUI from anywhere.
 
 Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
