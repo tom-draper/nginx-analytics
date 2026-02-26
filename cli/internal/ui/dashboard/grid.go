@@ -18,6 +18,24 @@ const (
 	BorderPadding           = 2
 )
 
+// leftColumnCardWidth returns a stepped card width for the main grid based on
+// terminal width. Each stage removes 2 chars from the card width, keeping the
+// left column an even number of chars narrower.
+func leftColumnCardWidth(terminalWidth int) int {
+	switch {
+	case terminalWidth >= 120:
+		return 18
+	case terminalWidth >= 100:
+		return 16
+	case terminalWidth >= 80:
+		return 14
+	case terminalWidth >= 60:
+		return 12
+	default:
+		return 10
+	}
+}
+
 // CardPosition represents different card positions in the layout
 type CardPosition int
 
@@ -251,13 +269,17 @@ func (l *Layout) renderMainGrid() string {
 		return ""
 	}
 
+	cardWidth := leftColumnCardWidth(l.grid.TerminalWidth)
+
 	var rows []string
 	for r := range l.grid.Rows {
 		var rowCards []string
 		for c := range l.grid.Cols {
 			cardIndex := r*l.grid.Cols + c
 			if cardIndex < len(l.grid.cardsByPosition[PositionMainGrid]) {
-				rowCards = append(rowCards, l.grid.cardsByPosition[PositionMainGrid][cardIndex].Render())
+				card := l.grid.cardsByPosition[PositionMainGrid][cardIndex]
+				card.SetSize(cardWidth, card.Height)
+				rowCards = append(rowCards, card.Render())
 			}
 		}
 		if len(rowCards) > 0 {
