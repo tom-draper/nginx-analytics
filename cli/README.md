@@ -4,6 +4,8 @@ A log analytics dashboard TUI app, built with Go.
 
 ## Deployment Guide
 
+### Option 1: Build from source
+
 ```bash
 git clone https://github.com/tom-draper/nginx-analytics.git
 cd nginx-analytics/cli
@@ -15,6 +17,48 @@ go build -o bin/nginx-analytics ./cmd/nginx-analytics
 scp bin/nginx-analytics user@yourserver:/usr/local/bin/
 ssh user@yourserver
 chmod +x /usr/local/bin/nginx-analytics
+```
+
+### Option 2: Docker
+
+Pull the pre-built image:
+
+```bash
+docker pull ghcr.io/tom-draper/nginx-analytics-cli:latest
+```
+
+The CLI is a TUI app, so `-it` is required to allocate a pseudo-TTY.
+
+**Remote mode** — connect to a running [agent](../agent/README.md):
+
+```bash
+docker run -it \
+  -e NGINX_ANALYTICS_SERVER_URL=http://your-agent:5000 \
+  -e NGINX_ANALYTICS_AUTH_TOKEN=your-token \
+  ghcr.io/tom-draper/nginx-analytics-cli
+```
+
+**Local mode** — read log files directly (mount them as a volume):
+
+```bash
+docker run -it \
+  -v /var/log/nginx:/var/log/nginx:ro \
+  ghcr.io/tom-draper/nginx-analytics-cli
+```
+
+To enable location lookups, also mount your GeoLite2 database:
+
+```bash
+docker run -it \
+  -v /var/log/nginx:/var/log/nginx:ro \
+  -v /path/to/GeoLite2-Country.mmdb:/app/GeoLite2-Country.mmdb:ro \
+  ghcr.io/tom-draper/nginx-analytics-cli
+```
+
+To build the image yourself, run from the **repo root** (required due to the shared agent dependency):
+
+```bash
+docker build -f cli/Dockerfile -t nginx-analytics-cli .
 ```
 
 > If your NGINX log path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
