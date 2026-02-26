@@ -44,12 +44,11 @@ func (c *MemoryCard) RenderContent(width, height int) string {
 	// Render the historical plot
 	plotContent := c.renderHistoryPlot(width, plotHeight)
 
-	// Combine both with spacing
-	return lipgloss.JoinVertical(lipgloss.Left,
-		barContent,
-		"", // Empty line for spacing
-		plotContent,
-	)
+	// Combine both with spacing; drop spacer when height is tight
+	if height <= 6 {
+		return lipgloss.JoinVertical(lipgloss.Left, barContent, plotContent)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, barContent, "", plotContent)
 }
 
 func (c *MemoryCard) renderMemoryBar(width int) string {

@@ -44,12 +44,11 @@ func (c *CPUCard) RenderContent(width, height int) string {
 		plot = "\n" + plot
 	}
 
-	// Combine both with spacing
-	return lipgloss.JoinVertical(lipgloss.Left,
-		gridContent,
-		"", // Empty line for spacing
-		plot,
-	)
+	// Combine both with spacing; drop spacer when height is tight
+	if height <= 6 {
+		return lipgloss.JoinVertical(lipgloss.Left, gridContent, plot)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, gridContent, "", plot)
 }
 
 func (c *CPUCard) renderCPUGrid(width, height int) string {

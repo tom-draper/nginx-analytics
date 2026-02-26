@@ -332,6 +332,10 @@ func (um *UIManager) setWidth(width int) {
 	um.grid.SetTerminalWidth(width)
 }
 
+func (um *UIManager) setHeight(height int) {
+	um.grid.SetTerminalHeight(height)
+}
+
 func (um *UIManager) navigateLeft() {
 	position := um.grid.GetActiveCardPosition()
 
@@ -583,6 +587,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.initialized = true
 		m.uiManager.setWidth(msg.Width)
+		// Subtract chrome lines: tabs row + \n\n before help + help row = 3
+		m.uiManager.setHeight(max(msg.Height-3, 1))
 	}
 
 	return m, nil
