@@ -19,6 +19,7 @@ import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
 import UsageTime from "@/lib/components/usage-time";
+import UsageDay from "@/lib/components/usage-day";
 import { Referrals } from "@/lib/components/referrals";
 import { ResponseSize } from "@/lib/components/response-size";
 import { SystemResources } from "@/lib/components/system-resources";
@@ -114,6 +115,10 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
     const setHour = useCallback((hour: number | null) => {
         setFilter((previous) => ({ ...previous, hour }))
+    }, [])
+
+    const setDayOfWeek = useCallback((dayOfWeek: number | null) => {
+        setFilter((previous) => ({ ...previous, dayOfWeek }))
     }, [])
 
     useEffect(() => {
@@ -307,6 +312,11 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return deviceFilteredData.filter(row => row.timestamp?.getHours() === filter.hour);
     }, [deviceFilteredData, filter.hour]);
 
+    const dayFilteredData = useMemo(() => {
+        if (filter.dayOfWeek === null) return hourFilteredData;
+        return hourFilteredData.filter(row => row.timestamp?.getDay() === filter.dayOfWeek);
+    }, [hourFilteredData, filter.dayOfWeek]);
+
 
     if (fileUpload && accessLogs.length === 0) {
     return (
@@ -358,20 +368,20 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                     <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
-                            <SuccessRate data={hourFilteredData} period={currentPeriod} />
+                            <SuccessRate data={dayFilteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">
-                            <Requests data={hourFilteredData} period={currentPeriod} />
-                            <Users data={hourFilteredData} period={currentPeriod} />
+                            <Requests data={dayFilteredData} period={currentPeriod} />
+                            <Users data={dayFilteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">
-                            <Endpoints data={hourFilteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} ignoreParams={ignoreParams} />
+                            <Endpoints data={dayFilteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} ignoreParams={ignoreParams} />
                         </div>
 
                         <div className="flex">
-                            <ResponseSize data={hourFilteredData} />
+                            <ResponseSize data={dayFilteredData} />
                         </div>
 
                         <div className="flex">
@@ -381,10 +391,10 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                     {/* Right */}
                     <div className="min-[950px]:flex-1 min-w-0">
-                        <Activity data={hourFilteredData} period={currentPeriod} />
+                        <Activity data={dayFilteredData} period={currentPeriod} />
 
                         <div className="flex max-xl:flex-col">
-                            <Location data={hourFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
+                            <Location data={dayFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
                             <div className="xl:w-[27em]">
                                 <Device
                                     data={versionFilteredData}
@@ -401,12 +411,13 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                         <SystemResources demo={demo} />
 
                         <div className="w-inherit flex max-xl:flex-col">
-                            <div className="max-xl:!w-full flex-1 min-w-0">
+                            <div className="max-xl:!w-full flex-1 min-w-0 flex flex-col">
                                 <UsageTime data={deviceFilteredData} filterHour={filter.hour} setFilterHour={setHour} />
+                                <UsageDay data={hourFilteredData} filterDayOfWeek={filter.dayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
                             </div>
                             <div className="self-start">
-                                <Referrals data={hourFilteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
+                                <Referrals data={dayFilteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                             </div>
                         </div>
 

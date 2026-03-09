@@ -12,6 +12,7 @@ export type Filter = {
     os: string | null
     deviceType: string | null
     hour: number | null
+    dayOfWeek: number | null
 }
 
 export const newFilter = () => {
@@ -27,6 +28,7 @@ export const newFilter = () => {
         os: null,
         deviceType: null,
         hour: null,
+        dayOfWeek: null,
     }
     return filter;
 }
