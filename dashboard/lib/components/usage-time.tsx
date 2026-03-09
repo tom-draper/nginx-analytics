@@ -1,5 +1,4 @@
 import { PolarArea } from "react-chartjs-2";
-import { NginxLog } from "../types";
 import { useMemo, useRef, memo } from "react";
 import { Chart as ChartJS, ChartData, RadialLinearScale, ArcElement, Tooltip } from "chart.js";
 
@@ -53,56 +52,32 @@ const polarAreaPlugins = [{
 }];
 
 export default memo(function UsageTime({
-    data,
+    hourCounts,
     filterHour,
     setFilterHour,
 }: {
-    data: NginxLog[];
+    hourCounts: number[];
     filterHour: number | null;
     setFilterHour: (hour: number | null) => void;
 }) {
     const chartRef = useRef<ChartJS>(null);
 
     const plotData = useMemo<ChartData<"polarArea"> | null>(() => {
-        const hourCounts = new Array(24).fill(0);
-
-        for (const row of data) {
-            const date = row.timestamp;
-            if (date === null) {
-                continue;
-            }
-            const hour = date.getHours();
-            hourCounts[hour]++;
-        }
-
-        // Reorder the hours to start with 12 (noon) at the top
         const reorderedHours = [...hourCounts.slice(12), ...hourCounts.slice(0, 12)];
-
-        // Create formatted time labels (hh:mm)
         const timeLabels = Array.from({ length: 24 }, (_, i) => {
             const hour = (i + 12) % 24;
             return `${hour.toString().padStart(2, '0')}:00`;
         });
-
         const backgroundColor = reorderedHours.map((_, i) => {
             const hour = (i + 12) % 24;
-            if (filterHour !== null && filterHour !== hour) {
-                return 'rgba(26, 240, 115, 0.15)';
-            }
+            if (filterHour !== null && filterHour !== hour) return 'rgba(26, 240, 115, 0.15)';
             return 'rgb(26, 240, 115)';
         });
-
         return {
             labels: timeLabels,
-            datasets: [{
-                label: 'Requests per Hour',
-                data: reorderedHours,
-                backgroundColor,
-                borderWidth: 1,
-                borderColor: 'rgba(0,0,0, 0.05)'
-            }]
+            datasets: [{ label: 'Requests per Hour', data: reorderedHours, backgroundColor, borderWidth: 1, borderColor: 'rgba(0,0,0, 0.05)' }]
         };
-    }, [data, filterHour]);
+    }, [hourCounts, filterHour]);
 
     const options = useMemo(() => ({
         plugins: {

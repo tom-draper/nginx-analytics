@@ -1,4 +1,3 @@
-import { NginxLog } from "@/lib/types";
 import { useMemo, useRef, memo } from "react";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
@@ -160,42 +159,22 @@ const chartOptions = {
     },
 };
 
-export const ResponseSize = memo(function ResponseSize({ data }: { data: NginxLog[] }) {
+export const ResponseSize = memo(function ResponseSize({ responseSizes }: { responseSizes: number[] }) {
     const chartRef = useRef(null);
 
     const { stats, chartData } = useMemo(() => {
-        if (!data.length) {
-            return { stats: null, chartData: null };
-        }
-
-        // Extract response sizes
-        const responseSizes = data.map(row => row.responseSize || 0);
-
+        if (!responseSizes.length) return { stats: null, chartData: null };
         const { min, max } = minMax(responseSizes);
-        const total = responseSizes.reduce((sum, size) => sum + size, 0);
-        const avg = total / responseSizes.length;
-
-        // Generate histogram data
+        const avg = responseSizes.reduce((sum, size) => sum + size, 0) / responseSizes.length;
         const { bins, binLabels } = generateHistogramData(responseSizes);
-
         return {
             stats: { min, avg, max } as Stats,
             chartData: {
                 labels: binLabels,
-                datasets: [
-                    {
-                        data: bins,
-                        backgroundColor: 'rgb(26, 240, 115)',
-                        borderColor: 'rgb(26, 240, 115)',
-                        borderWidth: 0,
-                        borderRadius: 3,
-                        barPercentage: 1,
-                        categoryPercentage: 1,
-                    }
-                ]
+                datasets: [{ data: bins, backgroundColor: 'rgb(26, 240, 115)', borderColor: 'rgb(26, 240, 115)', borderWidth: 0, borderRadius: 3, barPercentage: 1, categoryPercentage: 1 }]
             }
         };
-    }, [data]);
+    }, [responseSizes]);
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-46 overflow-hidden">

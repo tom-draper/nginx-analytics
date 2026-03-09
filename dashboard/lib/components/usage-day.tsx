@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo, memo } from "react";
-import { NginxLog } from "../types";
+import { memo } from "react";
 
 // getDay() → 0=Sun, 1=Mon, ..., 6=Sat
 const DAYS: { label: string; day: number }[] = [
@@ -15,28 +14,19 @@ const DAYS: { label: string; day: number }[] = [
 ];
 
 export default memo(function UsageDay({
-    data,
+    dayCounts,
     filterDayOfWeek,
     setFilterDayOfWeek,
 }: {
-    data: NginxLog[];
+    dayCounts: number[];
     filterDayOfWeek: number | null;
     setFilterDayOfWeek: (day: number | null) => void;
 }) {
-    const counts = useMemo(() => {
-        const dayCounts = new Array(7).fill(0);
-        for (const row of data) {
-            if (!row.timestamp) continue;
-            dayCounts[row.timestamp.getDay()]++;
-        }
-        return dayCounts;
-    }, [data]);
-
     const visibleDays = filterDayOfWeek === null
         ? DAYS
         : DAYS.filter(({ day }) => day === filterDayOfWeek);
 
-    const max = Math.max(...visibleDays.map(({ day }) => counts[day]), 1);
+    const max = Math.max(...visibleDays.map(({ day }) => dayCounts[day]), 1);
 
     const selectDay = (day: number) => {
         setFilterDayOfWeek(filterDayOfWeek === day ? null : day);
@@ -48,7 +38,7 @@ export default memo(function UsageDay({
 
             <div className="flex mt-2">
                 {visibleDays.map(({ label, day }) => {
-                    const count = counts[day];
+                    const count = dayCounts[day];
                     return (
                         <div key={day} className="flex-1">
                             <div

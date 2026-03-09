@@ -15,6 +15,7 @@ import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseNginxLogs } from "@/lib/parse";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import type { WorkerResult } from '@/lib/analytics.worker';
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -50,8 +51,6 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
     const [settings, setSettings] = useState<SettingsType>(newSettings());
     const [showSettings, setShowSettings] = useState<boolean>(false);
-
-    const ignoreParams = useMemo(() => settings.ignoreParams, [settings.ignoreParams]);
 
     const [filter, setFilter] = useState<Filter>(newFilter());
     const [, startTransition] = useTransition();
@@ -101,6 +100,38 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const setDayOfWeek = useCallback((dayOfWeek: number | null) => {
         startTransition(() => setFilter((previous) => ({ ...previous, dayOfWeek })))
     }, [])
+
+    // Worker ref and result state
+    const workerRef = useRef<Worker | null>(null);
+    const workerSeqRef = useRef(0);
+    const [workerResult, setWorkerResult] = useState<WorkerResult | null>(null);
+
+    // Create worker once on mount
+    useEffect(() => {
+        const worker = new Worker(new URL('../analytics.worker.ts', import.meta.url));
+        workerRef.current = worker;
+        worker.onmessage = (e: MessageEvent<WorkerResult>) => {
+            if (e.data.seq === workerSeqRef.current) {
+                setWorkerResult(e.data);
+            }
+        };
+        return () => worker.terminate();
+    }, []);
+
+    // Send logs to worker when they change
+    useEffect(() => {
+        workerRef.current?.postMessage({ type: 'setLogs', logs });
+    }, [logs]);
+
+    // Trigger computation when inputs change
+    useEffect(() => {
+        if (!workerRef.current) return;
+        const seq = ++workerSeqRef.current;
+        const locationMapEntries: [string, string][] = filter.location !== null
+            ? Array.from(locationMap.entries()).map(([ip, loc]) => [ip, loc.country])
+            : [];
+        workerRef.current.postMessage({ type: 'compute', seq, filter, settings, locationMap: locationMapEntries });
+    }, [logs, filter, settings, locationMap]);
 
     useEffect(() => {
         if (fileUpload) {
@@ -307,6 +338,15 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return hourFilteredData.filter(row => row.timestamp?.getDay() === filter.dayOfWeek);
     }, [hourFilteredData, filter.dayOfWeek]);
 
+    const endpointCounts = useMemo(() => workerResult ? new Map(workerResult.endpointCounts) : new Map<string, number>(), [workerResult]);
+    const referrerCounts = useMemo(() => workerResult ? new Map(workerResult.referrerCounts) : new Map<string, number>(), [workerResult]);
+    const responseSizes = workerResult?.responseSizes ?? [];
+    const versionCounts = workerResult?.versionCounts ?? {};
+    const clientCounts = workerResult?.clientCounts ?? {};
+    const osCounts = workerResult?.osCounts ?? {};
+    const deviceTypeCounts = workerResult?.deviceTypeCounts ?? {};
+    const hourCounts = workerResult?.hourCounts ?? new Array(24).fill(0);
+    const dayCounts = workerResult?.dayCounts ?? new Array(7).fill(0);
 
     if (fileUpload && accessLogs.length === 0) {
     return (
@@ -367,15 +407,15 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                         </div>
 
                         <div className="flex">
-                            <Endpoints data={dayFilteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} ignoreParams={ignoreParams} />
+                            <Endpoints endpointCounts={endpointCounts} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} />
                         </div>
 
                         <div className="flex">
-                            <ResponseSize data={dayFilteredData} />
+                            <ResponseSize responseSizes={responseSizes} />
                         </div>
 
                         <div className="flex">
-                            <Version data={filteredData} filterVersion={filter.version} setFilterVersion={setVersion} />
+                            <Version versionCounts={versionCounts} filterVersion={filter.version} setFilterVersion={setVersion} />
                         </div>
                     </div>
 
@@ -387,7 +427,9 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                             <Location data={dayFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
                             <div className="xl:w-[27em]">
                                 <Device
-                                    data={versionFilteredData}
+                                    clientCounts={clientCounts}
+                                    osCounts={osCounts}
+                                    deviceTypeCounts={deviceTypeCounts}
                                     filterClient={filter.client}
                                     setFilterClient={setClient}
                                     filterOS={filter.os}
@@ -402,12 +444,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                         <div className="w-inherit flex max-xl:flex-col">
                             <div className="max-xl:!w-full flex-1 min-w-0 flex flex-col">
-                                <UsageTime data={deviceFilteredData} filterHour={filter.hour} setFilterHour={setHour} />
-                                <UsageDay data={hourFilteredData} filterDayOfWeek={filter.dayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
+                                <UsageTime hourCounts={hourCounts} filterHour={filter.hour} setFilterHour={setHour} />
+                                <UsageDay dayCounts={dayCounts} filterDayOfWeek={filter.dayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
                             </div>
                             <div className="self-start">
-                                <Referrals data={dayFilteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
+                                <Referrals referrerCounts={referrerCounts} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                             </div>
                         </div>
 

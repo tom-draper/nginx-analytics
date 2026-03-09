@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, memo } from "react";
-import { NginxLog } from "../types";
 import { clientErrorStatus, redirectStatus, serverErrorStatus } from "../status";
 
 type Endpoint = {
@@ -11,32 +10,15 @@ type Endpoint = {
     count: number
 }
 
-export const Endpoints = memo(function Endpoints({ data, filterPath, filterMethod, filterStatus, setEndpoint, setStatus, ignoreParams }: { data: NginxLog[], filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void, ignoreParams: boolean }) {
+export const Endpoints = memo(function Endpoints({ endpointCounts, filterPath, filterMethod, filterStatus, setEndpoint, setStatus }: { endpointCounts: Map<string, number>, filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void }) {
     const endpoints = useMemo(() => {
-        const groupedEndpoints: { [id: string]: number } = {};
-        for (const row of data) {
-            const path = ignoreParams ? row.path.split('?')[0] : row.path;
-            const endpointId = `${path}::${row.method}::${row.status}`
-            if (groupedEndpoints[endpointId]) {
-                groupedEndpoints[endpointId]++
-            } else {
-                groupedEndpoints[endpointId] = 1
-            }
+        const result: Endpoint[] = [];
+        for (const [key, count] of endpointCounts) {
+            const [path, method, status] = key.split('::');
+            result.push({ path, method, count, status: status ? parseInt(status) : undefined });
         }
-
-        const endpoints: Endpoint[] = [];
-        for (const [endpointId, count] of Object.entries(groupedEndpoints)) {
-            const [path, method, status] = endpointId.split('::');
-            endpoints.push({
-                path,
-                method,
-                count,
-                status: status ? parseInt(status) : undefined,
-            })
-        }
-
-        return endpoints.sort((a, b) => b.count - a.count).slice(0, 50);
-    }, [data, ignoreParams])
+        return result.sort((a, b) => b.count - a.count).slice(0, 50);
+    }, [endpointCounts])
 
     const selectEndpoint = (path: string, method: string, status: number | null) => {
         if (endpoints.length <= 1) {
