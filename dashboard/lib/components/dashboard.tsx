@@ -14,7 +14,7 @@ import { getDevice } from "@/lib/components/device/device-type";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseNginxLogs } from "@/lib/parse";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -54,71 +54,52 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const ignoreParams = useMemo(() => settings.ignoreParams, [settings.ignoreParams]);
 
     const [filter, setFilter] = useState<Filter>(newFilter());
+    const [, startTransition] = useTransition();
 
     const currentPeriod = useMemo(() => filter.period, [filter.period]);
 
     const setPeriod = useCallback((period: Period) => {
-        setFilter((previous) => ({
-            ...previous,
-            period
-        }))
+        startTransition(() => setFilter((previous) => ({ ...previous, period })))
     }, [])
 
     const setLocation = useCallback((location: string | null) => {
-        setFilter((previous) => ({
-            ...previous,
-            location
-        }))
+        startTransition(() => setFilter((previous) => ({ ...previous, location })))
     }, [])
 
     const setEndpoint = useCallback((path: string | null, method: string | null, status: number | [number, number][] | null) => {
-        setFilter((previous) => ({
-            ...previous,
-            path,
-            method,
-            status
-        }))
+        startTransition(() => setFilter((previous) => ({ ...previous, path, method, status })))
     }, [])
 
     const setStatus = useCallback((status: number | [number, number][] | null) => {
-        setFilter((previous) => ({
-            ...previous,
-            status
-        }))
+        startTransition(() => setFilter((previous) => ({ ...previous, status })))
     }, [])
 
     const setReferrer = useCallback((referrer: string | null) => {
-        setFilter((previous) => ({
-            ...previous,
-            referrer
-        }))
+        startTransition(() => setFilter((previous) => ({ ...previous, referrer })))
     }, [])
 
     const setVersion = useCallback((version: string | null) => {
-        setFilter((previous) => ({
-            ...previous,
-            version
-        }))
+        startTransition(() => setFilter((previous) => ({ ...previous, version })))
     }, [])
 
     const setClient = useCallback((client: string | null) => {
-        setFilter((previous) => ({ ...previous, client }))
+        startTransition(() => setFilter((previous) => ({ ...previous, client })))
     }, [])
 
     const setOS = useCallback((os: string | null) => {
-        setFilter((previous) => ({ ...previous, os }))
+        startTransition(() => setFilter((previous) => ({ ...previous, os })))
     }, [])
 
     const setDeviceType = useCallback((deviceType: string | null) => {
-        setFilter((previous) => ({ ...previous, deviceType }))
+        startTransition(() => setFilter((previous) => ({ ...previous, deviceType })))
     }, [])
 
     const setHour = useCallback((hour: number | null) => {
-        setFilter((previous) => ({ ...previous, hour }))
+        startTransition(() => setFilter((previous) => ({ ...previous, hour })))
     }, [])
 
     const setDayOfWeek = useCallback((dayOfWeek: number | null) => {
-        setFilter((previous) => ({ ...previous, dayOfWeek }))
+        startTransition(() => setFilter((previous) => ({ ...previous, dayOfWeek })))
     }, [])
 
     useEffect(() => {
@@ -253,6 +234,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return date >= start;
     }
 
+    // Pre-compute bot-free logs once per log load — avoids running regex over every
+    // row on every filter change when excludeBots is enabled.
+    const logsWithoutBots = useMemo(() => {
+        return logs.filter(row => !isBotOrCrawler(row.userAgent));
+    }, [logs]);
+
     // Only track locationMap when a location filter is active — avoids recomputing
     // filteredData on every IP-resolution batch when no location filter is set.
     const effectiveLocationMap = filter.location !== null ? locationMap : EMPTY_MAP;
@@ -275,9 +262,11 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             return false;
         }
 
+        // Use pre-filtered bot-free list when excludeBots is on — no regex per row.
+        const source = settings.excludeBots ? logsWithoutBots : logs;
         const result: NginxLog[] = [];
         const start = periodStart(filter.period);
-        for (const row of logs) {
+        for (const row of source) {
             if (
                 (start === null || (row.timestamp && row.timestamp > start))
                 && (filter.location === null || (effectiveLocationMap.get(row.ipAddress)?.country === filter.location))
@@ -285,14 +274,15 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 && (filter.method === null || (row.method === filter.method))
                 && (filter.status === null || validStatus(row.status))
                 && (!settings.ignore404 || row.status !== 404)
-                && (!settings.excludeBots || !isBotOrCrawler(row.userAgent))
                 && (filter.referrer === null || (row.referrer === filter.referrer))
             ) {
                 result.push(row);
             }
         }
         return result;
-    }, [logs, filter, settings, effectiveLocationMap]);
+    // List only the fields this memo actually uses — changing filter.version/hour/day/device
+    // won't trigger this expensive 100k-row loop unnecessarily.
+    }, [logs, logsWithoutBots, filter.period, filter.location, filter.path, filter.method, filter.status, filter.referrer, settings.ignore404, settings.excludeBots, effectiveLocationMap]);
 
     const versionFilteredData = useMemo(() => {
         if (filter.version === null) return filteredData;
