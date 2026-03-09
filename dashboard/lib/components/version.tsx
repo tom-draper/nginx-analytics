@@ -1,13 +1,13 @@
 "use client";
 
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData, ChartEvent, LegendItem } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { NginxLog } from "../types";
 import { useMemo, memo } from "react";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-function getVersion(endpoint: string): string | null {
+export function getVersion(endpoint: string): string | null {
     if (!endpoint) {
         return null;
     }
@@ -20,19 +20,31 @@ function getVersion(endpoint: string): string | null {
     return match[1];
 }
 
-// Static — no props/state, no reason to recreate on every render
-const doughnutOptions = {
-    plugins: {
-        legend: {
-            position: 'right' as const,
-            align: 'center' as const,
-        },
-    },
-    responsive: true,
-    maintainAspectRatio: false
-};
+const COLORS = [
+    "#FF6384",
+    "#36A2EB",
+    "#FFCE56",
+    "#4BC0C0",
+    "#9966FF",
+    "#FF9F40",
+];
 
-export const Version = memo(function Version({ data }: { data: NginxLog[] }) {
+function dimColor(hex: string): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.25)`;
+}
+
+export const Version = memo(function Version({
+    data,
+    filterVersion,
+    setFilterVersion,
+}: {
+    data: NginxLog[];
+    filterVersion: string | null;
+    setFilterVersion: (version: string | null) => void;
+}) {
     const plotData = useMemo<ChartData<"doughnut"> | null>(() => {
         const versionCounts: { [key: string]: number } = {};
 
@@ -55,26 +67,39 @@ export const Version = memo(function Version({ data }: { data: NginxLog[] }) {
         }
         const values = Object.values(versionCounts);
 
+        const backgroundColor = labels.map((label, i) => {
+            const color = COLORS[i % COLORS.length];
+            return filterVersion && filterVersion !== label ? dimColor(color) : color;
+        });
+
         return {
             labels,
             datasets: [
                 {
                     label: "Version",
                     data: values,
-                    backgroundColor: [
-                        "#FF6384",
-                        "#36A2EB",
-                        "#FFCE56",
-                        "#4BC0C0",
-                        "#9966FF",
-                        "#FF9F40",
-                    ],
+                    backgroundColor,
                     hoverOffset: 4,
                     borderWidth: 0,
                 },
             ],
         };
-    }, [data]);
+    }, [data, filterVersion]);
+
+    const options = useMemo(() => ({
+        plugins: {
+            legend: {
+                position: 'right' as const,
+                align: 'center' as const,
+                onClick: (_event: ChartEvent, item: LegendItem) => {
+                    const version = item.text as string;
+                    setFilterVersion(filterVersion === version ? null : version);
+                },
+            },
+        },
+        responsive: true,
+        maintainAspectRatio: false
+    }), [filterVersion, setFilterVersion]);
 
     return (
         <>
@@ -83,7 +108,7 @@ export const Version = memo(function Version({ data }: { data: NginxLog[] }) {
                     <h2 className="font-semibold">Version</h2>
 
                     <div className="relative w-full flex items-center justify-center pb-4" >
-                        <Doughnut data={plotData} options={doughnutOptions} />
+                        <Doughnut data={plotData} options={options} />
                     </div>
                 </div>
             )}

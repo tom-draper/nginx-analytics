@@ -8,7 +8,23 @@ import { DeviceType } from "./device-type";
 
 type Page = 'client' | 'os' | 'device'
 
-export function Device({ data }: { data: NginxLog[] }) {
+export function Device({
+    data,
+    filterClient,
+    setFilterClient,
+    filterOS,
+    setFilterOS,
+    filterDeviceType,
+    setFilterDeviceType,
+}: {
+    data: NginxLog[];
+    filterClient: string | null;
+    setFilterClient: (client: string | null) => void;
+    filterOS: string | null;
+    setFilterOS: (os: string | null) => void;
+    filterDeviceType: string | null;
+    setFilterDeviceType: (deviceType: string | null) => void;
+}) {
     const [page, setPage] = useState<Page>('client')
 
     return (
@@ -26,9 +42,9 @@ export function Device({ data }: { data: NginxLog[] }) {
                 </button>
             </div>
 
-            {page === 'client' && <Client data={data}/>}
-            {page === 'os' && <OS data={data}/>}
-            {page === 'device' && <DeviceType data={data}/>}
+            {page === 'client' && <Client data={data} filterClient={filterClient} setFilterClient={setFilterClient} />}
+            {page === 'os' && <OS data={data} filterOS={filterOS} setFilterOS={setFilterOS} />}
+            {page === 'device' && <DeviceType data={data} filterDeviceType={filterDeviceType} setFilterDeviceType={setFilterDeviceType} />}
         </div>
     );
 }

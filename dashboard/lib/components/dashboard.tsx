@@ -7,7 +7,10 @@ import { Navigation } from "@/lib/components/navigation";
 import { Requests } from "@/lib/components/requests";
 import { SuccessRate } from "@/lib/components/success-rate";
 import Users from "@/lib/components/users";
-import { Version } from "@/lib/components/version";
+import { Version, getVersion } from "@/lib/components/version";
+import { getClient } from "@/lib/components/device/client";
+import { getOS } from "@/lib/components/device/os";
+import { getDevice } from "@/lib/components/device/device-type";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseNginxLogs } from "@/lib/parse";
@@ -25,6 +28,7 @@ import Errors from "@/lib/components/errors";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
+import { isBotOrCrawler } from "@/lib/user-agent";
 import dynamic from "next/dynamic";
 
 const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
@@ -87,6 +91,29 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             ...previous,
             referrer
         }))
+    }, [])
+
+    const setVersion = useCallback((version: string | null) => {
+        setFilter((previous) => ({
+            ...previous,
+            version
+        }))
+    }, [])
+
+    const setClient = useCallback((client: string | null) => {
+        setFilter((previous) => ({ ...previous, client }))
+    }, [])
+
+    const setOS = useCallback((os: string | null) => {
+        setFilter((previous) => ({ ...previous, os }))
+    }, [])
+
+    const setDeviceType = useCallback((deviceType: string | null) => {
+        setFilter((previous) => ({ ...previous, deviceType }))
+    }, [])
+
+    const setHour = useCallback((hour: number | null) => {
+        setFilter((previous) => ({ ...previous, hour }))
     }, [])
 
     useEffect(() => {
@@ -253,6 +280,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 && (filter.method === null || (row.method === filter.method))
                 && (filter.status === null || validStatus(row.status))
                 && (!settings.ignore404 || row.status !== 404)
+                && (!settings.excludeBots || !isBotOrCrawler(row.userAgent))
                 && (filter.referrer === null || (row.referrer === filter.referrer))
             ) {
                 result.push(row);
@@ -260,6 +288,24 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         }
         return result;
     }, [logs, filter, settings, effectiveLocationMap]);
+
+    const versionFilteredData = useMemo(() => {
+        if (filter.version === null) return filteredData;
+        return filteredData.filter(row => getVersion(row.path) === filter.version);
+    }, [filteredData, filter.version]);
+
+    const deviceFilteredData = useMemo(() => {
+        let result = versionFilteredData;
+        if (filter.client !== null) result = result.filter(row => getClient(row.userAgent) === filter.client);
+        if (filter.os !== null) result = result.filter(row => getOS(row.userAgent) === filter.os);
+        if (filter.deviceType !== null) result = result.filter(row => getDevice(row.userAgent) === filter.deviceType);
+        return result;
+    }, [versionFilteredData, filter.client, filter.os, filter.deviceType]);
+
+    const hourFilteredData = useMemo(() => {
+        if (filter.hour === null) return deviceFilteredData;
+        return deviceFilteredData.filter(row => row.timestamp?.getHours() === filter.hour);
+    }, [deviceFilteredData, filter.hour]);
 
 
     if (fileUpload && accessLogs.length === 0) {
@@ -312,35 +358,43 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                     <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
-                            <SuccessRate data={filteredData} period={currentPeriod} />
+                            <SuccessRate data={hourFilteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">
-                            <Requests data={filteredData} period={currentPeriod} />
-                            <Users data={filteredData} period={currentPeriod} />
+                            <Requests data={hourFilteredData} period={currentPeriod} />
+                            <Users data={hourFilteredData} period={currentPeriod} />
                         </div>
 
                         <div className="flex">
-                            <Endpoints data={filteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} ignoreParams={ignoreParams} />
+                            <Endpoints data={hourFilteredData} filterPath={filter.path} filterMethod={filter.method} filterStatus={filter.status} setEndpoint={setEndpoint} setStatus={setStatus} ignoreParams={ignoreParams} />
                         </div>
 
                         <div className="flex">
-                            <ResponseSize data={filteredData} />
+                            <ResponseSize data={hourFilteredData} />
                         </div>
 
                         <div className="flex">
-                            <Version data={filteredData} />
+                            <Version data={filteredData} filterVersion={filter.version} setFilterVersion={setVersion} />
                         </div>
                     </div>
 
                     {/* Right */}
                     <div className="min-[950px]:flex-1 min-w-0">
-                        <Activity data={filteredData} period={currentPeriod} />
+                        <Activity data={hourFilteredData} period={currentPeriod} />
 
                         <div className="flex max-xl:flex-col">
-                            <Location data={filteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
+                            <Location data={hourFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
                             <div className="xl:w-[27em]">
-                                <Device data={filteredData} />
+                                <Device
+                                    data={versionFilteredData}
+                                    filterClient={filter.client}
+                                    setFilterClient={setClient}
+                                    filterOS={filter.os}
+                                    setFilterOS={setOS}
+                                    filterDeviceType={filter.deviceType}
+                                    setFilterDeviceType={setDeviceType}
+                                />
                             </div>
                         </div>
 
@@ -348,11 +402,11 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                         <div className="w-inherit flex max-xl:flex-col">
                             <div className="max-xl:!w-full flex-1 min-w-0">
-                                <UsageTime data={filteredData} />
+                                <UsageTime data={deviceFilteredData} filterHour={filter.hour} setFilterHour={setHour} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
                             </div>
                             <div className="self-start">
-                                <Referrals data={filteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
+                                <Referrals data={hourFilteredData} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
                             </div>
                         </div>
 

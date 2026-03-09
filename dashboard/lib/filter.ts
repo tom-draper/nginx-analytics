@@ -7,6 +7,11 @@ export type Filter = {
     method: string | null
     status: number | [number, number][] | null
     referrer: string | null
+    version: string | null
+    client: string | null
+    os: string | null
+    deviceType: string | null
+    hour: number | null
 }
 
 export const newFilter = () => {
@@ -17,6 +22,11 @@ export const newFilter = () => {
         method: null,
         status: null,
         referrer: null,
+        version: null,
+        client: null,
+        os: null,
+        deviceType: null,
+        hour: null,
     }
     return filter;
 }

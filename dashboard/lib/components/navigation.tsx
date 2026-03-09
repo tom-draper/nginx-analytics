@@ -38,7 +38,7 @@ export function Navigation({ filterPeriod, setFilterPeriod, setShowSettings, isD
                     <a
                         target="_blank"
                         href="https://www.buymeacoffee.com/tomdraper"
-                        className="hover:text-[var(--highlight)]">Donate</a>
+                        className="hover:text-[var(--highlight)]">Buy me a coffee</a>
                 </div>
                 <div className="grid place-items-center px-2 pr-4">
                     <button className="cursor-pointer" onClick={showSettings}>

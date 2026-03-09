@@ -1,6 +1,6 @@
 "use client";
 
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData, ChartEvent, LegendItem } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { NginxLog } from "../../types";
 import { useMemo, memo } from "react";
@@ -8,6 +8,7 @@ import {
     type Candidate,
     maintainCandidates,
 } from '../../candidates';
+import { DONUT_COLORS, dimColor } from '../../colors';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -61,7 +62,7 @@ const clientCandidates: Candidate[] = [
     { name: 'Internet Explorer', regex: /(; MSIE |Trident\/)/, matches: 0 },
 ];
 
-function getClient(userAgent: string | null): string {
+export function getClient(userAgent: string | null): string {
     if (userAgent == null) {
         return 'Unknown';
     }
@@ -79,18 +80,15 @@ function getClient(userAgent: string | null): string {
     return 'Other';
 }
 
-const doughnutOptions = {
-    plugins: {
-        legend: {
-            position: 'right' as const,
-            align: 'center' as const,
-        },
-    },
-    responsive: true,
-    maintainAspectRatio: false
-};
-
-export const Client = memo(function Client({ data }: { data: NginxLog[] }) {
+export const Client = memo(function Client({
+    data,
+    filterClient,
+    setFilterClient,
+}: {
+    data: NginxLog[];
+    filterClient: string | null;
+    setFilterClient: (client: string | null) => void;
+}) {
     const plotData = useMemo<ChartData<"doughnut"> | null>(() => {
         const clientCounts: { [key: string]: number } = {};
 
@@ -105,30 +103,43 @@ export const Client = memo(function Client({ data }: { data: NginxLog[] }) {
         const labels = Object.keys(clientCounts);
         const values = Object.values(clientCounts);
 
+        const backgroundColor = labels.map((label, i) => {
+            const color = DONUT_COLORS[i % DONUT_COLORS.length];
+            return filterClient && filterClient !== label ? dimColor(color) : color;
+        });
+
         return {
             labels,
             datasets: [
                 {
                     label: "Count",
                     data: values,
-                    backgroundColor: [
-                        "#FF6384",
-                        "#36A2EB",
-                        "#FFCE56",
-                        "#4BC0C0",
-                        "#9966FF",
-                        "#FF9F40",
-                    ],
+                    backgroundColor,
                     hoverOffset: 4,
                     borderWidth: 0,
                 },
             ],
         };
-    }, [data]);
+    }, [data, filterClient]);
+
+    const options = useMemo(() => ({
+        plugins: {
+            legend: {
+                position: 'right' as const,
+                align: 'center' as const,
+                onClick: (_event: ChartEvent, item: LegendItem) => {
+                    const client = item.text as string;
+                    setFilterClient(filterClient === client ? null : client);
+                },
+            },
+        },
+        responsive: true,
+        maintainAspectRatio: false
+    }), [filterClient, setFilterClient]);
 
     return (
         <div className="relative w-full flex items-center justify-center pb-4" >
-            {plotData && <Doughnut data={plotData} options={doughnutOptions} />}
+            {plotData && <Doughnut data={plotData} options={options} />}
         </div>
     );
 })

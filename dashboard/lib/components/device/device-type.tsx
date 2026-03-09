@@ -1,6 +1,6 @@
 "use client";
 
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData, ChartEvent, LegendItem } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { NginxLog } from "../../types";
 import { useMemo, memo } from "react";
@@ -8,6 +8,7 @@ import {
     type Candidate,
     maintainCandidates,
 } from '../../candidates';
+import { DONUT_COLORS, dimColor } from '../../colors';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -19,37 +20,33 @@ const deviceCandidates: Candidate[] = [
     { name: 'Windows', regex: /Windows/, matches: 0 },
 ];
 
-	function getDevice(userAgent: string | null): string {
-		if (userAgent === null) {
-			return 'Unknown';
-		}
+export function getDevice(userAgent: string | null): string {
+    if (userAgent === null) {
+        return 'Unknown';
+    }
 
-		for (let i = 0; i < deviceCandidates.length; i++) {
-			const candidate = deviceCandidates[i];
-			if (userAgent.match(candidate.regex)) {
-				candidate.matches++;
-				// Ensure deviceCandidates remains sorted by matches desc for future hits
-				maintainCandidates(i, deviceCandidates);
-				return candidate.name;
-			}
-		}
+    for (let i = 0; i < deviceCandidates.length; i++) {
+        const candidate = deviceCandidates[i];
+        if (userAgent.match(candidate.regex)) {
+            candidate.matches++;
+            // Ensure deviceCandidates remains sorted by matches desc for future hits
+            maintainCandidates(i, deviceCandidates);
+            return candidate.name;
+        }
+    }
 
-		return 'Other';
-	}
+    return 'Other';
+}
 
-
-const doughnutOptions = {
-    plugins: {
-        legend: {
-            position: 'right' as const,
-            align: 'center' as const,
-        },
-    },
-    responsive: true,
-    maintainAspectRatio: false
-};
-
-export const DeviceType = memo(function DeviceType({ data }: { data: NginxLog[] }) {
+export const DeviceType = memo(function DeviceType({
+    data,
+    filterDeviceType,
+    setFilterDeviceType,
+}: {
+    data: NginxLog[];
+    filterDeviceType: string | null;
+    setFilterDeviceType: (deviceType: string | null) => void;
+}) {
     const plotData = useMemo<ChartData<"doughnut"> | null>(() => {
         const deviceCounts: { [key: string]: number } = {};
 
@@ -64,30 +61,43 @@ export const DeviceType = memo(function DeviceType({ data }: { data: NginxLog[] 
         const labels = Object.keys(deviceCounts);
         const values = Object.values(deviceCounts);
 
+        const backgroundColor = labels.map((label, i) => {
+            const color = DONUT_COLORS[i % DONUT_COLORS.length];
+            return filterDeviceType && filterDeviceType !== label ? dimColor(color) : color;
+        });
+
         return {
             labels,
             datasets: [
                 {
                     label: "Count",
                     data: values,
-                    backgroundColor: [
-                        "#FF6384",
-                        "#36A2EB",
-                        "#FFCE56",
-                        "#4BC0C0",
-                        "#9966FF",
-                        "#FF9F40",
-                    ],
+                    backgroundColor,
                     hoverOffset: 4,
                     borderWidth: 0,
                 },
             ],
         };
-    }, [data]);
+    }, [data, filterDeviceType]);
+
+    const options = useMemo(() => ({
+        plugins: {
+            legend: {
+                position: 'right' as const,
+                align: 'center' as const,
+                onClick: (_event: ChartEvent, item: LegendItem) => {
+                    const deviceType = item.text as string;
+                    setFilterDeviceType(filterDeviceType === deviceType ? null : deviceType);
+                },
+            },
+        },
+        responsive: true,
+        maintainAspectRatio: false
+    }), [filterDeviceType, setFilterDeviceType]);
 
     return (
         <div className="relative w-full flex items-center justify-center pb-4" >
-            {plotData && <Doughnut data={plotData} options={doughnutOptions} />}
+            {plotData && <Doughnut data={plotData} options={options} />}
         </div>
     );
 })

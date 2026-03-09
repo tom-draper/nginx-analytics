@@ -1,3 +1,19 @@
+export const DONUT_COLORS = [
+    "#FF6384",
+    "#36A2EB",
+    "#FFCE56",
+    "#4BC0C0",
+    "#9966FF",
+    "#FF9F40",
+];
+
+export function dimColor(hex: string): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.25)`;
+}
+
 export const colors = [
     "#1af073", "#00bfff",
     "#FF0000", "#39FF14", "#0652FF", "#FF69B4", "#FFFF00", "#FF5F1F", "#00FFFF", "#FF00FF",

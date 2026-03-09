@@ -28,6 +28,13 @@ export function Settings({
         }))
     }
 
+    const onToggleExcludeBots = (value: boolean) => {
+        setSettings((previous: Settings) => ({
+            ...previous,
+            excludeBots: value
+        }))
+    }
+
     const onToggleIgnoreParams = (value: boolean) => {
         setSettings((previous: Settings) => ({
             ...previous,
@@ -73,7 +80,7 @@ export function Settings({
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between">
                                         <label htmlFor="ignore404" className="font-medium">
-                                            Ignore status 404
+                                            Exclude status 404
                                         </label>
                                         <label className="relative inline-flex items-center cursor-pointer">
                                             <input
@@ -88,8 +95,24 @@ export function Settings({
                                     </div>
 
                                     <div className="flex items-center justify-between">
+                                        <label htmlFor="excludeBots" className="font-medium">
+                                            Exclude bots and crawlers
+                                        </label>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                id="excludeBots"
+                                                className="sr-only peer"
+                                                defaultChecked={settings.excludeBots}
+                                                onChange={(e) => onToggleExcludeBots(e.target.checked)}
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--highlight)] rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[var(--highlight)]"></div>
+                                        </label>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
                                         <label htmlFor="ignoreParams" className="font-medium">
-                                            Ignore params
+                                            Exclude params
                                         </label>
                                         <label className="relative inline-flex items-center cursor-pointer">
                                             <input

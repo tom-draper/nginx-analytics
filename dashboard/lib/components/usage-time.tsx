@@ -52,47 +52,22 @@ const polarAreaPlugins = [{
     }
 }];
 
-// Static — no props/state, no reason to recreate on every render
-const polarAreaOptions = {
-    plugins: {
-        legend: { display: false },
-        tooltip: {
-            enabled: true,
-            callbacks: {
-                title: (items: any[]) => items[0].label,
-                label: (context: any) => `${context?.raw?.toLocaleString()} requests`
-            }
-        },
-    },
-    scales: {
-        r: {
-            ticks: { display: false },
-            grid: { circular: true },
-            pointLabels: { display: false } // Disable default labels
-        }
-    },
-    layout: {
-        padding: {
-            top: 25,
-            bottom: 40,
-            left: 40,
-            right: 40,
-        },
-
-    },
-    responsive: true,
-    maintainAspectRatio: false,
-};
-
-export default memo(function UsageTime({ data }: { data: NginxLog[] }) {
+export default memo(function UsageTime({
+    data,
+    filterHour,
+    setFilterHour,
+}: {
+    data: NginxLog[];
+    filterHour: number | null;
+    setFilterHour: (hour: number | null) => void;
+}) {
     const chartRef = useRef<ChartJS>(null);
 
     const plotData = useMemo<ChartData<"polarArea"> | null>(() => {
         const hourCounts = new Array(24).fill(0);
 
-        // Assuming `data` has timestamps
         for (const row of data) {
-            const date = row.timestamp; // Adjust this based on your data format
+            const date = row.timestamp;
             if (date === null) {
                 continue;
             }
@@ -101,14 +76,20 @@ export default memo(function UsageTime({ data }: { data: NginxLog[] }) {
         }
 
         // Reorder the hours to start with 12 (noon) at the top
-        // This means we need to shift the array so that index 12 becomes index 0
         const reorderedHours = [...hourCounts.slice(12), ...hourCounts.slice(0, 12)];
 
         // Create formatted time labels (hh:mm)
         const timeLabels = Array.from({ length: 24 }, (_, i) => {
-            // Calculate the actual hour (starting from noon at the top)
             const hour = (i + 12) % 24;
             return `${hour.toString().padStart(2, '0')}:00`;
+        });
+
+        const backgroundColor = reorderedHours.map((_, i) => {
+            const hour = (i + 12) % 24;
+            if (filterHour !== null && filterHour !== hour) {
+                return 'rgba(26, 240, 115, 0.15)';
+            }
+            return 'rgb(26, 240, 115)';
         });
 
         return {
@@ -116,12 +97,53 @@ export default memo(function UsageTime({ data }: { data: NginxLog[] }) {
             datasets: [{
                 label: 'Requests per Hour',
                 data: reorderedHours,
-                backgroundColor: 'rgb(26, 240, 115)',
+                backgroundColor,
                 borderWidth: 1,
                 borderColor: 'rgba(0,0,0, 0.05)'
             }]
         };
-    }, [data]);
+    }, [data, filterHour]);
+
+    const options = useMemo(() => ({
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                enabled: true,
+                callbacks: {
+                    title: (items: any[]) => items[0].label,
+                    label: (context: any) => `${context?.raw?.toLocaleString()} requests`
+                }
+            },
+        },
+        scales: {
+            r: {
+                ticks: { display: false },
+                grid: { circular: true },
+                pointLabels: { display: false }
+            }
+        },
+        layout: {
+            padding: {
+                top: 25,
+                bottom: 40,
+                left: 40,
+                right: 40,
+            },
+        },
+        onClick: (_event: any, elements: any[]) => {
+            if (elements.length === 0) return;
+            const index = elements[0].index;
+            const hour = (index + 12) % 24;
+            setFilterHour(filterHour === hour ? null : hour);
+        },
+        onHover: (event: any, elements: any[]) => {
+            if (event.native?.target) {
+                event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+            }
+        },
+        responsive: true,
+        maintainAspectRatio: false,
+    }), [filterHour, setFilterHour]);
 
     return (
         <div className="card px-4 py-3 m-3">
@@ -131,7 +153,7 @@ export default memo(function UsageTime({ data }: { data: NginxLog[] }) {
                     ref={chartRef as any}
                     data={plotData}
                     plugins={polarAreaPlugins}
-                    options={polarAreaOptions}
+                    options={options}
                 />}
             </div>
         </div>
