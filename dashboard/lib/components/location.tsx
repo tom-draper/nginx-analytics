@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { type Location } from '@/lib/location'
 import { generateDemoLocations } from "../demo";
 
@@ -26,6 +26,7 @@ export function Location({
 }) {
     const [loading, setLoading] = useState(false);
     const [endpointDisabled, setEndpointDisabled] = useState(false);
+    const attemptedIPsRef = useRef(new Set<string>());
 
     const fetchLocations = async (ipAddresses: string[]) => {
         const response = await fetch('/api/location', {
@@ -77,15 +78,18 @@ export function Location({
 
     useEffect(() => {
         if (noFetch || endpointDisabled || unknownIPs.length === 0) return;
+        const toFetch = unknownIPs.filter(ip => !attemptedIPsRef.current.has(ip));
+        if (toFetch.length === 0) return;
+        toFetch.forEach(ip => attemptedIPsRef.current.add(ip));
 
         const fetchData = async () => {
             setLoading(true);
             try {
                 let fetchedLocations: Location[];
                 if (demo) {
-                    fetchedLocations = generateDemoLocations(unknownIPs);
+                    fetchedLocations = generateDemoLocations(toFetch);
                 } else {
-                    fetchedLocations = await fetchLocations(unknownIPs);
+                    fetchedLocations = await fetchLocations(toFetch);
                 }
                 if (fetchedLocations.length > 0) {
                     setLocationMap((prevMap) => {

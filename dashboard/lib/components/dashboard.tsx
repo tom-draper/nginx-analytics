@@ -10,9 +10,9 @@ import Users from "@/lib/components/users";
 import { Version, getVersion } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
-import { parseNginxLogs } from "@/lib/parse";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { WorkerResult } from '@/lib/analytics.worker';
+import type { ParseWorkerResult } from '@/lib/parse.worker';
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -32,13 +32,9 @@ import dynamic from "next/dynamic";
 const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
 const FileUpload = dynamic(() => import("./file-upload"));
 
-const PARSE_CHUNK_SIZE = 5000;
-
 export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload: boolean, demo: boolean, logFormat?: string }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [logs, setLogs] = useState<NginxLog[]>([]);
-    const parsedAccessCount = useRef(0);
-    const parseCancelRef = useRef(false);
 
     const [errorLogs, setErrorLogs] = useState<string[]>([]);
 
@@ -96,13 +92,15 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         startTransition(() => setFilter((previous) => ({ ...previous, dayOfWeek })))
     }, [])
 
-    // Worker ref and result state
+    // Worker refs and result state
     const workerRef = useRef<Worker | null>(null);
     const workerSeqRef = useRef(0);
     const workerRawCountRef = useRef(0);
+    const computeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const parseWorkerRef = useRef<Worker | null>(null);
     const [workerResult, setWorkerResult] = useState<WorkerResult | null>(null);
 
-    // Create worker once on mount
+    // Create workers once on mount
     useEffect(() => {
         const worker = new Worker(new URL('../analytics.worker.ts', import.meta.url));
         workerRef.current = worker;
@@ -111,25 +109,49 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 setWorkerResult(e.data);
             }
         };
-        return () => worker.terminate();
+
+        const parseWorker = new Worker(new URL('../parse.worker.ts', import.meta.url));
+        parseWorkerRef.current = parseWorker;
+        parseWorker.onmessage = (e: MessageEvent<ParseWorkerResult>) => {
+            const { logs: newLogs, maxTimestamp, isFirstBatch } = e.data;
+            if (newLogs.length === 0) return;
+            if (isFirstBatch && maxTimestamp !== null) {
+                const maxDate = new Date(maxTimestamp);
+                if (inPeriod(maxDate, 'week')) setPeriod('week');
+                else if (inPeriod(maxDate, 'month')) setPeriod('month');
+                else if (inPeriod(maxDate, '6 months')) setPeriod('6 months');
+                else setPeriod('all time');
+            }
+            setLogs(prev => [...prev, ...newLogs]);
+        };
+
+        return () => {
+            worker.terminate();
+            parseWorker.terminate();
+        };
     }, []);
 
-    // Send raw logs to worker for parsing (fires before compute effect)
+    // Send raw logs to both workers for parsing (fires before compute effect)
     useEffect(() => {
-        if (!workerRef.current || accessLogs.length <= workerRawCountRef.current) return;
+        if (accessLogs.length <= workerRawCountRef.current) return;
         const newRawLogs = accessLogs.slice(workerRawCountRef.current);
+        const isFirstBatch = workerRawCountRef.current === 0;
         workerRawCountRef.current = accessLogs.length;
-        workerRef.current.postMessage({ type: 'parseAndStore', rawLogs: newRawLogs, logFormat });
+        workerRef.current?.postMessage({ type: 'parseAndStore', rawLogs: newRawLogs, logFormat });
+        parseWorkerRef.current?.postMessage({ rawLogs: newRawLogs, logFormat, isFirstBatch });
     }, [accessLogs]);
 
-    // Trigger computation when inputs change
+    // Trigger computation when inputs change — debounced to avoid redundant work on rapid changes
     useEffect(() => {
         if (!workerRef.current) return;
-        const seq = ++workerSeqRef.current;
-        const locationMapEntries: [string, string][] = filter.location !== null
-            ? Array.from(locationMap.entries()).map(([ip, loc]) => [ip, loc.country])
-            : [];
-        workerRef.current.postMessage({ type: 'compute', seq, filter, settings, locationMap: locationMapEntries });
+        if (computeDebounceRef.current) clearTimeout(computeDebounceRef.current);
+        computeDebounceRef.current = setTimeout(() => {
+            const seq = ++workerSeqRef.current;
+            const locationMapEntries: [string, string][] = filter.location !== null
+                ? Array.from(locationMap.entries()).map(([ip, loc]) => [ip, loc.country])
+                : [];
+            workerRef.current?.postMessage({ type: 'compute', seq, filter, settings, locationMap: locationMapEntries });
+        }, 50);
     }, [accessLogs, filter, settings, locationMap]);
 
     useEffect(() => {
@@ -196,63 +218,6 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return url;
     }
 
-    useEffect(() => {
-        if (accessLogs.length <= parsedAccessCount.current) return;
-
-        const newRawLogs = accessLogs.slice(parsedAccessCount.current);
-        const isFirstBatch = parsedAccessCount.current === 0;
-        parsedAccessCount.current = accessLogs.length;
-
-        const initPeriod = (parsed: ReturnType<typeof parseNginxLogs>) => {
-            let maxDate = parsed[0].timestamp;
-            for (const log of parsed) {
-                if (log.timestamp && (!maxDate || log.timestamp > maxDate)) {
-                    maxDate = log.timestamp;
-                }
-            }
-            if (maxDate) {
-                if (inPeriod(maxDate, 'week')) setPeriod('week');
-                else if (inPeriod(maxDate, 'month')) setPeriod('month');
-                else if (inPeriod(maxDate, '6 months')) setPeriod('6 months');
-                else setPeriod('all time');
-            }
-        };
-
-        // Small batches: parse synchronously
-        if (newRawLogs.length <= PARSE_CHUNK_SIZE) {
-            const newParsed = parseNginxLogs(newRawLogs, logFormat);
-            if (newParsed.length === 0) return;
-            if (isFirstBatch) initPeriod(newParsed);
-            setLogs(prev => [...prev, ...newParsed]);
-            return;
-        }
-
-        // Large batches: chunk with setTimeout to avoid blocking the main thread,
-        // but accumulate all results and update state only once at the end.
-        parseCancelRef.current = false;
-        let offset = 0;
-        const allParsed: ReturnType<typeof parseNginxLogs> = [];
-        const processChunk = () => {
-            if (parseCancelRef.current) return;
-            const chunk = newRawLogs.slice(offset, offset + PARSE_CHUNK_SIZE);
-            if (chunk.length === 0) return;
-            const parsed = parseNginxLogs(chunk, logFormat);
-            if (parsed.length > 0) allParsed.push(...parsed);
-            offset += PARSE_CHUNK_SIZE;
-            if (offset < newRawLogs.length) {
-                setTimeout(processChunk, 0);
-            } else {
-                // All chunks done — single state update
-                if (allParsed.length > 0) {
-                    if (isFirstBatch) initPeriod(allParsed);
-                    setLogs(prev => [...prev, ...allParsed]);
-                }
-            }
-        };
-        processChunk();
-
-        return () => { parseCancelRef.current = true; };
-    }, [accessLogs])
 
 
 

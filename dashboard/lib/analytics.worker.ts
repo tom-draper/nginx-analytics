@@ -63,6 +63,14 @@ let logs: NginxLog[] = [];
 let logsWithoutBots: NginxLog[] = [];
 let cachedBaseKey = '';
 let cachedFilteredData: NginxLog[] = [];
+let cachedVersionKey = '';
+let cachedVersionFilteredData: NginxLog[] = [];
+let cachedDeviceKey = '';
+let cachedDeviceFilteredData: NginxLog[] = [];
+let cachedHourKey = '';
+let cachedHourFilteredData: NginxLog[] = [];
+let cachedDayKey = '';
+let cachedDayFilteredData: NginxLog[] = [];
 
 function getDayId(date: Date): number {
     return new Date(date).setHours(0, 0, 0, 0);
@@ -118,7 +126,11 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
         const parsed = parseNginxLogs(data.rawLogs, data.logFormat);
         logs = [...logs, ...parsed];
         logsWithoutBots = [...logsWithoutBots, ...parsed.filter(row => !isBotOrCrawler(row.userAgent))];
-        cachedBaseKey = ''; // invalidate cache when logs change
+        cachedBaseKey = '';
+        cachedVersionKey = '';
+        cachedDeviceKey = '';
+        cachedHourKey = '';
+        cachedDayKey = '';
         return;
     }
 
@@ -167,26 +179,59 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
         cachedBaseKey = baseKey;
     }
 
-    // Version filter
-    const versionFilteredData = filter.version === null
-        ? filteredData
-        : filteredData.filter(row => getVersion(row.path) === filter.version);
+    // Version filter — cached
+    const versionKey = `${baseKey}|${filter.version ?? ''}`;
+    let versionFilteredData: NginxLog[];
+    if (versionKey === cachedVersionKey) {
+        versionFilteredData = cachedVersionFilteredData;
+    } else {
+        versionFilteredData = filter.version === null
+            ? filteredData
+            : filteredData.filter(row => getVersion(row.path) === filter.version);
+        cachedVersionFilteredData = versionFilteredData;
+        cachedVersionKey = versionKey;
+    }
 
-    // Device filter
-    let deviceFilteredData = versionFilteredData;
-    if (filter.client !== null) deviceFilteredData = deviceFilteredData.filter(row => getClient(row.userAgent) === filter.client);
-    if (filter.os !== null) deviceFilteredData = deviceFilteredData.filter(row => getOS(row.userAgent) === filter.os);
-    if (filter.deviceType !== null) deviceFilteredData = deviceFilteredData.filter(row => getDevice(row.userAgent) === filter.deviceType);
+    // Device filter — cached
+    const deviceKey = `${versionKey}|${filter.client ?? ''}|${filter.os ?? ''}|${filter.deviceType ?? ''}`;
+    let deviceFilteredData: NginxLog[];
+    if (deviceKey === cachedDeviceKey) {
+        deviceFilteredData = cachedDeviceFilteredData;
+    } else {
+        let result = versionFilteredData;
+        if (filter.client !== null) result = result.filter(row => getClient(row.userAgent) === filter.client);
+        if (filter.os !== null) result = result.filter(row => getOS(row.userAgent) === filter.os);
+        if (filter.deviceType !== null) result = result.filter(row => getDevice(row.userAgent) === filter.deviceType);
+        deviceFilteredData = result;
+        cachedDeviceFilteredData = result;
+        cachedDeviceKey = deviceKey;
+    }
 
-    // Hour filter
-    const hourFilteredData = filter.hour === null
-        ? deviceFilteredData
-        : deviceFilteredData.filter(row => row.timestamp?.getHours() === filter.hour);
+    // Hour filter — cached
+    const hourKey = `${deviceKey}|${filter.hour ?? ''}`;
+    let hourFilteredData: NginxLog[];
+    if (hourKey === cachedHourKey) {
+        hourFilteredData = cachedHourFilteredData;
+    } else {
+        hourFilteredData = filter.hour === null
+            ? deviceFilteredData
+            : deviceFilteredData.filter(row => row.timestamp?.getHours() === filter.hour);
+        cachedHourFilteredData = hourFilteredData;
+        cachedHourKey = hourKey;
+    }
 
-    // Day filter
-    const dayFilteredData = filter.dayOfWeek === null
-        ? hourFilteredData
-        : hourFilteredData.filter(row => row.timestamp?.getDay() === filter.dayOfWeek);
+    // Day filter — cached
+    const dayKey = `${hourKey}|${filter.dayOfWeek ?? ''}`;
+    let dayFilteredData: NginxLog[];
+    if (dayKey === cachedDayKey) {
+        dayFilteredData = cachedDayFilteredData;
+    } else {
+        dayFilteredData = filter.dayOfWeek === null
+            ? hourFilteredData
+            : hourFilteredData.filter(row => row.timestamp?.getDay() === filter.dayOfWeek);
+        cachedDayFilteredData = dayFilteredData;
+        cachedDayKey = dayKey;
+    }
 
     // Aggregations
     const endpointCounts = new Map<string, number>();
