@@ -1,151 +1,5 @@
 "use client";
 import { useMemo, memo } from "react";
-import { NginxLog } from "../types";
-import { Period, periodStart } from "../period";
-
-function getSuccessRate(data: NginxLog[], period: Period) {
-    // Filter data by period if applicable
-    const startDate = periodStart(period);
-    const endDate = new Date(); // Current time as end date
-
-    let filteredData = [...data];
-    if (startDate) {
-        filteredData = filteredData.filter(log => {
-            const logDate = new Date(log.timestamp || 0);
-            return logDate >= startDate && logDate <= endDate;
-        });
-    }
-
-    if (!filteredData.length) {
-        return null;
-    }
-
-    let success = 0;
-    for (const row of filteredData) {
-        if (row.status === null) {
-            continue;
-        }
-        if (row.status >= 200 && row.status <= 399) {
-            success++;
-        }
-    }
-    return success / filteredData.length;
-}
-
-function getSuccessRatesByTime(data: NginxLog[], period: Period) {
-    // Get period start date (if applicable)
-    const startDate = periodStart(period);
-    const endDate = new Date(); // Current time as end date
-
-    // Filter data by period if startDate is available
-    let filteredData = [...data];
-    if (startDate) {
-        filteredData = filteredData.filter(log => {
-            const logDate = new Date(log.timestamp || 0);
-            return logDate >= startDate && logDate <= endDate;
-        });
-    }
-
-    // Determine appropriate bucket size based on period
-    const bucketFormat: 'hour' | 'day' = period === '24 hours' ? 'hour' : 'day';
-
-    // Sort data by timestamp if available
-    const sortedData = filteredData.sort((a, b) => {
-        return new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime();
-    });
-
-    // Generate all time buckets within the period range
-    const allBuckets = new Map<string, { requests: number, successes: number }>();
-
-    if (startDate) {
-        // Clone dates to avoid modifying the original
-        const currentDate = new Date(startDate.getTime());
-
-        while (currentDate <= endDate) {
-            let timeKey: string;
-
-            if (bucketFormat === 'hour') {
-                // Format: YYYY-MM-DD HH
-                timeKey = `${currentDate.toISOString().split('T')[0]} ${currentDate.getHours()}`;
-                // Advance by 1 hour
-                currentDate.setHours(currentDate.getHours() + 1);
-            } else {
-                // Format: YYYY-MM-DD
-                timeKey = currentDate.toISOString().split('T')[0];
-                // Advance by 1 day
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-
-            allBuckets.set(timeKey, { requests: 0, successes: 0 });
-        }
-    }
-
-    // Count actual requests and successes per time bucket
-    for (const row of sortedData) {
-        const timestamp = new Date(row.timestamp || 0);
-        let timeKey: string;
-
-        if (bucketFormat === 'hour') {
-            // Format: YYYY-MM-DD HH
-            timeKey = `${timestamp.toISOString().split('T')[0]} ${timestamp.getHours()}`;
-        } else {
-            // Format: YYYY-MM-DD
-            timeKey = timestamp.toISOString().split('T')[0];
-        }
-
-        // Ensure the bucket exists
-        if (!allBuckets.has(timeKey)) {
-            allBuckets.set(timeKey, { requests: 1, successes: 0 });
-        } else {
-            const bucket = allBuckets.get(timeKey)!;
-            bucket.requests++;
-        }
-
-        // Count successful requests
-        if (row.status !== null && row.status >= 200 && row.status <= 399) {
-            const bucket = allBuckets.get(timeKey)!;
-            bucket.successes++;
-        }
-    }
-
-    // Convert to array of points for graphing
-    const ratesByTime = Array.from(allBuckets.entries())
-        .map(([date, { requests, successes }]) => ({
-            date,
-            rate: requests > 0 ? successes / requests : 0
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-    // Consolidate into 6 buckets if we have more
-    if (ratesByTime.length > 6) {
-        const bucketSize = Math.ceil(ratesByTime.length / 6);
-        const consolidatedBuckets = [];
-
-        for (let i = 0; i < ratesByTime.length; i += bucketSize) {
-            const chunk = ratesByTime.slice(i, i + bucketSize);
-            const totalRequests = chunk.reduce((sum, b) => {
-                const bucketData = allBuckets.get(b.date);
-                return sum + (bucketData?.requests || 0);
-            }, 0);
-
-            const totalSuccesses = chunk.reduce((sum, b) => {
-                const bucketData = allBuckets.get(b.date);
-                return sum + (bucketData?.successes || 0);
-            }, 0);
-
-            const avgRate = totalRequests > 0 ? totalSuccesses / totalRequests : 0;
-
-            consolidatedBuckets.push({
-                date: chunk[0].date,
-                rate: avgRate
-            });
-        }
-
-        return consolidatedBuckets;
-    }
-
-    return ratesByTime;
-}
 
 function getColor(successRate: number | null) {
     if (successRate === null) {
@@ -159,12 +13,13 @@ function getColor(successRate: number | null) {
     }
 }
 
-export const SuccessRate = memo(function SuccessRate({ data, period }: { data: NginxLog[], period: Period }) {
-    const { successRate, ratesTrend } = useMemo(() => ({
-        successRate: getSuccessRate(data, period),
-        ratesTrend: getSuccessRatesByTime(data, period),
-    }), [data, period]);
-
+export const SuccessRate = memo(function SuccessRate({
+    successRate,
+    ratesTrend,
+}: {
+    successRate: number | null;
+    ratesTrend: { date: string; rate: number }[];
+}) {
     // Memoize SVG path — only recomputes when ratesTrend or successRate changes
     const backgroundGraph = useMemo(() => {
         if (!ratesTrend.length) return null;

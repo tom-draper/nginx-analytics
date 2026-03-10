@@ -1,4 +1,3 @@
-import { NginxLog } from "@/lib/types";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { type Location } from '@/lib/location'
 import { generateDemoLocations } from "../demo";
@@ -6,9 +5,26 @@ import { generateDemoLocations } from "../demo";
 
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 
-export function Location({ data, locationMap, setLocationMap, filterLocation, setFilterLocation, noFetch, demo }: { data: NginxLog[], locationMap: Map<string, Location>, setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>, filterLocation: string | null, setFilterLocation: (location: string | null) => void, noFetch: boolean, demo: boolean }) {
-    const [locations, setLocations] = useState<{ city: string, country: string, count: number }[] | null>(null);
-    const [loading, setLoading] = useState(true);
+export function Location({
+    locationCounts,
+    unknownIPs,
+    locationMap,
+    setLocationMap,
+    filterLocation,
+    setFilterLocation,
+    noFetch,
+    demo,
+}: {
+    locationCounts: { country: string; count: number }[];
+    unknownIPs: string[];
+    locationMap: Map<string, Location>;
+    setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>;
+    filterLocation: string | null;
+    setFilterLocation: (location: string | null) => void;
+    noFetch: boolean;
+    demo: boolean;
+}) {
+    const [loading, setLoading] = useState(false);
     const [endpointDisabled, setEndpointDisabled] = useState(false);
 
     const fetchLocations = async (ipAddresses: string[]) => {
@@ -60,72 +76,41 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
     }
 
     useEffect(() => {
-        const updateLocationMap = (locations: Location[]) => {
-            setLocationMap((prevMap) => {
-                const newLocationMap = new Map(prevMap);
-                let updated = false;
-
-                locations.forEach((location) => {
-                    if (!newLocationMap.has(location.ipAddress)) {
-                        newLocationMap.set(location.ipAddress, location);
-                        updated = true;
-                    }
-                });
-
-                return updated ? newLocationMap : prevMap;
-            });
-        };
+        if (noFetch || endpointDisabled || unknownIPs.length === 0) return;
 
         const fetchData = async () => {
             setLoading(true);
-            const seen = new Set<string>();
-            const unknown: string[] = [];
-            for (const row of data) {
-                if (!seen.has(row.ipAddress) && !locationMap.has(row.ipAddress)) {
-                    seen.add(row.ipAddress);
-                    unknown.push(row.ipAddress);
+            try {
+                let fetchedLocations: Location[];
+                if (demo) {
+                    fetchedLocations = generateDemoLocations(unknownIPs);
+                } else {
+                    fetchedLocations = await fetchLocations(unknownIPs);
                 }
-            }
-
-            if (unknown.length > 0) {
-                try {
-                    let locations: Location[];
-                    if (demo) {
-                        locations = generateDemoLocations(unknown);
-                    } else {
-                        locations = await fetchLocations(unknown);
-                    }
-                    if (locations.length > 0) {
-                        updateLocationMap(locations);
-                    }
-                } catch (error) {
-                    console.error("Error fetching locations:", error);
+                if (fetchedLocations.length > 0) {
+                    setLocationMap((prevMap) => {
+                        const newMap = new Map(prevMap);
+                        let updated = false;
+                        fetchedLocations.forEach((loc) => {
+                            if (!newMap.has(loc.ipAddress)) {
+                                newMap.set(loc.ipAddress, loc);
+                                updated = true;
+                            }
+                        });
+                        return updated ? newMap : prevMap;
+                    });
                 }
+            } catch (err) {
+                console.error('Error fetching locations:', err);
             }
+            setLoading(false);
         };
 
-        if (!noFetch && !endpointDisabled) {
-            fetchData();
-        }
-    }, [data, locationMap, setLocationMap, noFetch, demo, endpointDisabled]);
+        fetchData();
+    }, [unknownIPs, noFetch, demo, endpointDisabled]);
 
-    useEffect(() => {
-        const locationCount: { [location: string]: number } = {};
-        for (const row of data) {
-            const location = locationMap.get(row.ipAddress);
-            if (!location || (!location.country && !location.city)) {
-                continue;
-            }
-
-            if (!locationCount[location.country]) {
-                locationCount[location.country] = 0;
-            }
-            locationCount[location.country] += 1;
-        }
-
-        const locations = Object.entries(locationCount).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' })); setLocations(locations);
-        setLoading(false);
-    }, [data, locationMap])
+    // locations comes from prop directly — map to include city field for compatibility
+    const locations = locationCounts.map(({ country, count }) => ({ country, count, city: '' }));
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-53">
@@ -147,12 +132,12 @@ export function Location({ data, locationMap, setLocationMap, filterLocation, se
                         </div>
                     </div>
                 ))}
-                {locations !== null && locations.length > 0 && (
+                {locations.length > 0 && (
                     <div className="absolute top-4 right-6 text-sm text-[var(--text-muted3)]">
                         {locations.length} {locations.length === 1 ? 'location' : 'locations'}
                     </div>
                 )}
-                {locations !== null && locations.length === 0 && (
+                {locations.length === 0 && (
                     <div className="flex-1">
                         {loading ? (
                             <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center">

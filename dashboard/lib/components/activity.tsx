@@ -3,9 +3,8 @@
 import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend, ChartData } from "chart.js";
 import { useEffect, useMemo, useState, useRef, memo } from "react";
 import { Bar } from "react-chartjs-2";
-import { NginxLog } from "@/lib/types";
 import 'chartjs-adapter-date-fns';
-import { getDateRange, Period, periodStart } from "@/lib/period";
+import { Period } from "@/lib/period";
 
 ChartJS.register(
     BarElement,
@@ -15,149 +14,6 @@ ChartJS.register(
     Tooltip,
     Legend
 );
-
-function getDayId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-
-    return new Date(date).setHours(0, 0, 0, 0); // Set minutes, seconds, and milliseconds to zero
-}
-
-function getHourId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-
-    return new Date(date).setMinutes(0, 0, 0); // Set minutes, seconds, and milliseconds to zero
-}
-
-function get6HourId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-    const ms6h = 6 * 60 * 60 * 1000;
-    return Math.floor(date.getTime() / ms6h) * ms6h;
-}
-
-function get5MinuteId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-
-    const msPer5Min = 5 * 60 * 1000; // 5 minutes in milliseconds
-    return (new Date(Math.round(date.getTime() / msPer5Min) * msPer5Min)).getTime();
-}
-
-function getMinuteId(date: Date) {
-    if (!(date instanceof Date)) {
-        throw new Error("Invalid date object");
-    }
-
-    return new Date(date).setSeconds(0, 0); // Changed to use setSeconds instead
-}
-
-const getStepSize = (period: Period, data: NginxLog[]) => {
-    switch (period) {
-        case '24 hours':
-            return 300000; // 5 minutes
-        case 'week':
-            return 3600000; // 1 hour
-        case 'month':
-            return 21600000; // 6 hours
-        case '6 months':
-            return 86400000; // 1 day
-        case 'all time':
-            const range = getDateRange(data);
-            if (!range) {
-                return 8.64e+7; // day
-            }
-
-            const diff = range.end - range.start;
-            if (diff <= 86400000) {
-                return 300000; // 5 minutes
-            } else if (diff <= 604800000) {
-                return 3600000; // hour
-            } else {
-                return 8.64e+7; // day
-            }
-        default:
-            return 8.64e+7; // day
-    }
-}
-
-const incrementDate = (date: Date, period: Period) => {
-    switch (period) {
-        case '24 hours':
-            return new Date(date.setMinutes(date.getMinutes() + 5));
-        case 'week':
-            return new Date(date.setHours(date.getHours() + 1));
-        case 'month':
-            return new Date(date.setHours(date.getHours() + 6));
-        case '6 months':
-        case 'all time':
-        default:
-            return new Date(date.setDate(date.getDate() + 1));
-    }
-}
-
-const getTimeIdGetter = (period: Period, data: NginxLog[]) => {
-    switch (period) {
-        case '24 hours':
-            return get5MinuteId
-        case 'week':
-            return getHourId
-        case 'month':
-            return get6HourId
-        case '6 months':
-            return getDayId
-        case 'all time':
-            const range = getDateRange(data);
-            if (!range) {
-                return getDayId;
-            }
-
-            const diff = range.end - range.start;
-            if (diff <= 86400000) {
-                return get5MinuteId;
-            } else if (diff <= 604800000) {
-                return getHourId;
-            } else {
-                return getDayId;
-            }
-        default:
-            return getDayId
-    }
-}
-
-const getTimeUnit = (period: Period, data: NginxLog[]) => {
-    switch (period) {
-        case '24 hours':
-            return 'minute'
-        case 'week':
-            return 'hour'
-        case 'month':
-            return 'hour'
-        case '6 months':
-            return 'day'
-        case 'all time':
-            const range = getDateRange(data);
-            if (!range) {
-                return 'day';
-            }
-
-            const diff = range.end - range.start;
-            if (diff <= 86400000) {
-                return 'minute';
-            } else if (diff <= 604800000) {
-                return 'hour';
-            } else {
-                return 'day';
-            }
-        default:
-            return 'day'
-    }
-}
 
 const getSuccessRateLevel = (successRate: number | null) => {
     if (successRate === null) {
@@ -204,7 +60,21 @@ function calculateDisplayRates(rates: { timestamp: number, value: number | null 
     return sampled;
 }
 
-function Activity({ data, period }: { data: NginxLog[], period: Period }) {
+function Activity({
+    period,
+    activityBuckets,
+    activitySuccessRates,
+    activityPeriodLabels,
+    activityStepSize,
+    activityTimeUnit,
+}: {
+    period: Period;
+    activityBuckets: { timestamp: number; requests: number; users: number }[];
+    activitySuccessRates: { timestamp: number; successRate: number | null }[];
+    activityPeriodLabels: { start: string; end: string };
+    activityStepSize: number;
+    activityTimeUnit: 'minute' | 'hour' | 'day';
+}) {
     const [containerWidth, setContainerWidth] = useState<number>(0);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -239,64 +109,15 @@ function Activity({ data, period }: { data: NginxLog[], period: Period }) {
         };
     }, []); // Remove containerWidth from dependencies to prevent circular updates
 
-    // Single pass over data to compute chart data, success rates, and period labels
-    const { plotData, plotOptions, successRates, periodLabels } = useMemo(() => {
-        const chartPoints: { [id: string]: { requests: number; users: Set<string> } } = {};
-        const ratePoints: { [id: string]: { success: number, total: number } } = {};
-
-        const start = periodStart(period);
-        const getTimeId = getTimeIdGetter(period, data);
-
-        let currentDate: Date;
-        let end: Date;
-        if (start === null) {
-            const range = getDateRange(data);
-            if (!range) {
-                return { plotData: null, plotOptions: null, successRates: [], periodLabels: { start: '', end: '' } };
-            }
-            currentDate = new Date(range.start);
-            end = new Date(range.end);
-        } else {
-            end = new Date();
-            currentDate = new Date(start);
+    const { plotData, plotOptions, successRates } = useMemo(() => {
+        if (activityBuckets.length === 0) {
+            return { plotData: null, plotOptions: null, successRates: [] };
         }
 
-        while (currentDate <= end) {
-            const timeId = getTimeId(currentDate);
-            chartPoints[timeId] = { requests: 0, users: new Set() };
-            ratePoints[timeId] = { success: 0, total: 0 };
-            currentDate = incrementDate(currentDate, period);
-        }
-
-        // Single loop over data for both chart points and success rates
-        for (const row of data) {
-            if (!row.timestamp) continue;
-
-            const timeId = getTimeId(row.timestamp);
-            const userId = `${row.ipAddress}::${row.userAgent}`;
-
-            if (chartPoints[timeId]) {
-                chartPoints[timeId].requests++;
-                chartPoints[timeId].users.add(userId);
-            } else {
-                chartPoints[timeId] = { requests: 1, users: new Set([userId]) };
-            }
-
-            if (row.status) {
-                if (!ratePoints[timeId]) {
-                    ratePoints[timeId] = { success: 0, total: 0 };
-                }
-                if (row.status >= 200 && row.status <= 399) {
-                    ratePoints[timeId].success++;
-                }
-                ratePoints[timeId].total++;
-            }
-        }
-
-        const values = Object.entries(chartPoints).map(([x, y]) => ({
-            x: new Date(parseInt(x)),
-            requests: y.requests - y.users.size,
-            users: y.users.size
+        const values = activityBuckets.map(b => ({
+            x: new Date(b.timestamp),
+            requests: b.requests,
+            users: b.users,
         }));
 
         const plotData: ChartData<"bar"> = {
@@ -320,31 +141,34 @@ function Activity({ data, period }: { data: NginxLog[], period: Period }) {
             ]
         };
 
+        // For the x-axis max, we need the current time bucketed to the same granularity
+        let nowId: number;
+        switch (activityTimeUnit) {
+            case 'minute': nowId = Math.round(Date.now() / 300000) * 300000; break;
+            case 'hour': nowId = new Date().setMinutes(0, 0, 0); break;
+            default: nowId = new Date().setHours(0, 0, 0, 0); break;
+        }
+
         const plotOptions: object = {
             scales: {
                 x: {
                     type: 'time',
                     display: false,
-                    grid: {
-                        display: false
-                    },
-                    max: period === 'all time' ? undefined : getTimeId(new Date())
+                    grid: { display: false },
+                    time: { unit: activityTimeUnit, stepSize: activityStepSize },
+                    max: period === 'all time' ? undefined : nowId,
                 },
                 y: {
                     display: false,
-                    title: {
-                        text: 'Requests'
-                    },
+                    title: { text: 'Requests' },
                     min: 0,
-                    stacked: true
+                    stacked: true,
                 }
             },
             maintainAspectRatio: false,
             responsive: true,
             plugins: {
-                legend: {
-                    display: false
-                },
+                legend: { display: false },
                 tooltip: {
                     enabled: true,
                     callbacks: {
@@ -365,42 +189,13 @@ function Activity({ data, period }: { data: NginxLog[], period: Period }) {
             }
         };
 
-        const successRates = Object.entries(ratePoints)
-            .sort(([t1], [t2]) => Number(t2) - Number(t1))
-            .map(([timeId, value]) => ({
-                timestamp: Number(timeId),
-                value: value.total ? value.success / value.total : null
-            }))
-            .reverse();
+        const successRates = activitySuccessRates.map(r => ({
+            timestamp: r.timestamp,
+            value: r.successRate,
+        }));
 
-        let periodLabels = { start: '', end: '' };
-        switch (period) {
-            case '24 hours':
-                periodLabels = { start: '24 hours ago', end: 'Now' };
-                break;
-            case 'week':
-                periodLabels = { start: 'One week ago', end: 'Now' };
-                break;
-            case 'month':
-                periodLabels = { start: 'One month ago', end: 'Now' };
-                break;
-            case '6 months':
-                periodLabels = { start: 'Six months ago', end: 'Now' };
-                break;
-            default: {
-                const range = getDateRange(data);
-                if (range) {
-                    periodLabels = {
-                        start: new Date(range.start).toLocaleDateString(),
-                        end: new Date(range.end).toLocaleDateString()
-                    };
-                }
-                break;
-            }
-        }
-
-        return { plotData, plotOptions, successRates, periodLabels };
-    }, [data, period]);
+        return { plotData, plotOptions, successRates };
+    }, [activityBuckets, activitySuccessRates, activityStepSize, activityTimeUnit, period]);
 
     // Only recalculate display rates when successRates or container width changes
     const displayRates = useMemo(
@@ -446,8 +241,8 @@ function Activity({ data, period }: { data: NginxLog[], period: Period }) {
 
             <div className="pb-0">
                 <div className="flex justify-between mt-2 mb-1 overflow-hidden text-xs text-[var(--text-muted3)] mx-1">
-                    <div>{periodLabels.start}</div>
-                    <div>{periodLabels.end}</div>
+                    <div>{activityPeriodLabels.start}</div>
+                    <div>{activityPeriodLabels.end}</div>
                 </div>
             </div>
         </div>

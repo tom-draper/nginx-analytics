@@ -8,9 +8,6 @@ import { Requests } from "@/lib/components/requests";
 import { SuccessRate } from "@/lib/components/success-rate";
 import Users from "@/lib/components/users";
 import { Version, getVersion } from "@/lib/components/version";
-import { getClient } from "@/lib/components/device/client";
-import { getOS } from "@/lib/components/device/os";
-import { getDevice } from "@/lib/components/device/device-type";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
 import { parseNginxLogs } from "@/lib/parse";
@@ -30,13 +27,11 @@ import Errors from "@/lib/components/errors";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
-import { isBotOrCrawler } from "@/lib/user-agent";
 import dynamic from "next/dynamic";
 
 const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
 const FileUpload = dynamic(() => import("./file-upload"));
 
-const EMPTY_MAP = new Map<string, LocationType>();
 const PARSE_CHUNK_SIZE = 5000;
 
 export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload: boolean, demo: boolean, logFormat?: string }) {
@@ -104,6 +99,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     // Worker ref and result state
     const workerRef = useRef<Worker | null>(null);
     const workerSeqRef = useRef(0);
+    const workerRawCountRef = useRef(0);
     const [workerResult, setWorkerResult] = useState<WorkerResult | null>(null);
 
     // Create worker once on mount
@@ -118,10 +114,13 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return () => worker.terminate();
     }, []);
 
-    // Send logs to worker when they change
+    // Send raw logs to worker for parsing (fires before compute effect)
     useEffect(() => {
-        workerRef.current?.postMessage({ type: 'setLogs', logs });
-    }, [logs]);
+        if (!workerRef.current || accessLogs.length <= workerRawCountRef.current) return;
+        const newRawLogs = accessLogs.slice(workerRawCountRef.current);
+        workerRawCountRef.current = accessLogs.length;
+        workerRef.current.postMessage({ type: 'parseAndStore', rawLogs: newRawLogs, logFormat });
+    }, [accessLogs]);
 
     // Trigger computation when inputs change
     useEffect(() => {
@@ -131,7 +130,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             ? Array.from(locationMap.entries()).map(([ip, loc]) => [ip, loc.country])
             : [];
         workerRef.current.postMessage({ type: 'compute', seq, filter, settings, locationMap: locationMapEntries });
-    }, [logs, filter, settings, locationMap]);
+    }, [accessLogs, filter, settings, locationMap]);
 
     useEffect(() => {
         if (fileUpload) {
@@ -265,79 +264,6 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return date >= start;
     }
 
-    // Pre-compute bot-free logs once per log load — avoids running regex over every
-    // row on every filter change when excludeBots is enabled.
-    const logsWithoutBots = useMemo(() => {
-        return logs.filter(row => !isBotOrCrawler(row.userAgent));
-    }, [logs]);
-
-    // Only track locationMap when a location filter is active — avoids recomputing
-    // filteredData on every IP-resolution batch when no location filter is set.
-    const effectiveLocationMap = filter.location !== null ? locationMap : EMPTY_MAP;
-
-    const filteredData = useMemo(() => {
-        const validStatus = (status: number | null) => {
-            if (status === null || filter.status === null) {
-                return true;
-            }
-
-            if (typeof filter.status === 'number') {
-                return status === filter.status;
-            }
-
-            for (const range of filter.status) {
-                if (range[0] <= status && range[1] >= status) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        // Use pre-filtered bot-free list when excludeBots is on — no regex per row.
-        const source = settings.excludeBots ? logsWithoutBots : logs;
-        const result: NginxLog[] = [];
-        const start = periodStart(filter.period);
-        for (const row of source) {
-            if (
-                (start === null || (row.timestamp && row.timestamp > start))
-                && (filter.location === null || (effectiveLocationMap.get(row.ipAddress)?.country === filter.location))
-                && (filter.path === null || (row.path === filter.path))
-                && (filter.method === null || (row.method === filter.method))
-                && (filter.status === null || validStatus(row.status))
-                && (!settings.ignore404 || row.status !== 404)
-                && (filter.referrer === null || (row.referrer === filter.referrer))
-            ) {
-                result.push(row);
-            }
-        }
-        return result;
-    // List only the fields this memo actually uses — changing filter.version/hour/day/device
-    // won't trigger this expensive 100k-row loop unnecessarily.
-    }, [logs, logsWithoutBots, filter.period, filter.location, filter.path, filter.method, filter.status, filter.referrer, settings.ignore404, settings.excludeBots, effectiveLocationMap]);
-
-    const versionFilteredData = useMemo(() => {
-        if (filter.version === null) return filteredData;
-        return filteredData.filter(row => getVersion(row.path) === filter.version);
-    }, [filteredData, filter.version]);
-
-    const deviceFilteredData = useMemo(() => {
-        let result = versionFilteredData;
-        if (filter.client !== null) result = result.filter(row => getClient(row.userAgent) === filter.client);
-        if (filter.os !== null) result = result.filter(row => getOS(row.userAgent) === filter.os);
-        if (filter.deviceType !== null) result = result.filter(row => getDevice(row.userAgent) === filter.deviceType);
-        return result;
-    }, [versionFilteredData, filter.client, filter.os, filter.deviceType]);
-
-    const hourFilteredData = useMemo(() => {
-        if (filter.hour === null) return deviceFilteredData;
-        return deviceFilteredData.filter(row => row.timestamp?.getHours() === filter.hour);
-    }, [deviceFilteredData, filter.hour]);
-
-    const dayFilteredData = useMemo(() => {
-        if (filter.dayOfWeek === null) return hourFilteredData;
-        return hourFilteredData.filter(row => row.timestamp?.getDay() === filter.dayOfWeek);
-    }, [hourFilteredData, filter.dayOfWeek]);
-
     const endpointCounts = useMemo(() => workerResult ? new Map(workerResult.endpointCounts) : new Map<string, number>(), [workerResult]);
     const referrerCounts = useMemo(() => workerResult ? new Map(workerResult.referrerCounts) : new Map<string, number>(), [workerResult]);
     const responseSizes = workerResult?.responseSizes ?? [];
@@ -348,29 +274,45 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const hourCounts = workerResult?.hourCounts ?? new Array(24).fill(0);
     const dayCounts = workerResult?.dayCounts ?? new Array(7).fill(0);
 
+    const activityBuckets = workerResult?.activityBuckets ?? [];
+    const activitySuccessRates = workerResult?.activitySuccessRates ?? [];
+    const activityPeriodLabels = workerResult?.activityPeriodLabels ?? { start: '', end: '' };
+    const activityStepSize = workerResult?.activityStepSize ?? 86400000;
+    const activityTimeUnit = workerResult?.activityTimeUnit ?? 'day';
+    const requestsTotal = workerResult?.requestsTotal ?? 0;
+    const requestsPerHour = workerResult?.requestsPerHour ?? 0;
+    const requestsTrend = workerResult?.requestsTrend ?? [];
+    const usersTotal = workerResult?.usersTotal ?? 0;
+    const usersPerHour = workerResult?.usersPerHour ?? 0;
+    const usersTrend = workerResult?.usersTrend ?? [];
+    const overallSuccessRate = workerResult?.overallSuccessRate ?? null;
+    const successRateTrend = workerResult?.successRateTrend ?? [];
+    const locationCounts = workerResult?.locationCounts ?? [];
+    const unknownIPs = workerResult?.unknownIPs ?? [];
+
     if (fileUpload && accessLogs.length === 0) {
     return (
         <div className="relative w-full h-screen bg-[var(--background)]">
             <NetworkBackground />
             <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none text-[#99a1af]">
                 <FileUpload setAccessLogs={setAccessLogs} setErrorLogs={setErrorLogs} />
-                
+
                 <div className="max-w-md bg-y-80 backdrop-blur-sm border border-[var(--border-color)] rounded shadow-lg overflow-hidden mt-[6vh] w-fit">
-                    <a 
-                        href="https://github.com/tom-draper/nginx-analytics" 
-                        target="_blank" 
+                    <a
+                        href="https://github.com/tom-draper/nginx-analytics"
+                        target="_blank"
                         rel="noopener noreferrer"
-                        className="group pointer-events-auto flex items-center px-[2rem] py-[1rem] cursor-pointer" 
+                        className="group pointer-events-auto flex items-center px-[2rem] py-[1rem] cursor-pointer"
                     >
                         <p className="transition-colors duration-300 group-hover:text-[var(--text)]">
                             Get started with self-hosting
                         </p>
-                        <svg 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            strokeWidth="1.5" 
-                            stroke="currentColor" 
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="1.5"
+                            stroke="currentColor"
                             className="size-6 h-[20px] ml-[10px] transition-all duration-300 ease-in-out group-hover:translate-x-[3px] group-hover:stroke-[var(--highlight)] group-hover:delay-500"
                         >
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path>
@@ -398,12 +340,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                     <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
-                            <SuccessRate data={dayFilteredData} period={currentPeriod} />
+                            <SuccessRate successRate={overallSuccessRate} ratesTrend={successRateTrend} />
                         </div>
 
                         <div className="flex">
-                            <Requests data={dayFilteredData} period={currentPeriod} />
-                            <Users data={dayFilteredData} period={currentPeriod} />
+                            <Requests requestsTotal={requestsTotal} requestsPerHour={requestsPerHour} requestsTrend={requestsTrend} />
+                            <Users usersTotal={usersTotal} usersPerHour={usersPerHour} usersTrend={usersTrend} />
                         </div>
 
                         <div className="flex">
@@ -421,10 +363,26 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                     {/* Right */}
                     <div className="min-[950px]:flex-1 min-w-0">
-                        <Activity data={dayFilteredData} period={currentPeriod} />
+                        <Activity
+                            period={currentPeriod}
+                            activityBuckets={activityBuckets}
+                            activitySuccessRates={activitySuccessRates}
+                            activityPeriodLabels={activityPeriodLabels}
+                            activityStepSize={activityStepSize}
+                            activityTimeUnit={activityTimeUnit}
+                        />
 
                         <div className="flex max-xl:flex-col">
-                            <Location data={dayFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
+                            <Location
+                                locationCounts={locationCounts}
+                                unknownIPs={unknownIPs}
+                                locationMap={locationMap}
+                                setLocationMap={setLocationMap}
+                                filterLocation={filter.location}
+                                setFilterLocation={setLocation}
+                                noFetch={fileUpload}
+                                demo={demo}
+                            />
                             <div className="xl:w-[27em]">
                                 <Device
                                     clientCounts={clientCounts}

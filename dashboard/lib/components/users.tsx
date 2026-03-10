@@ -1,163 +1,20 @@
 'use client';
 
 import { useMemo, useState, memo } from "react";
-import { NginxLog } from "../types";
-import { getUserId } from "../user";
-import { getPeriodRange, hoursInRange, Period, periodStart } from "../period";
 
-function getUsers(data: NginxLog[], period: Period) {
-    const startDate = periodStart(period);
-    const endDate = new Date(); // Current time as end date
-
-    // Filter data by period if startDate is available
-    const filteredData = startDate
-        ? data.filter(log => {
-            const logDate = new Date(log.timestamp || 0);
-            return logDate >= startDate && logDate <= endDate;
-        })
-        : data;
-
-    const users = new Set<string>();
-    for (const row of filteredData) {
-        const userId = getUserId(row.ipAddress, row.userAgent);
-        if (userId) {
-            users.add(userId);
-        }
-    }
-    return users;
-}
-
-function getUserCount(data: NginxLog[], period: Period) {
-    return getUsers(data, period).size;
-}
-
-function getUsersByTime(data: NginxLog[], period: Period) {
-    // Get period start date (if applicable)
-    const startDate = periodStart(period);
-    const endDate = new Date(); // Current time as end date
-
-    // Filter data by period if startDate is available
-    const filteredData = startDate
-        ? data.filter(log => {
-            const logDate = new Date(log.timestamp || 0);
-            return logDate >= startDate && logDate <= endDate;
-        })
-        : data;
-
-    // Determine appropriate bucket size based on period
-    const bucketFormat: 'hour' | 'day' = period === '24 hours' ? 'hour' : 'day';
-
-    // Generate all time buckets within the period range
-    const allBuckets = new Map<string, number>();
-
-    if (startDate) {
-        // Clone dates to avoid modifying the original
-        const currentDate = new Date(startDate.getTime());
-
-        while (currentDate <= endDate) {
-            let timeKey: string;
-
-            if (bucketFormat === 'hour') {
-                // Format: YYYY-MM-DD HH
-                timeKey = `${currentDate.toISOString().split('T')[0]} ${currentDate.getHours()}`;
-                // Advance by 1 hour
-                currentDate.setHours(currentDate.getHours() + 1);
-            } else if (bucketFormat === 'day') {
-                // Format: YYYY-MM-DD
-                timeKey = currentDate.toISOString().split('T')[0];
-                // Advance by 1 day
-                currentDate.setDate(currentDate.getDate() + 1);
-            } else {
-                // Format: YYYY-MM
-                timeKey = currentDate.toISOString().substring(0, 7);
-                // Advance by 1 month
-                currentDate.setMonth(currentDate.getMonth() + 1);
-            }
-
-            allBuckets.set(timeKey, 0);
-        }
-    }
-
-    // Count unique users per time bucket (first appearance only)
-    // const seenUsers = new Set<string>();
-
-    for (const row of filteredData) {
-        const userId = getUserId(row.ipAddress, row.userAgent);
-        if (!userId) continue;
-
-        // Skip if we've already counted this user
-        // if (seenUsers.has(userId)) continue;
-        // seenUsers.add(userId);
-
-        const timestamp = new Date(row.timestamp || 0);
-        let timeKey: string;
-
-        if (bucketFormat === 'hour') {
-            // Format: YYYY-MM-DD HH
-            timeKey = `${timestamp.toISOString().split('T')[0]} ${timestamp.getHours()}`;
-        } else if (bucketFormat === 'day') {
-            // Format: YYYY-MM-DD
-            timeKey = timestamp.toISOString().split('T')[0];
-        } else {
-            // Format: YYYY-MM
-            timeKey = timestamp.toISOString().substring(0, 7);
-        }
-
-        if (!allBuckets.has(timeKey)) {
-            // If we have no defined time period, or data outside our range,
-            // add the bucket dynamically
-            allBuckets.set(timeKey, 1);
-        } else {
-            // Increment existing bucket
-            allBuckets.set(timeKey, allBuckets.get(timeKey)! + 1);
-        }
-    }
-
-    // Convert to array of points for graphing
-    const buckets = Array.from(allBuckets.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, count]) => ({ date, count }));
-
-    // If no period is specified and no data, return empty array
-    if (buckets.length === 0) {
-        return [];
-    }
-
-    // Consolidate into 6 buckets if we have more
-    if (buckets.length > 6) {
-        const bucketSize = Math.ceil(buckets.length / 6);
-        const consolidatedBuckets = [];
-
-        for (let i = 0; i < buckets.length; i += bucketSize) {
-            const chunk = buckets.slice(i, i + bucketSize);
-            const totalCount = chunk.reduce((sum, b) => sum + b.count, 0);
-            consolidatedBuckets.push({
-                date: chunk[0].date,
-                count: totalCount
-            });
-        }
-
-        return consolidatedBuckets;
-    }
-
-    return buckets;
-}
-
-export default memo(function Users({ data, period }: { data: NginxLog[], period: Period }) {
+export default memo(function Users({
+    usersTotal,
+    usersPerHour,
+    usersTrend,
+}: {
+    usersTotal: number;
+    usersPerHour: number;
+    usersTrend: { date: string; count: number }[];
+}) {
     const [displayMode, setDisplayMode] = useState<'total' | 'per-hour'>('total');
 
-    const { users, userTrend } = useMemo(() => {
-        const range = getPeriodRange(period, data);
-        if (!range) return { users: { total: 0, perHour: 0 }, userTrend: [] };
-
-        const totalUsers = getUserCount(data, period);
-        const usersPerHour = totalUsers / hoursInRange(range.start, range.end);
-
-        return {
-            users: { total: totalUsers, perHour: usersPerHour },
-            userTrend: getUsersByTime(data, period)
-        };
-    }, [data, period]);
+    const users = { total: usersTotal, perHour: usersPerHour };
+    const userTrend = usersTrend;
 
     // Toggle display mode
     const toggleDisplayMode = () => {
