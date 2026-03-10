@@ -220,6 +220,7 @@ function Activity({
 
             <div className="relative w-full h-[200px] pt-2">
                 {plotData && plotOptions && <Bar
+                    key={activityStepSize}
                     data={plotData}
                     options={plotOptions}
                 />}
