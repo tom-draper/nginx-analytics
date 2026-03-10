@@ -1,6 +1,37 @@
 import { type Filter } from "../filter";
 import { type Settings } from "../settings";
 
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatStatus(status: Filter['status']): string {
+    if (status === null) return 'None';
+    if (typeof status === 'number') return String(status);
+    return status.map(([lo, hi]) => {
+        if (lo === 200 && hi === 299) return '2xx';
+        if (lo === 300 && hi === 399) return '3xx';
+        if (lo === 400 && hi === 499) return '4xx';
+        if (lo === 500 && hi === 599) return '5xx';
+        return `${lo}–${hi}`;
+    }).join(', ');
+}
+
+function filterPills(filter: Filter): { label: string; value: string; active: boolean }[] {
+    return [
+        { label: 'Period', value: filter.period, active: true },
+        { label: 'Location', value: filter.location ?? 'None', active: filter.location !== null },
+        { label: 'Path', value: filter.path ?? 'None', active: filter.path !== null },
+        { label: 'Method', value: filter.method ?? 'None', active: filter.method !== null },
+        { label: 'Status', value: formatStatus(filter.status), active: filter.status !== null },
+        { label: 'Referrer', value: filter.referrer ?? 'None', active: filter.referrer !== null },
+        { label: 'Version', value: filter.version ?? 'None', active: filter.version !== null },
+        { label: 'Client', value: filter.client ?? 'None', active: filter.client !== null },
+        { label: 'OS', value: filter.os ?? 'None', active: filter.os !== null },
+        { label: 'Device', value: filter.deviceType ?? 'None', active: filter.deviceType !== null },
+        { label: 'Hour', value: filter.hour !== null ? `${String(filter.hour).padStart(2, '0')}:00` : 'None', active: filter.hour !== null },
+        { label: 'Day', value: filter.dayOfWeek !== null ? DAYS[filter.dayOfWeek] : 'None', active: filter.dayOfWeek !== null },
+    ];
+}
+
 export function Settings({
     settings,
     setSettings,
@@ -129,19 +160,20 @@ export function Settings({
 
                                 {/* Filters */}
                                 <div className="space-y-3 mb-4">
-                                    <h3 className="font-semibold text-md">Active Filters</h3>
-                                    <div className="bg-[rgba(26,240,115,0.1)] rounded p-4 space-y-2">
-                                        {Object.entries(filter).map(([key, value]) => (
-                                            value ? (
-                                                <div key={key} className="flex items-center justify-between">
-                                                    <span className="capitalize font-medium mr-2">{key}:</span>
-                                                    <span className="bg-[var(--highlight)] break-all text-[var(--background)] px-2 py-1 rounded text-sm">{value}</span>
-                                                </div>
-                                            ) : null
+                                    <h3 className="font-semibold text-md">Filters</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {filterPills(filter).map(({ label, value, active }) => (
+                                            <div
+                                                key={label}
+                                                className={`border border-[var(--border-color)] rounded-[var(--border-radius)] text-[0.9em] px-3 py-1 transition-colors duration-50 ease-in-out ${
+                                                    active
+                                                        ? 'bg-[var(--highlight)] !text-black'
+                                                        : 'text-[var(--text-muted3)] opacity-50'
+                                                }`}
+                                            >
+                                                {label}: {value}
+                                            </div>
                                         ))}
-                                        {!Object.values(filter).some(Boolean) && (
-                                            <p className="text-gray-500 dark:text-gray-400 text-sm italic">No active filters</p>
-                                        )}
                                     </div>
                                 </div>
                             </div>
