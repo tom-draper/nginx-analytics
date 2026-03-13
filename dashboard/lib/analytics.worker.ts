@@ -216,7 +216,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
     } else {
         hourFilteredData = filter.hour === null
             ? deviceFilteredData
-            : deviceFilteredData.filter(row => row.timestamp?.getHours() === filter.hour);
+            : deviceFilteredData.filter(row => row.timestamp !== null && new Date(row.timestamp).getHours() === filter.hour);
         cachedHourFilteredData = hourFilteredData;
         cachedHourKey = hourKey;
     }
@@ -229,7 +229,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
     } else {
         dayFilteredData = filter.dayOfWeek === null
             ? hourFilteredData
-            : hourFilteredData.filter(row => row.timestamp?.getDay() === filter.dayOfWeek);
+            : hourFilteredData.filter(row => row.timestamp !== null && new Date(row.timestamp).getDay() === filter.dayOfWeek);
         cachedDayFilteredData = dayFilteredData;
         cachedDayKey = dayKey;
     }
@@ -268,12 +268,12 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
 
     const hourCounts = new Array(24).fill(0);
     for (const row of deviceFilteredData) {
-        if (row.timestamp) hourCounts[row.timestamp.getHours()]++;
+        if (row.timestamp !== null) hourCounts[new Date(row.timestamp).getHours()]++;
     }
 
     const dayCounts = new Array(7).fill(0);
     for (const row of hourFilteredData) {
-        if (row.timestamp) dayCounts[row.timestamp.getDay()]++;
+        if (row.timestamp !== null) dayCounts[new Date(row.timestamp).getDay()]++;
     }
 
     // ---- Activity pre-computation ----
