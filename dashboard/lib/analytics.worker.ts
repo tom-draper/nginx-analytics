@@ -391,9 +391,10 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
     for (const row of dayFilteredData) {
         const ts = row.timestamp;
         if (!ts) continue;
+        const tsDate = new Date(ts);
         const key = bucketFormat === 'hour'
-            ? `${ts.toISOString().split('T')[0]} ${ts.getHours()}`
-            : ts.toISOString().split('T')[0];
+            ? `${tsDate.toISOString().split('T')[0]} ${tsDate.getHours()}`
+            : tsDate.toISOString().split('T')[0];
         reqBuckets.set(key, (reqBuckets.get(key) ?? 0) + 1);
         userBuckets.set(key, (userBuckets.get(key) ?? 0) + 1);
         const uid = getUserId(row.ipAddress, row.userAgent);
