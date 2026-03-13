@@ -484,7 +484,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                                 <UsageTime data={deferredFilteredData} />
                                 <UsageDay dayCounts={dayCounts} filterDayOfWeek={filter.dayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
-                                <LiveGlobeCard logs={logs} locationMap={locationMap} />
+                                {/* <LiveGlobeCard logs={logs} locationMap={locationMap} /> */}
                             </div>
                             <div className="self-start order-first min-[1500px]:order-last max-[1500px]:w-full">
                                 <Referrals referrerCounts={referrerCounts} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
