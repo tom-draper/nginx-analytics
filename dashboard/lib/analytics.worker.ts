@@ -338,7 +338,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
 
     for (const row of dayFilteredData) {
         if (!row.timestamp) continue;
-        const id = getTimeId(row.timestamp);
+        const id = getTimeId(new Date(row.timestamp));
         const uid = `${row.ipAddress}::${row.userAgent}`;
         if (chartPoints[id]) {
             chartPoints[id].requests++;
