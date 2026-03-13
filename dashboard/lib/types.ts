@@ -11,7 +11,7 @@ export type NginxLog = {
 }
 
 export type NginxError = {
-    timestamp: Date;
+    timestamp: number;
     level: string;
     pid: number;
     tid: string;

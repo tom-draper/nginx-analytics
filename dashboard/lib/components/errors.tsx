@@ -26,8 +26,8 @@ const useSortedData = <T extends Record<string, any>>(
 
             // Handle dates specially
             if (key === "timestamp") {
-                const dateA = new Date(a[key]).getTime();
-                const dateB = new Date(b[key]).getTime();
+                const dateA = a[key];
+                const dateB = b[key];
                 return direction === "asc" ? dateA - dateB : dateB - dateA;
             }
 
@@ -74,7 +74,7 @@ const ErrorRow = ({
     index: number;
     expandedError: number | null;
     setExpandedError: (index: number | null) => void;
-    formatDate: (date: Date) => string;
+    formatDate: (date: number) => string;
     getSeverityColor: (level: string) => string;
 }) => {
     const isExpanded = expandedError === index;
@@ -318,7 +318,7 @@ export default function Errors({
         }
     };
 
-    const formatDate = (date: Date) => dateFormatter.format(new Date(date));
+    const formatDate = (date: number) => dateFormatter.format(date);
 
     if (errors.length === 0 && !isLoading && !fetchError) {
         return null;

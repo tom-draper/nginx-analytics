@@ -211,7 +211,7 @@ export function parseNginxErrors(logLines: string[]): NginxError[] {
         .map(line => {
             // Basic pattern: YYYY/MM/DD HH:MM:SS [level] pid#tid: *cid message
             const timestampMatch = line.match(TIMESTAMP_PATTERN);
-            const timestamp = timestampMatch ? new Date(timestampMatch[1]) : new Date();
+            const timestamp = timestampMatch ? (new Date(timestampMatch[1])).getTime() : (new Date()).getTime();
 
             const levelMatch = line.match(LEVEL_PATTERN);
             const level = levelMatch ? levelMatch[1].toLowerCase() : "unknown";

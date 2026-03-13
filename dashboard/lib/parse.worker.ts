@@ -24,7 +24,7 @@ self.onmessage = (e: MessageEvent<ParseMessage>) => {
     if (isFirstBatch) {
         for (const log of parsed) {
             if (log.timestamp) {
-                const t = log.timestamp.getTime();
+				const t = log.timestamp;
                 if (maxTimestamp === null || t > maxTimestamp) maxTimestamp = t;
             }
         }
