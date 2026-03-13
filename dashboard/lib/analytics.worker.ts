@@ -138,7 +138,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
     const locationMap = new Map(locationMapEntries);
 
     // Base filter with caching
-    const baseKey = `${filter.period}|${filter.location ?? ''}|${filter.path ?? ''}|${filter.method ?? ''}|${JSON.stringify(filter.status)}|${filter.referrer ?? ''}|${settings.ignore404}|${settings.excludeBots}`;
+    const baseKey = `${filter.period}|${filter.location ?? ''}|${filter.path ?? ''}|${filter.method ?? ''}|${JSON.stringify(filter.status)}|${filter.referrer ?? ''}|${settings.ignore404}|${settings.excludeBots}|${(settings.excludedEndpoints ?? []).join(',')}`;
 
     let filteredData: NginxLog[];
     if (baseKey === cachedBaseKey) {
@@ -170,6 +170,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
                 && (filter.status === null || validStatus)
                 && (!settings.ignore404 || row.status !== 404)
                 && (filter.referrer === null || row.referrer === filter.referrer)
+                && ((settings.excludedEndpoints ?? []).length === 0 || !(settings.excludedEndpoints ?? []).includes(row.path.split('?')[0]))
             ) {
                 result.push(row);
             }

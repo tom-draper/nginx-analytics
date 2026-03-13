@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { type Filter } from "../filter";
 import { type Settings } from "../settings";
 
@@ -17,7 +18,7 @@ function formatStatus(status: Filter['status']): string {
 
 function filterPills(filter: Filter): { label: string; value: string; active: boolean }[] {
     return [
-        { label: 'Period', value: filter.period, active: true },
+        { label: 'Period', value: ({ 'week': 'Week', 'month': 'Month', '6 months': '6 Months', '24 hours': '24 Hours', 'all time': 'All Time' } as Record<string, string>)[filter.period] ?? filter.period, active: true },
         { label: 'Location', value: filter.location ?? 'None', active: filter.location !== null },
         { label: 'Path', value: filter.path ?? 'None', active: filter.path !== null },
         { label: 'Method', value: filter.method ?? 'None', active: filter.method !== null },
@@ -51,6 +52,28 @@ export function Settings({
     const onClose = () => {
         setShowSettings(false);
     }
+
+    const [endpointInput, setEndpointInput] = useState('');
+
+    const onAddExcludedEndpoint = () => {
+        const trimmed = endpointInput.trim();
+        if (!trimmed || (settings.excludedEndpoints ?? []).includes(trimmed)) {
+            setEndpointInput('');
+            return;
+        }
+        setSettings((previous: Settings) => ({
+            ...previous,
+            excludedEndpoints: [...previous.excludedEndpoints, trimmed],
+        }));
+        setEndpointInput('');
+    };
+
+    const onRemoveExcludedEndpoint = (endpoint: string) => {
+        setSettings((previous: Settings) => ({
+            ...previous,
+            excludedEndpoints: previous.excludedEndpoints.filter(e => e !== endpoint),
+        }));
+    };
 
     const onToggleIgnore404 = (value: boolean) => {
         setSettings((previous: Settings) => ({
@@ -105,7 +128,7 @@ export function Settings({
 
 
                             {/* Content */}
-                            <div className="px-6 py-4 space-y-6">
+                            <div className="px-6 pt-4 pb-6 space-y-6">
 
                                 {/* Toggle options */}
                                 <div className="space-y-4">
@@ -168,13 +191,55 @@ export function Settings({
                                                 className={`border border-[var(--border-color)] rounded-[var(--border-radius)] text-[0.9em] px-3 py-1 transition-colors duration-50 ease-in-out ${
                                                     active
                                                         ? 'bg-[var(--highlight)] !text-black'
-                                                        : 'text-[var(--text-muted3)] opacity-50'
+                                                        : 'text-[var(--text-muted3)]'
                                                 }`}
                                             >
                                                 {label}: {value}
                                             </div>
                                         ))}
                                     </div>
+                                </div>
+
+                                {/* Excluded endpoints */}
+                                <div className="space-y-3">
+                                    <h3 className="font-semibold text-md">Excluded Endpoints</h3>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={endpointInput}
+                                            onChange={e => setEndpointInput(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') onAddExcludedEndpoint(); }}
+                                            placeholder="/api/health"
+                                            className="flex-1 text-sm border border-[var(--border-color)] rounded-[var(--border-radius)] bg-transparent px-3 py-1.5 text-[var(--text)] placeholder-[var(--text-muted3)] focus:outline-none focus:ring-1 focus:ring-[var(--highlight)]"
+                                        />
+                                        <button
+                                            onClick={onAddExcludedEndpoint}
+                                            className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-[var(--border-radius)] hover:bg-[var(--hover-background)] cursor-pointer focus:outline-none"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                    {(settings.excludedEndpoints ?? []).length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {(settings.excludedEndpoints ?? []).map(endpoint => (
+                                                <div
+                                                    key={endpoint}
+                                                    className="flex items-center gap-1 border border-[var(--border-color)] rounded-[var(--border-radius)] text-[0.9em] px-3 py-1 text-[var(--text-muted3)]"
+                                                >
+                                                    <span>{endpoint}</span>
+                                                    <button
+                                                        onClick={() => onRemoveExcludedEndpoint(endpoint)}
+                                                        className="ml-1 hover:text-[var(--text)] cursor-pointer focus:outline-none"
+                                                        aria-label={`Remove ${endpoint}`}
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3">
+                                                            <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

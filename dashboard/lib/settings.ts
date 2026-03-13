@@ -3,6 +3,7 @@ export type Settings = {
     ignore404: boolean;
     ignoreParams: boolean;
     excludeBots: boolean;
+    excludedEndpoints: string[];
 }
 
 export const newSettings = () => {
@@ -10,6 +11,7 @@ export const newSettings = () => {
         ignore404: false,
         ignoreParams: false,
         excludeBots: false,
+        excludedEndpoints: [],
     }
     return settings;
 }
