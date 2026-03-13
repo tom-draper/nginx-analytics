@@ -17,7 +17,7 @@ Transform your existing NGINX logs into an interactive real-time analytics dashb
 Deploy a single Next.js dashboard to the same server as NGINX.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#1af073', 'clusterBkg': '#f6fef9', 'clusterBorder': '#d1fae5', 'edgeLabelBackground': '#ffffff'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#1af073', 'clusterBkg': '#f6fef9', 'clusterBorder': '#d1fae5', 'edgeLabelBackground': '#ffffff'}, 'flowchart': {'nodeSpacing': 40, 'rankSpacing': 40, 'diagramPadding': 8}}}%%
 flowchart LR
     Traffic["🌐  Internet Traffic"] -->|requests| NGINX
 
@@ -28,9 +28,9 @@ flowchart LR
 
     You(["👤 You"]) -->|views| Dashboard
 
-    style Traffic   fill:#ffffff,stroke:#e5e7eb,color:#9ca3af,rx:6,ry:6
+    style Traffic   fill:#ffffff,stroke:#e5e7eb,color:#374151,rx:6,ry:6
     style NGINX     fill:#ffffff,stroke:#1af073,color:#111827,rx:6,ry:6
-    style Logs      fill:#ffffff,stroke:#e5e7eb,color:#6b7280,rx:6,ry:6
+    style Logs      fill:#ffffff,stroke:#e5e7eb,color:#374151,rx:6,ry:6
     style Dashboard fill:#1af073,stroke:#1af073,color:#064e3b,rx:6,ry:6
     style You       fill:#ffffff,stroke:#1af073,color:#1af073,rx:6,ry:6
     style Server    fill:#f6fef9,stroke:#d1fae5,color:#6b7280
