@@ -338,7 +338,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const referrerCounts = useMemo(() => {
         const counts = new Map<string, number>();
         for (const row of deferredFilteredData) {
-            if (row.referrer) {
+            if (row.referrer && row.referrer !== '-') {
                 counts.set(row.referrer, (counts.get(row.referrer) ?? 0) + 1);
             }
         }
