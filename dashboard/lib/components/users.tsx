@@ -34,33 +34,34 @@ function getUsersByTime(data: NginxLog[], period: Period) {
 
     // Generate all time buckets using integer keys — avoids toISOString() / string
     // allocation on every row in the hot loop below.
-    const allBuckets = new Map<number, number>();
+    const allBuckets = new Map<number, Set<string>>();
 
     if (startDate) {
         const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
         const startKey = Math.floor(startDate / step);
         const endKey = Math.floor(endDate.getTime() / step);
         for (let key = startKey; key <= endKey; key++) {
-            allBuckets.set(key, 0);
+            allBuckets.set(key, new Set());
         }
     }
 
     // data is already period-filtered and sorted by the parent — use directly
     for (const row of data) {
         const ts = row.timestamp;
-        if (!ts) continue;
+        if (ts === null) continue;
         const userId = getUserId(row.ipAddress, row.userAgent);
         if (!userId) continue;
 
         const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
         const timeKey = Math.floor(ts / step);
 
-        allBuckets.set(timeKey, (allBuckets.get(timeKey) ?? 0) + 1);
+        if (!allBuckets.has(timeKey)) allBuckets.set(timeKey, new Set());
+        allBuckets.get(timeKey)!.add(userId);
     }
 
     const buckets = Array.from(allBuckets.entries())
         .sort((a, b) => a[0] - b[0])
-        .map(([date, count]) => ({ date, count }));
+        .map(([date, userSet]) => ({ date, count: userSet.size }));
 
     // If no period is specified and no data, return empty array
     if (buckets.length === 0) {

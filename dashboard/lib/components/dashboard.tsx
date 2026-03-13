@@ -28,6 +28,7 @@ import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
 import { getClient, getOS, getDevice } from "@/lib/get-device-info";
+import { isBotOrCrawler } from "@/lib/user-agent";
 import dynamic from "next/dynamic";
 
 const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
@@ -43,15 +44,18 @@ const compareByTimestamp = (a: NginxLog, b: NginxLog): number => {
     return a.timestamp - b.timestamp; // both numbers
 };
 
-// Binary search: returns the first index in (sorted) logs whose timestamp >= targetMs
+// Binary search: returns the first index in (sorted) logs whose timestamp >= targetMs.
+// Logs with null timestamps are sorted to the END of the array (compareByTimestamp puts
+// nulls last), so a null at mid means the answer lies before mid — set hi = mid.
 function lowerBound(logs: NginxLog[], targetMs: number): number {
     let lo = 0, hi = logs.length;
     while (lo < hi) {
         const mid = (lo + hi) >>> 1;
         const t = logs[mid].timestamp;
-        if (t !== null && t < targetMs) { // timestamp is now a number
+        if (t !== null && t < targetMs) {
             lo = mid + 1;
         } else {
+            // t === null (null zone at end) or t >= targetMs: answer is at or before mid
             hi = mid;
         }
     }
@@ -131,7 +135,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         const initPeriod = (parsed: ReturnType<typeof parseNginxLogs>) => {
             let maxDate = parsed[0].timestamp;
             for (const log of parsed) {
-                if (log.timestamp && (!maxDate || log.timestamp > maxDate)) {
+                if (log.timestamp !== null && (maxDate === null || log.timestamp > maxDate)) {
                     maxDate = log.timestamp;
                 }
             }
@@ -271,7 +275,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             || filter.method !== null
             || filter.status !== null
             || settings.ignore404
-            || filter.referrer !== null;
+            || settings.excludeBots
+            || settings.ignoreParams
+            || (settings.excludedEndpoints ?? []).length > 0
+            || filter.referrer !== null
+            || filter.hour !== null
+            || filter.dayOfWeek !== null;
 
         const start = periodStart(filter.period);
 
@@ -303,16 +312,23 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             return false;
         };
 
+        const excludedEndpoints = settings.excludedEndpoints ?? [];
+
         const result: NginxLog[] = [];
         for (let i = startIdx; i < logs.length; i++) {
             const row = logs[i];
+            const rowPath = settings.ignoreParams ? row.path.split('?')[0] : row.path;
             if (
                 (filter.location === null || effectiveLocationMap.get(row.ipAddress)?.country === filter.location)
                 && (filter.path === null || row.path === filter.path)
                 && (filter.method === null || row.method === filter.method)
                 && (filter.status === null || validStatus(row.status))
                 && (!settings.ignore404 || row.status !== 404)
+                && (!settings.excludeBots || !isBotOrCrawler(row.userAgent))
+                && (excludedEndpoints.length === 0 || !excludedEndpoints.includes(rowPath))
                 && (filter.referrer === null || row.referrer === filter.referrer)
+                && (filter.hour === null || (row.timestamp !== null && new Date(row.timestamp).getHours() === filter.hour))
+                && (filter.dayOfWeek === null || (row.timestamp !== null && new Date(row.timestamp).getDay() === filter.dayOfWeek))
             ) {
                 result.push(row);
             }
@@ -380,7 +396,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const dayCounts = useMemo(() => {
         const counts = new Array(7).fill(0);
         for (const row of deferredFilteredData) {
-            if (row.timestamp) counts[new Date(row.timestamp).getDay()]++;
+            if (row.timestamp !== null) counts[new Date(row.timestamp).getDay()]++;
         }
         return counts;
     }, [deferredFilteredData]);

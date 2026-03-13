@@ -163,7 +163,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
                 }
             }
             if (
-                (start === null || (row.timestamp && row.timestamp > start))
+                (start === null || (row.timestamp !== null && row.timestamp >= start))
                 && (filter.location === null || locationMap.get(row.ipAddress) === filter.location)
                 && (filter.path === null || row.path === filter.path)
                 && (filter.method === null || row.method === filter.method)
@@ -337,7 +337,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
     }
 
     for (const row of dayFilteredData) {
-        if (!row.timestamp) continue;
+        if (row.timestamp === null) continue;
         const id = getTimeId(new Date(row.timestamp));
         const uid = `${row.ipAddress}::${row.userAgent}`;
         if (chartPoints[id]) {
@@ -369,7 +369,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
 
     const bucketFormat: 'hour' | 'day' = filter.period === '24 hours' ? 'hour' : 'day';
     const reqBuckets = new Map<string, number>();
-    const userBuckets = new Map<string, number>();
+    const userBuckets = new Map<string, Set<string>>();
     const srBuckets = new Map<string, { requests: number; successes: number }>();
 
     if (reqPeriodRange) {
@@ -380,7 +380,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
                 ? `${cur.toISOString().split('T')[0]} ${cur.getHours()}`
                 : cur.toISOString().split('T')[0];
             reqBuckets.set(key, 0);
-            userBuckets.set(key, 0);
+            userBuckets.set(key, new Set());
             srBuckets.set(key, { requests: 0, successes: 0 });
             if (bucketFormat === 'hour') cur.setHours(cur.getHours() + 1);
             else cur.setDate(cur.getDate() + 1);
@@ -390,15 +390,18 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
     const uniqueUserIds = new Set<string>();
     for (const row of dayFilteredData) {
         const ts = row.timestamp;
-        if (!ts) continue;
+        if (ts === null) continue;
         const tsDate = new Date(ts);
         const key = bucketFormat === 'hour'
             ? `${tsDate.toISOString().split('T')[0]} ${tsDate.getHours()}`
             : tsDate.toISOString().split('T')[0];
         reqBuckets.set(key, (reqBuckets.get(key) ?? 0) + 1);
-        userBuckets.set(key, (userBuckets.get(key) ?? 0) + 1);
         const uid = getUserId(row.ipAddress, row.userAgent);
-        if (uid) uniqueUserIds.add(uid);
+        if (uid) {
+            if (!userBuckets.has(key)) userBuckets.set(key, new Set());
+            userBuckets.get(key)!.add(uid);
+            uniqueUserIds.add(uid);
+        }
         if (!srBuckets.has(key)) srBuckets.set(key, { requests: 1, successes: 0 });
         else srBuckets.get(key)!.requests++;
         if (row.status !== null && row.status >= 200 && row.status <= 399) {
@@ -415,7 +418,7 @@ self.onmessage = (e: MessageEvent<ComputeMessage | ParseAndStoreMessage>) => {
     const usersPerHour = usersTotal / reqHours;
     const usersTrend = consolidateTo6(Array.from(userBuckets.entries())
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, count]) => ({ date, count })));
+        .map(([date, userSet]) => ({ date, count: userSet.size })));
 
     // ---- SuccessRate pre-computation ----
     let srTotalSuccess = 0;
