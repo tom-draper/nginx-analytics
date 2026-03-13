@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="175" viewBox="0 0 300 175">
+  <defs>
+    <clipPath id="rounded">
+      <rect width="300" height="175" rx="14"/>
+    </clipPath>
+  </defs>
+  <style>
+    text { font-family: Inter, Helvetica, Arial, sans-serif; }
+  </style>
+
+  <g clip-path="url(#rounded)">
+
+  <!-- Background -->
+  <rect width="300" height="175" fill="#08090a"/>
+
+  <!-- Server container -->
+  <rect x="10" y="18" width="280" height="147" rx="10" fill="#0d0e10" stroke="#23252a" stroke-width="1"/>
+
+  <!-- Server label (knocks out the border behind it) -->
+  <rect x="20" y="11" width="80" height="14" fill="#08090a"/>
+  <text x="60" y="21" text-anchor="middle" font-size="11" font-weight="500" fill="#5d5d5d" letter-spacing="0.3">Your Server</text>
+
+  <!-- NGINX card -->
+  <rect x="22" y="30" width="122" height="66" rx="6" fill="#101213" stroke="#23252a" stroke-width="1"/>
+  <text x="83" y="57" text-anchor="middle" font-size="13" font-weight="600" fill="#F7F8F8">NGINX</text>
+  <text x="83" y="74" text-anchor="middle" font-size="11" fill="#5d5d5d">Writes logs</text>
+
+  <!-- Dashboard card (accent) -->
+  <rect x="156" y="30" width="122" height="66" rx="6" fill="#101213" stroke="#1af073" stroke-width="1"/>
+  <text x="217" y="57" text-anchor="middle" font-size="13" font-weight="600" fill="#F7F8F8">Dashboard</text>
+  <text x="217" y="74" text-anchor="middle" font-size="11" fill="#5d5d5d">Reads logs</text>
+
+  <!-- Log Files card -->
+  <rect x="22" y="108" width="256" height="45" rx="6" fill="#101213" stroke="#23252a" stroke-width="1"/>
+  <text x="150" y="129" text-anchor="middle" font-size="13" font-weight="600" fill="#F7F8F8">Log Files</text>
+  <text x="150" y="146" text-anchor="middle" font-size="11" fill="#5d5d5d">access.log · error.log</text>
+
+  </g>
+</svg>

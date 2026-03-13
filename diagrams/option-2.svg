@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="175" viewBox="0 0 460 175">
+  <defs>
+    <clipPath id="rounded">
+      <rect width="460" height="175" rx="14"/>
+    </clipPath>
+  </defs>
+  <style>
+    text { font-family: Inter, Helvetica, Arial, sans-serif; }
+  </style>
+
+  <g clip-path="url(#rounded)">
+
+  <!-- Background -->
+  <rect width="460" height="175" fill="#08090a"/>
+
+  <!-- Left container: Your Server -->
+  <rect x="10" y="18" width="242" height="147" rx="10" fill="#0d0e10" stroke="#23252a" stroke-width="1"/>
+
+  <!-- Left container label -->
+  <rect x="20" y="11" width="80" height="14" fill="#08090a"/>
+  <text x="60" y="21" text-anchor="middle" font-size="11" font-weight="500" fill="#5d5d5d" letter-spacing="0.3">Your Server</text>
+
+  <!-- NGINX card -->
+  <rect x="22" y="30" width="105" height="66" rx="6" fill="#101213" stroke="#23252a" stroke-width="1"/>
+  <text x="74" y="57" text-anchor="middle" font-size="13" font-weight="600" fill="#F7F8F8">NGINX</text>
+  <text x="74" y="74" text-anchor="middle" font-size="11" fill="#5d5d5d">Writes logs</text>
+
+  <!-- Agent card -->
+  <rect x="139" y="30" width="105" height="66" rx="6" fill="#101213" stroke="#23252a" stroke-width="1"/>
+  <text x="191" y="57" text-anchor="middle" font-size="13" font-weight="600" fill="#F7F8F8">Agent</text>
+  <text x="191" y="74" text-anchor="middle" font-size="11" fill="#5d5d5d">Exposes logs</text>
+
+  <!-- Log Files card -->
+  <rect x="22" y="108" width="218" height="45" rx="6" fill="#101213" stroke="#23252a" stroke-width="1"/>
+  <text x="131" y="129" text-anchor="middle" font-size="13" font-weight="600" fill="#F7F8F8">Log Files</text>
+  <text x="131" y="146" text-anchor="middle" font-size="11" fill="#5d5d5d">access.log · error.log</text>
+
+  <!-- Connector -->
+  <line x1="254" y1="91" x2="264" y2="91" stroke="#23252a" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- Right container: Anywhere (dashed) -->
+  <rect x="264" y="18" width="186" height="147" rx="10" fill="#0d0e10" stroke="#23252a" stroke-width="1" stroke-dasharray="5,3"/>
+
+  <!-- Right container label -->
+  <rect x="274" y="11" width="60" height="14" fill="#08090a"/>
+  <text x="304" y="21" text-anchor="middle" font-size="11" font-weight="500" fill="#5d5d5d" letter-spacing="0.3">Anywhere</text>
+
+  <!-- Dashboard card (accent) -->
+  <rect x="276" y="59" width="162" height="66" rx="6" fill="#101213" stroke="#1af073" stroke-width="1"/>
+  <text x="357" y="86" text-anchor="middle" font-size="13" font-weight="600" fill="#F7F8F8">Dashboard</text>
+  <text x="357" y="103" text-anchor="middle" font-size="11" fill="#5d5d5d">Reads logs</text>
+
+  </g>
+</svg>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Option 1 — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #08090a;
+      font-family: Inter, Helvetica, Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .server {
+      position: relative;
+      border: 1px solid rgb(35, 37, 42);
+      border-radius: 10px;
+      padding: 32px 28px 28px;
+      background: #0d0e10;
+    }
+
+    .server-label {
+      position: absolute;
+      top: -11px;
+      left: 20px;
+      background: #08090a;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #5d5d5d;
+      letter-spacing: 0.03em;
+    }
+
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .cards-top {
+      display: flex;
+      gap: 12px;
+    }
+
+    .card {
+      background: #101213;
+      border: 1px solid rgb(35, 37, 42);
+      border-radius: 6px;
+      padding: 18px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-width: 130px;
+    }
+
+    .card.wide {
+      flex-direction: row;
+      justify-content: center;
+      gap: 14px;
+      padding: 12px 22px;
+    }
+
+    .card.accent {
+      border-color: #1af073;
+    }
+
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgb(35, 37, 42);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+    }
+
+    .card.accent .card-icon {
+      background: rgba(26, 240, 115, 0.12);
+    }
+
+    .card-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #F7F8F8;
+      white-space: nowrap;
+    }
+
+    .card-sub {
+      font-size: 11px;
+      color: #5d5d5d;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="server">
+    <span class="server-label">Your Server</span>
+    <div class="cards">
+
+      <div class="cards-top">
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <div class="card-name">NGINX</div>
+          <div class="card-sub">Writes logs</div>
+        </div>
+
+        <div class="card accent">
+          <div class="card-icon">📊</div>
+          <div class="card-name">Dashboard</div>
+          <div class="card-sub">Reads logs</div>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <div class="card-icon">📄</div>
+        <div>
+          <div class="card-name">Log Files</div>
+          <div class="card-sub">access.log · error.log</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
