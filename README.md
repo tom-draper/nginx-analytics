@@ -17,8 +17,8 @@ Transform your existing NGINX logs into an interactive real-time analytics dashb
 Deploy a single Next.js dashboard to the same server as NGINX.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#1af073', 'clusterBkg': '#f6fef9', 'clusterBorder': '#d1fae5', 'edgeLabelBackground': '#ffffff'}, 'flowchart': {'nodeSpacing': 40, 'rankSpacing': 40, 'diagramPadding': 8}}}%%
-flowchart LR
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#1af073', 'clusterBkg': '#f6fef9', 'clusterBorder': '#d1fae5', 'edgeLabelBackground': '#ffffff'}, 'flowchart': {'nodeSpacing': 30, 'rankSpacing': 30, 'diagramPadding': 8}}}%%
+flowchart TD
     Traffic["🌐  Internet Traffic"] -->|requests| NGINX
 
     subgraph Server["🖥️  Your Server"]
@@ -26,7 +26,7 @@ flowchart LR
         Logs -->|reads| Dashboard["📊 Dashboard"]
     end
 
-    You(["👤 You"]) -->|views| Dashboard
+    Dashboard -->|views| You(["👤 You"])
 
     style Traffic   fill:#ffffff,stroke:#e5e7eb,color:#374151,rx:6,ry:6
     style NGINX     fill:#ffffff,stroke:#1af073,color:#111827,rx:6,ry:6
