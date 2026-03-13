@@ -19,7 +19,7 @@ import UsageTime from "@/lib/components/usage-time";
 import UsageDay from "@/lib/components/usage-day";
 import { Referrals } from "@/lib/components/referrals";
 import { ResponseSize } from "@/lib/components/response-size";
-import { SystemResources } from "@/lib/components/system-resources";
+import { SystemResources } from "@/lib/components/system/system-resources";
 import { generateNginxLogs } from "@/lib/demo";
 import { NginxLog } from "@/lib/types";
 import Errors from "@/lib/components/errors";
