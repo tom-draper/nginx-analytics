@@ -314,10 +314,13 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
         const excludedEndpoints = settings.excludedEndpoints ?? [];
 
+        const needsDate = filter.hour !== null || filter.dayOfWeek !== null;
+
         const result: NginxLog[] = [];
         for (let i = startIdx; i < logs.length; i++) {
             const row = logs[i];
             const rowPath = settings.ignoreParams ? row.path.split('?')[0] : row.path;
+            const d = needsDate && row.timestamp !== null ? new Date(row.timestamp) : null;
             if (
                 (filter.location === null || effectiveLocationMap.get(row.ipAddress)?.country === filter.location)
                 && (filter.path === null || row.path === filter.path)
@@ -327,8 +330,8 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 && (!settings.excludeBots || !isBotOrCrawler(row.userAgent))
                 && (excludedEndpoints.length === 0 || !excludedEndpoints.includes(rowPath))
                 && (filter.referrer === null || row.referrer === filter.referrer)
-                && (filter.hour === null || (row.timestamp !== null && new Date(row.timestamp).getHours() === filter.hour))
-                && (filter.dayOfWeek === null || (row.timestamp !== null && new Date(row.timestamp).getDay() === filter.dayOfWeek))
+                && (filter.hour === null || (d !== null && d.getHours() === filter.hour))
+                && (filter.dayOfWeek === null || (d !== null && d.getDay() === filter.dayOfWeek))
             ) {
                 result.push(row);
             }

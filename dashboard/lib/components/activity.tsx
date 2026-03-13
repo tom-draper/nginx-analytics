@@ -365,10 +365,16 @@ function Activity({
             </h2>
 
             <div className="relative w-full h-[200px] pt-2">
-                {plotData && plotOptions && <Bar
-                    data={plotData}
-                    options={plotOptions}
-                />}
+                {plotData && plotOptions ? (
+                    <Bar
+                        data={plotData}
+                        options={plotOptions}
+                    />
+                ) : (
+                    <div className="flex items-center justify-center w-full h-full text-sm text-[var(--text-muted3)]">
+                        No data
+                    </div>
+                )}
             </div>
 
             <div className="pb-0 pt-2" ref={containerRef}>
