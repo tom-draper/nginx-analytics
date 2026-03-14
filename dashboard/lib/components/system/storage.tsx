@@ -1,7 +1,7 @@
 'use client';
 
-import { formatBytes } from "../format";
-import { SystemInfo } from "../types";
+import { formatBytes } from "../../format";
+import { SystemInfo } from "../../types";
 
 export function Storage({ resources, loading }: { resources: SystemInfo | null, loading: boolean }) {
     if (!resources) {

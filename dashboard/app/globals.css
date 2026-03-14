@@ -7,46 +7,30 @@
 }
 
 :root {
-  /* --background: #ffffff;
-  --foreground: #171717; */
-  --background: #0a0a0a;
   --foreground: #ededed;
   --nginx-green: #009400;
   --other-green: rgb(46, 204, 113);
-  --highlight: rgb(46, 204, 113);
-  --highlight: rgb(26, 240, 115);
   --highlight: #1af073;
-  --background: rgb(0, 0, 0);
   --background: #08090a;
-  --card-background: rgb(13, 13, 13);
-  --card-background: rgb(14, 14, 14);
   --card-background: #101213;
   --inverted-text: black;
   --bold-text: white;
-  --text: white;
   --text: #F7F8F8;
   --text-tinted: #ededed;
   --text-muted: gray;
   --text-muted2: #5d5d5d;
   --text-muted3: #666;
   --text-muted4: #8a8f98;
-  --border-color: rgb(22, 22, 22);
-  --border-color: rgb(34, 34, 34);
   --border-color: rgb(35, 37, 42);
   --border-radius: 0.3rem;
   --hover-background: rgb(34, 34, 34);
-  --warn: #ff644b;
-  --warn: #ffaa4b;
   --warn: rgb(255, 170, 75);
   --error: #ff5050;
-  --info: #00bfff;
   --info: rgb(0, 191, 255);
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
     --background: #ffffff;
     --foreground: #171717;
   }
@@ -59,9 +43,6 @@ body {
 }
 
 .level {
-  background: var(--highlight);
-  background: oklch(0.928 0.006 264.531);
-  background: oklch(0.967 0.003 264.542);
   background: rgb(255, 80, 80);
 }
 
@@ -207,7 +188,6 @@ body {
 
 
 .level-none {
-  background: oklch(0.967 0.003 264.542);
   background: rgb(49, 49, 49);
 }
 
