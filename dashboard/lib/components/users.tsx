@@ -22,26 +22,33 @@ function getUsersByTime(data: NginxLog[], period: Period): number[] {
     const byHour = period === '24 hours';
     const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
 
-    const allBuckets = new Map<number, number>();
+    // Generate all time buckets using integer keys — avoids toISOString() / string
+    // allocation on every row in the hot loop below.
+    const allBuckets = new Map<number, Set<string>>();
 
     if (startDate) {
         const startKey = Math.floor(startDate / step);
         const endKey = Math.floor(Date.now() / step);
         for (let key = startKey; key <= endKey; key++) {
-            allBuckets.set(key, 0);
+            allBuckets.set(key, new Set());
         }
     }
 
     for (const row of data) {
         const ts = row.timestamp;
         if (!ts) continue;
+        const userId = getUserId(row.ipAddress, row.userAgent);
+        if (!userId) continue;
+
         const timeKey = Math.floor(ts / step);
-        allBuckets.set(timeKey, (allBuckets.get(timeKey) ?? 0) + 1);
+
+        if (!allBuckets.has(timeKey)) allBuckets.set(timeKey, new Set());
+        allBuckets.get(timeKey)!.add(userId);
     }
 
     const values = Array.from(allBuckets.entries())
         .sort((a, b) => a[0] - b[0])
-        .map(([, count]) => count);
+        .map(([, userSet]) => userSet.size);
 
     return consolidateTo6(values);
 }

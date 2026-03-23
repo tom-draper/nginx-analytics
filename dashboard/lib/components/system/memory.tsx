@@ -12,8 +12,8 @@ import {
     Legend,
     Filler
 } from "chart.js";
-import { HistoryData, SystemInfo } from "../types";
-import { formatBytes } from "../format";
+import { HistoryData, SystemInfo } from "../../types";
+import { formatBytes } from "../../format";
 
 // Register Chart.js components
 ChartJS.register(

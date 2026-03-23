@@ -13,8 +13,8 @@ import {
     Legend,
     Filler
 } from "chart.js";
-import { HistoryData, SystemInfo } from "../types";
-import { gradient } from "../colors";
+import { HistoryData, SystemInfo } from "../../types";
+import { gradient } from "../../colors";
 
 // Register Chart.js components
 ChartJS.register(

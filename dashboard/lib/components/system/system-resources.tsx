@@ -1,13 +1,13 @@
 'use client';
 
-import { CPU } from "@/lib/components/cpu";
-import { Memory } from "@/lib/components/memory";
-import { Storage } from "@/lib/components/storage";
+import { CPU } from "@/lib/components/system/cpu";
+import { Memory } from "@/lib/components/system/memory";
+import { Storage } from "@/lib/components/system/storage";
 import { LogFiles } from "@/lib/components/log-files";
-import { HistoryData, LogSizes, SystemInfo } from "../types";
+import { HistoryData, LogSizes, SystemInfo } from "../../types";
 import { useEffect, useState } from "react";
-import { generateRandomLogSizes, generateSystemProfile, updateSystemUsage } from "../demo";
-import { systemMonitoringInterval } from "../environment";
+import { generateRandomLogSizes, generateSystemProfile, updateSystemUsage } from "../../demo";
+import { systemMonitoringInterval } from "../../environment";
 
 export function SystemResources({ demo }: { demo: boolean }) {
     const [resources, setResources] = useState<SystemInfo | null>(null);
