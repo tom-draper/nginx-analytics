@@ -9,6 +9,17 @@ import { useEffect, useState } from "react";
 import { generateRandomLogSizes, generateSystemProfile, updateSystemUsage } from "../../demo";
 import { systemMonitoringInterval } from "../../environment";
 
+const MAX_HISTORY_POINTS = 900;
+
+function appendHistory(prev: HistoryData, cpu: number, memory: number): HistoryData {
+    const now = Date.now();
+    return {
+        cpuUsage: [...prev.cpuUsage, cpu].slice(-MAX_HISTORY_POINTS),
+        memoryUsage: [...prev.memoryUsage, memory].slice(-MAX_HISTORY_POINTS),
+        timestamps: [...prev.timestamps, now].slice(-MAX_HISTORY_POINTS),
+    };
+}
+
 export function SystemResources({ demo }: { demo: boolean }) {
     const [resources, setResources] = useState<SystemInfo | null>(null);
     const [loadingResources, setLoadingResources] = useState(true);
@@ -21,9 +32,6 @@ export function SystemResources({ demo }: { demo: boolean }) {
     const [logSizes, setLogSizes] = useState<LogSizes | null>(null);
     const [loadingLogSizes, setLoadingLogSizes] = useState(true);
 
-    // Maximum number of data points to keep in history
-    const maxHistoryPoints = 900;
-
     useEffect(() => {
         if (demo) {
             const data: SystemInfo = generateSystemProfile();
@@ -32,21 +40,11 @@ export function SystemResources({ demo }: { demo: boolean }) {
             const updateUsage = () => {
                 const updatedData = updateSystemUsage(data);
                 setResources(updatedData);
-                setHistoryData((previous: HistoryData) => {
-                    const now = Date.now();
-
-                    // Create new arrays with latest data
-                    const newCpuUsage = [...previous.cpuUsage, updatedData.cpu.usage ?? 0];
-                    const newMemoryUsage = [...previous.memoryUsage, ((updatedData.memory.used) / updatedData.memory.total) * 100];
-                    const newTimestamps = [...previous.timestamps, now];
-
-                    // Keep only the last MAX_HISTORY_POINTS
-                    return {
-                        cpuUsage: newCpuUsage.slice(-maxHistoryPoints),
-                        memoryUsage: newMemoryUsage.slice(-maxHistoryPoints),
-                        timestamps: newTimestamps.slice(-maxHistoryPoints)
-                    };
-                });
+                setHistoryData(prev => appendHistory(
+                    prev,
+                    updatedData.cpu.usage ?? 0,
+                    (updatedData.memory.used / updatedData.memory.total) * 100
+                ));
             }
 
             updateUsage();
@@ -68,23 +66,11 @@ export function SystemResources({ demo }: { demo: boolean }) {
                 }
                 const data: SystemInfo = await response.json();
                 setResources(data);
-
-                // Update history data with new readings
-                setHistoryData((previous: HistoryData) => {
-                    const now = Date.now();
-
-                    // Create new arrays with latest data
-                    const newCpuUsage = [...previous.cpuUsage, data.cpu.usage ?? 0];
-                    const newMemoryUsage = [...previous.memoryUsage, ((data.memory.used) / data.memory.total) * 100];
-                    const newTimestamps = [...previous.timestamps, now];
-
-                    // Keep only the last MAX_HISTORY_POINTS
-                    return {
-                        cpuUsage: newCpuUsage.slice(-maxHistoryPoints),
-                        memoryUsage: newMemoryUsage.slice(-maxHistoryPoints),
-                        timestamps: newTimestamps.slice(-maxHistoryPoints)
-                    };
-                });
+                setHistoryData(prev => appendHistory(
+                    prev,
+                    data.cpu.usage ?? 0,
+                    (data.memory.used / data.memory.total) * 100
+                ));
             } catch (error) {
                 console.error("Error fetching system resources:", error);
             }

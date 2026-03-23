@@ -1,31 +1,8 @@
 'use client';
 
-import { Line } from "react-chartjs-2";
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-    Filler
-} from "chart.js";
 import { HistoryData, SystemInfo } from "../../types";
 import { formatBytes } from "../../format";
-
-// Register Chart.js components
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-    Filler
-);
+import { ResourceUsageChart } from "./resource-usage-chart";
 
 // Custom circular progress component
 const CircularProgress = ({ value, text, color }: { value: number, text: string, color: string }) => {
@@ -63,77 +40,10 @@ const CircularProgress = ({ value, text, color }: { value: number, text: string,
     );
 };
 
-// Single resource usage chart component
-const ResourceUsageChart = ({ data, timestamps, label, color, height = "h-32" }: { data: any, timestamps: any, label: string, color: string, height?: string }) => {
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-
-        },
-        scales: {
-            x: {
-                display: false
-            },
-            y: {
-                min: 0,
-                max: 100,
-                ticks: {
-                    stepSize: 25,
-                    color: 'rgba(107, 114, 128, 0.7)',
-                    font: {
-                        size: 10
-                    }
-                },
-                grid: {
-                    color: 'rgba(229, 231, 235, 0.3)'
-                }
-            }
-        },
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                intersect: false,
-                mode: 'index',
-                callbacks: {
-                    title: function (tooltipItems: any) {
-                        return new Date(timestamps[tooltipItems[0].dataIndex]).toLocaleTimeString();
-                    }
-                }
-            }
-        },
-        elements: {
-            point: {
-                radius: 0,
-                hoverRadius: 3
-            },
-            line: {
-                tension: 0.3,
-            }
-        }
-    };
-
-    const chartData = {
-        labels: timestamps,
-        datasets: [
-            {
-                label: label,
-                data: data,
-                borderColor: color,
-                backgroundColor: `${color}20`, // 20 = 12% opacity in hex
-                fill: true,
-                borderWidth: 2
-            }
-        ]
-    };
-
-    return (
-        <div className={`w-[100%] ${height}`}>
-            <Line options={chartOptions as any} data={chartData} />
-        </div>
-    );
+const getColorForUsage = (usage: number) => {
+    if (usage < 60) return "#1af073"; // green
+    if (usage < 90) return "#ffaa4b"; // amber
+    return "#ff5050"; // red
 };
 
 export function Memory({ resources, loading, historyData }: { resources: SystemInfo | null, loading: boolean, historyData: HistoryData }) {
@@ -162,14 +72,6 @@ export function Memory({ resources, loading, historyData }: { resources: SystemI
     const totalUsedMemory = ((resources.memory.total - resources.memory.free) / resources.memory.total) * 100;
     const availableMemory = ((resources.memory.total - resources.memory.available) / resources.memory.total) * 100;
 
-    // Get color based on usage percentage
-    const getColorForUsage = (usage: number) => {
-        if (usage < 60) return "#1af073"; // green
-        if (usage < 90) return "#ffaa4b"; // amber
-        return "#ff5050"; // red
-    };
-
-    // Get the current memory usage color instead of using a fixed color
     const currentMemColor = getColorForUsage(totalUsedMemory);
 
     return (
