@@ -62,6 +62,20 @@ function lowerBound(logs: NginxLog[], targetMs: number): number {
     return lo;
 }
 
+function getUrl(positions: { filename: string; position: number }[] | null, includeCompressed: boolean) {
+    let url = `/api/logs/access?includeCompressed=${includeCompressed}`;
+    if (positions) {
+        url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
+    }
+    return url;
+}
+
+function inPeriod(date: number, period: Period) {
+    const start = periodStart(period);
+    if (!start) return true;
+    return date >= start;
+}
+
 export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload: boolean, demo: boolean, logFormat?: string }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
     const [logs, setLogs] = useState<NginxLog[]>([]);
@@ -75,8 +89,6 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
     const [filter, setFilter] = useState<Filter>(newFilter());
     const [, startTransition] = useTransition();
-
-    const currentPeriod = useMemo(() => filter.period, [filter.period]);
 
     const setPeriod = useCallback((period: Period) => {
         startTransition(() => setFilter((previous) => ({ ...previous, period })))
@@ -247,23 +259,6 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return () => clearInterval(interval);
     }, [demo, fileUpload]);
 
-    const getUrl = (positions: {
-        filename: string;
-        position: number;
-    }[] | null, includeCompressed: boolean) => {
-        let url = `/api/logs/access?includeCompressed=${includeCompressed}`;
-        if (positions) {
-            url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
-        }
-        return url;
-    }
-
-    const inPeriod = (date: number, period: Period) => {
-        const start = periodStart(period); // now a number | null
-        if (!start) return true;
-        return date >= start;
-    }
-
     // Only track locationMap when a location filter is active — avoids recomputing
     // filteredData on every IP-resolution batch when no location filter is set.
     const effectiveLocationMap = filter.location !== null ? locationMap : EMPTY_MAP;
@@ -344,103 +339,80 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     // background, keeping the UI responsive instead of freezing for seconds.
     const deferredFilteredData = useDeferredValue(filteredData);
 
-    // Compute derived data for components that still use the old pre-computed prop interface
-    const endpointCounts = useMemo(() => {
-        const counts = new Map<string, number>();
-        for (const row of deferredFilteredData) {
-            const key = `${row.path}::${row.method}::${row.status ?? ''}`;
-            counts.set(key, (counts.get(key) ?? 0) + 1);
-        }
-        return counts;
-    }, [deferredFilteredData]);
-
-    const referrerCounts = useMemo(() => {
-        const counts = new Map<string, number>();
-        for (const row of deferredFilteredData) {
-            if (row.referrer && row.referrer !== '-') {
-                counts.set(row.referrer, (counts.get(row.referrer) ?? 0) + 1);
-            }
-        }
-        return counts;
-    }, [deferredFilteredData]);
-
-    const responseSizes = useMemo(() => {
-        const sizes: number[] = [];
-        for (const row of deferredFilteredData) {
-            if (row.responseSize) sizes.push(row.responseSize);
-        }
-        return sizes;
-    }, [deferredFilteredData]);
-
-    const versionCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-        for (const row of deferredFilteredData) {
-            const v = getVersion(row.path);
-            if (v) counts[v] = (counts[v] ?? 0) + 1;
-        }
-        return counts;
-    }, [deferredFilteredData]);
-
-    const { clientCounts, osCounts, deviceTypeCounts } = useMemo(() => {
+    // Single pass over deferredFilteredData to compute all derived values
+    const { endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts } = useMemo(() => {
+        const endpointCounts = new Map<string, number>();
+        const referrerCounts = new Map<string, number>();
+        const responseSizes: number[] = [];
+        const versionCounts: Record<string, number> = {};
         const clientCounts: Record<string, number> = {};
         const osCounts: Record<string, number> = {};
         const deviceTypeCounts: Record<string, number> = {};
+        const dayCounts = new Array(7).fill(0);
+
         for (const row of deferredFilteredData) {
+            const key = `${row.path}::${row.method}::${row.status ?? ''}`;
+            endpointCounts.set(key, (endpointCounts.get(key) ?? 0) + 1);
+
+            if (row.referrer && row.referrer !== '-') {
+                referrerCounts.set(row.referrer, (referrerCounts.get(row.referrer) ?? 0) + 1);
+            }
+
+            if (row.responseSize) responseSizes.push(row.responseSize);
+
+            const v = getVersion(row.path);
+            if (v) versionCounts[v] = (versionCounts[v] ?? 0) + 1;
+
             const c = getClient(row.userAgent);
             const o = getOS(row.userAgent);
             const d = getDevice(row.userAgent);
             if (c) clientCounts[c] = (clientCounts[c] ?? 0) + 1;
             if (o) osCounts[o] = (osCounts[o] ?? 0) + 1;
             if (d) deviceTypeCounts[d] = (deviceTypeCounts[d] ?? 0) + 1;
-        }
-        return { clientCounts, osCounts, deviceTypeCounts };
-    }, [deferredFilteredData]);
 
-    const dayCounts = useMemo(() => {
-        const counts = new Array(7).fill(0);
-        for (const row of deferredFilteredData) {
-            if (row.timestamp !== null) counts[new Date(row.timestamp).getDay()]++;
+            if (row.timestamp !== null) dayCounts[new Date(row.timestamp).getDay()]++;
         }
-        return counts;
+
+        return { endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts };
     }, [deferredFilteredData]);
 
     if (fileUpload && accessLogs.length === 0) {
-    return (
-        <div className="relative w-full h-screen bg-[var(--background)]">
-            <NetworkBackground />
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none text-[#99a1af]">
-                <FileUpload setAccessLogs={setAccessLogs} setErrorLogs={setErrorLogs} />
+        return (
+            <div className="relative w-full h-screen bg-[var(--background)]">
+                <NetworkBackground />
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none text-[#99a1af]">
+                    <FileUpload setAccessLogs={setAccessLogs} setErrorLogs={setErrorLogs} />
 
-                <div className="max-w-md bg-y-80 backdrop-blur-sm border border-[var(--border-color)] rounded shadow-lg overflow-hidden mt-[6vh] w-fit">
-                    <a
-                        href="https://github.com/tom-draper/nginx-analytics"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group pointer-events-auto flex items-center px-[2rem] py-[1rem] cursor-pointer"
-                    >
-                        <p className="transition-colors duration-300 group-hover:text-[var(--text)]">
-                            Get started with self-hosting
-                        </p>
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth="1.5"
-                            stroke="currentColor"
-                            className="size-6 h-[20px] ml-[10px] transition-all duration-300 ease-in-out group-hover:translate-x-[3px] group-hover:stroke-[var(--highlight)] group-hover:delay-500"
+                    <div className="max-w-md bg-y-80 backdrop-blur-sm border border-[var(--border-color)] rounded shadow-lg overflow-hidden mt-[6vh] w-fit">
+                        <a
+                            href="https://github.com/tom-draper/nginx-analytics"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group pointer-events-auto flex items-center px-[2rem] py-[1rem] cursor-pointer"
                         >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path>
-                        </svg>
-                    </a>
-                </div>
+                            <p className="transition-colors duration-300 group-hover:text-[var(--text)]">
+                                Get started with self-hosting
+                            </p>
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                strokeWidth="1.5"
+                                stroke="currentColor"
+                                className="size-6 h-[20px] ml-[10px] transition-all duration-300 ease-in-out group-hover:translate-x-[3px] group-hover:stroke-[var(--highlight)] group-hover:delay-500"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path>
+                            </svg>
+                        </a>
+                    </div>
 
-                <div className="absolute w-full bottom-6 text-center z-20 pointer-events-auto font-normal text-sm">
-                    <a href="/dashboard/demo" target="_blank" className="text-[var(--text-muted3)] hover:text-[var(--text)] cursor-pointer transition-colors duration-100 ease-in-out">Try the demo</a>
+                    <div className="absolute w-full bottom-6 text-center z-20 pointer-events-auto font-normal text-sm">
+                        <a href="/dashboard/demo" target="_blank" className="text-[var(--text-muted3)] hover:text-[var(--text)] cursor-pointer transition-colors duration-100 ease-in-out">Try the demo</a>
+                    </div>
                 </div>
             </div>
-        </div>
-    )
-}
+        )
+    }
 
     return (
         <div>
@@ -454,12 +426,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                     <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
-                            <SuccessRate data={deferredFilteredData} period={currentPeriod} />
+                            <SuccessRate data={deferredFilteredData} period={filter.period} />
                         </div>
 
                         <div className="flex">
-                            <Requests data={deferredFilteredData} period={currentPeriod} />
-                            <Users data={deferredFilteredData} period={currentPeriod} />
+                            <Requests data={deferredFilteredData} period={filter.period} />
+                            <Users data={deferredFilteredData} period={filter.period} />
                         </div>
 
                         <div className="flex">
@@ -477,7 +449,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                     {/* Right */}
                     <div className="min-[950px]:flex-1 min-w-0">
-                        <Activity data={deferredFilteredData} period={currentPeriod} />
+                        <Activity data={deferredFilteredData} period={filter.period} />
 
                         <div className="flex max-[1500px]:flex-col">
                             <Location data={deferredFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
@@ -502,7 +474,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                             <div className="max-[1500px]:!w-full flex-1 min-w-0 flex flex-col">
                                 <UsageTime data={deferredFilteredData} />
                                 <UsageDay dayCounts={dayCounts} filterDayOfWeek={filter.dayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
-                                <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={currentPeriod} noFetch={fileUpload} demo={demo} />
+                                <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={filter.period} noFetch={fileUpload} demo={demo} />
                                 {/* <LiveGlobeCard logs={logs} locationMap={locationMap} /> */}
                             </div>
                             <div className="self-start order-first min-[1500px]:order-last max-[1500px]:w-full">
@@ -519,5 +491,3 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         </div>
     );
 }
-
-

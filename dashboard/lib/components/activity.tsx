@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState, useRef, memo } from "react";
 import { Bar } from "react-chartjs-2";
 import 'chartjs-adapter-date-fns';
 import { getDateRangeSorted, Period, periodStart } from "@/lib/period";
+import { NginxLog } from "@/lib/types";
+import { getUserId } from "@/lib/user";
 
 ChartJS.register(
     BarElement,
@@ -39,70 +41,25 @@ function getMinuteId(ts: number) {
     return Math.floor(ts / 60000) * 60000;
 }
 
-const getStepSize = (period: Period, range: { start: number; end: number } | null) => {
+function getPeriodConfig(period: Period, range: { start: number; end: number } | null) {
     switch (period) {
         case '24 hours':
-            return 300000; // 5 minutes
+            return { step: 300000, getTimeId: get5MinuteId, timeUnit: 'minute' as const };
         case 'week':
-            return 3600000; // 1 hour
+            return { step: 3600000, getTimeId: getHourId, timeUnit: 'hour' as const };
         case 'month':
-            return 21600000; // 6 hours
+            return { step: 21600000, getTimeId: get6HourId, timeUnit: 'hour' as const };
         case '6 months':
-            return 86400000; // 1 day
+            return { step: 86400000, getTimeId: getDayId, timeUnit: 'day' as const };
         case 'all time': {
-            if (!range) return 8.64e+7; // day
+            if (!range) return { step: 86400000, getTimeId: getDayId, timeUnit: 'day' as const };
             const diff = range.end - range.start;
-            if (diff <= 86400000) return 300000; // 5 minutes
-            if (diff <= 604800000) return 3600000; // hour
-            return 8.64e+7; // day
+            if (diff <= 86400000) return { step: 300000, getTimeId: get5MinuteId, timeUnit: 'minute' as const };
+            if (diff <= 604800000) return { step: 3600000, getTimeId: getHourId, timeUnit: 'hour' as const };
+            return { step: 86400000, getTimeId: getDayId, timeUnit: 'day' as const };
         }
         default:
-            return 8.64e+7; // day
-    }
-}
-
-
-const getTimeIdGetter = (period: Period, range: { start: number; end: number } | null) => {
-    switch (period) {
-        case '24 hours':
-            return get5MinuteId
-        case 'week':
-            return getHourId
-        case 'month':
-            return get6HourId
-        case '6 months':
-            return getDayId
-        case 'all time': {
-            if (!range) return getDayId;
-            const diff = range.end - range.start;
-            if (diff <= 86400000) return get5MinuteId;
-            if (diff <= 604800000) return getHourId;
-            return getDayId;
-        }
-        default:
-            return getDayId
-    }
-}
-
-const getTimeUnit = (period: Period, range: { start: number; end: number } | null) => {
-    switch (period) {
-        case '24 hours':
-            return 'minute'
-        case 'week':
-            return 'hour'
-        case 'month':
-            return 'hour'
-        case '6 months':
-            return 'day'
-        case 'all time': {
-            if (!range) return 'day';
-            const diff = range.end - range.start;
-            if (diff <= 86400000) return 'minute';
-            if (diff <= 604800000) return 'hour';
-            return 'day';
-        }
-        default:
-            return 'day'
+            return { step: 86400000, getTimeId: getDayId, timeUnit: 'day' as const };
     }
 }
 
@@ -150,8 +107,6 @@ function calculateDisplayRates(rates: { timestamp: number, value: number | null 
 
     return sampled;
 }
-
-import { NginxLog } from "@/lib/types";
 
 function Activity({
     data,
@@ -202,7 +157,7 @@ function Activity({
         const start = periodStart(period);
         // Compute date range once for "all time" — O(1) since data is sorted
         const range = start === null ? getDateRangeSorted(data) : null;
-        const getTimeId = getTimeIdGetter(period, range);
+        const { step, getTimeId } = getPeriodConfig(period, range);
 
         if (start === null && !range) {
             return { plotData: null, plotOptions: null, successRates: [], periodLabels: { start: '', end: '' } };
@@ -210,7 +165,6 @@ function Activity({
 
         const startMs = start !== null ? start : range!.start;
         const endMs = start !== null ? Date.now() : range!.end;
-        const step = getStepSize(period, range);
 
         for (let t = getTimeId(startMs); t <= getTimeId(endMs); t += step) {
             chartPoints[t] = { requests: 0, users: new Set() };
@@ -222,7 +176,7 @@ function Activity({
             if (!row.timestamp) continue;
 
             const timeId = getTimeId(row.timestamp);
-            const userId = `${row.ipAddress}::${row.userAgent}`;
+            const userId = getUserId(row.ipAddress, row.userAgent);
 
             if (chartPoints[timeId]) {
                 chartPoints[timeId].requests++;
