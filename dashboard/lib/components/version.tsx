@@ -35,7 +35,7 @@ export const Version = memo(function Version({
 }) {
     const plotData = useMemo<ChartData<"doughnut"> | null>(() => {
         const labels = Object.keys(versionCounts);
-        if (labels.length <= 1) return null;
+        if (labels.length <= 1 && filterVersion === null) return null;
         const values = Object.values(versionCounts);
         const backgroundColor = labels.map((label, i) => {
             const color = COLORS[i % COLORS.length];
