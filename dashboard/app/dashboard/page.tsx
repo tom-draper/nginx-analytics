@@ -1,4 +1,10 @@
+import { Metadata } from 'next';
 import Dashboard from "@/lib/components/dashboard";
+
+export const metadata: Metadata = {
+    title: 'Dashboard',
+    robots: { index: false, follow: false },
+};
 import { usingFileUpload, serverUrl, authToken } from "@/lib/environment";
 
 async function fetchLogFormat(): Promise<string | undefined> {
