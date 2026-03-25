@@ -5,7 +5,19 @@ export const DONUT_COLORS = [
     "#4BC0C0",
     "#9966FF",
     "#FF9F40",
+    "#E7E9ED",
+    "#71B37C",
+    "#F7464A",
+    "#46BFBD",
+    "#FDB45C",
+    "#949FB1",
 ];
+
+export function labelColor(label: string, allLabels: string[]): string {
+    const sorted = [...allLabels].sort();
+    const idx = sorted.indexOf(label);
+    return DONUT_COLORS[idx % DONUT_COLORS.length];
+}
 
 export function dimColor(hex: string): string {
     const r = parseInt(hex.slice(1, 3), 16);

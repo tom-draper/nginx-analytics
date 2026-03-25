@@ -2,8 +2,8 @@
 
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData, ChartEvent, LegendItem } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
-import { useMemo, memo } from "react";
-import { DONUT_COLORS, dimColor } from '../../colors';
+import { useMemo, useRef, memo } from "react";
+import { labelColor, dimColor } from '../../colors';
 import { getDevice } from '@/lib/get-device-info';
 export { getDevice };
 
@@ -18,12 +18,15 @@ export const DeviceType = memo(function DeviceType({
     filterDeviceType: string | null;
     setFilterDeviceType: (deviceType: string | null) => void;
 }) {
+    const allLabelsRef = useRef<string[]>([]);
     const plotData = useMemo<ChartData<"doughnut"> | null>(() => {
         const labels = Object.keys(deviceTypeCounts);
         const values = Object.values(deviceTypeCounts);
         if (labels.length === 0) return null;
-        const backgroundColor = labels.map((label, i) => {
-            const color = DONUT_COLORS[i % DONUT_COLORS.length];
+        if (filterDeviceType === null) allLabelsRef.current = labels;
+        const referenceLabels = allLabelsRef.current.length > 0 ? allLabelsRef.current : labels;
+        const backgroundColor = labels.map((label) => {
+            const color = labelColor(label, referenceLabels);
             return filterDeviceType && filterDeviceType !== label ? dimColor(color) : color;
         });
         return {

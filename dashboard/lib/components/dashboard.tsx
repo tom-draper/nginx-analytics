@@ -483,7 +483,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                         <div className="w-inherit flex max-[1500px]:flex-col">
                             <div className="max-[1500px]:!w-full flex-1 min-w-0 flex flex-col">
-                                <UsageTime data={deferredFilteredData} />
+                                <UsageTime data={deferredFilteredData} filterHour={filter.hour} setFilterHour={setHour} />
                                 <UsageDay dayCounts={dayCounts} filterDayOfWeek={filter.dayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={filter.period} noFetch={fileUpload} demo={demo} />
                                 {/* <LiveGlobeCard logs={logs} locationMap={locationMap} /> */}

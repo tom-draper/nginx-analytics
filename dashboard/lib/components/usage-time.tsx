@@ -1,5 +1,5 @@
 import { PolarArea } from "react-chartjs-2";
-import { useMemo, useRef, memo, useState } from "react";
+import { useMemo, useRef, memo } from "react";
 import { Chart as ChartJS, ChartData, RadialLinearScale, ArcElement, Tooltip } from "chart.js";
 import { NginxLog } from "@/lib/types";
 
@@ -52,8 +52,7 @@ const polarAreaPlugins = [{
     }
 }];
 
-export default memo(function UsageTime({ data }: { data: NginxLog[] }) {
-    const [filterHour, setFilterHour] = useState<number | null>(null);
+export default memo(function UsageTime({ data, filterHour, setFilterHour }: { data: NginxLog[], filterHour: number | null, setFilterHour: (hour: number | null) => void }) {
     const chartRef = useRef<ChartJS>(null);
 
     const plotData = useMemo<ChartData<"polarArea"> | null>(() => {
