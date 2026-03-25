@@ -275,7 +275,11 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             || (settings.excludedEndpoints ?? []).length > 0
             || filter.referrer !== null
             || filter.hour !== null
-            || filter.dayOfWeek !== null;
+            || filter.dayOfWeek !== null
+            || filter.client !== null
+            || filter.os !== null
+            || filter.deviceType !== null
+            || filter.version !== null;
 
         const start = periodStart(filter.period);
 
@@ -310,6 +314,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         const excludedEndpoints = settings.excludedEndpoints ?? [];
 
         const needsDate = filter.hour !== null || filter.dayOfWeek !== null;
+        const needsDeviceInfo = filter.client !== null || filter.os !== null || filter.deviceType !== null;
 
         const result: NginxLog[] = [];
         for (let i = startIdx; i < logs.length; i++) {
@@ -327,6 +332,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 && (filter.referrer === null || row.referrer === filter.referrer)
                 && (filter.hour === null || (d !== null && d.getHours() === filter.hour))
                 && (filter.dayOfWeek === null || (d !== null && d.getDay() === filter.dayOfWeek))
+                && (filter.version === null || getVersion(row.path) === filter.version)
+                && (!needsDeviceInfo || (
+                    (filter.client === null || getClient(row.userAgent) === filter.client)
+                    && (filter.os === null || getOS(row.userAgent) === filter.os)
+                    && (filter.deviceType === null || getDevice(row.userAgent) === filter.deviceType)
+                ))
             ) {
                 result.push(row);
             }
