@@ -45,7 +45,7 @@ Follow the <a href="./dashboard/nginx/README.md">NGINX configuration guide</a>.
 Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="https://nginx.apianalytics.dev/dashboard">our deployment</a>.
 
 
-### Terminal UI (TUI)
+### TUI
 
 For those that prefer to work in the terminal, a TUI is available as an alternative to the dashboard. 
 
