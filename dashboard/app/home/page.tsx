@@ -110,7 +110,7 @@ export default function TiltedGlobeSingleTarget() {
 					{/* <img src="/dashboard.png" alt="Dashboard" className="mt-4 w-4/5 max-w-6xl rounded border-[#343434] border" /> */}
 					<img
 						src="/dashboard.png"
-						alt="Dashboard"
+						alt="NGINX Analytics dashboard showing request traffic, geographic distribution, and endpoint performance"
 						className="w-4/5 max-w-6xl rounded border-[var(--border-color)] border"
 						style={{
 							transform: 'perspective(1000px) rotateX(1deg) scale(0.98)',
