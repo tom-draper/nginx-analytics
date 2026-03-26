@@ -12,7 +12,7 @@ Transform your existing NGINX logs into an interactive real-time analytics dashb
 
 ### Dashboard
 
-#### Option 1: Dashboard
+#### Option 1: Dashboard (Recommended)
 
 Deploy a single Next.js dashboard to the same server as NGINX.
 
