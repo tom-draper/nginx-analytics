@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     authors: [{ name: 'Tom Draper', url: 'https://github.com/tom-draper' }],
     category: 'technology',
     openGraph: {
-        title: 'NGINX Analytics | Self-Hosted & Privacy-Focused',
+        title: 'NGINX Analytics - Self-Hosted & Privacy-Focused',
         description: 'Visualize your NGINX log data with a modern, self-hosted analytics dashboard. Monitor traffic and performance in real-time without compromising on user privacy.',
         url: 'https://nginx.apianalytics.dev',
         siteName: 'NGINX Analytics',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     },
     twitter: {
         card: 'summary_large_image',
-        title: 'NGINX Analytics | Self-Hosted & Privacy-Focused',
+        title: 'NGINX Analytics - Self-Hosted & Privacy-Focused',
         description: 'Visualize your NGINX log data with a modern, self-hosted analytics dashboard.',
         images: ['/dashboard.png'],
     },
