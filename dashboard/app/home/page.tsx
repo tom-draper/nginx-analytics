@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { Shield, Zap, Globe as GlobeIcon, SlidersHorizontal, Server, FileText } from 'lucide-react';
 
 const Globe = dynamic(() => import('@/lib/components/globe'), { ssr: false });
 
@@ -105,9 +106,10 @@ export default function TiltedGlobeSingleTarget() {
 			<div ref={contentStartRef} className="h-0 overflow-x-hidden"></div>
 
 			{/* Content section */}
-			<section className="w-full min-h-screen z-20 relative">
-				<div className="pb-32 w-full flex flex-col items-center justify-start">
-					{/* <img src="/dashboard.png" alt="Dashboard" className="mt-4 w-4/5 max-w-6xl rounded border-[#343434] border" /> */}
+			<section className="w-full z-20 relative">
+				<div className="w-full flex flex-col items-center justify-start">
+
+					{/* Dashboard screenshot */}
 					<img
 						src="/dashboard.png"
 						alt="NGINX Analytics dashboard showing request traffic, geographic distribution, and endpoint performance"
@@ -116,88 +118,91 @@ export default function TiltedGlobeSingleTarget() {
 							transform: 'perspective(1000px) rotateX(1deg) scale(0.98)',
 							transformOrigin: 'bottom center',
 							boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-							marginTop: '-1%' // Adjust this value as needed to eliminate the 
+							marginTop: '-1%',
 						}}
 					/>
-					{/* <img 
-  src="/dashboard.png" 
-  alt="Dashboard" 
-  className="w-4/5 max-w-6xl rounded border-[#343434] border" 
-  style={{ 
-    transform: 'perspective(1000px) rotateX(5deg) scale(0.98)',
-    transformOrigin: 'bottom center',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
-  }} 
-/> */}
-					{/* <img 
-  src="/dashboard.png" 
-  alt="Dashboard" 
-  className="w-4/5 max-w-6xl rounded border-[#343434] border" 
-  style={{ 
-    perspective: '1000px',
-    transform: 'rotateX(5deg)',
-    transformOrigin: 'bottom center',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
-  }} 
-/> */}
 
-					<div className="w-4/5 max-w-4xl mt-12 text-center text-white">
-						<h2 className="font-semibold text-3xl">See what others can&apos;t.</h2>
-					</div>
-
-					{/* Add more content here */}
-					<div className="w-4/5 max-w-4xl mt-24 text-white">
-						<h2 className="text-2xl font-bold mb-6">Track and Analyze Your API Traffic</h2>
-						<p className="text-lg mb-12 text-gray-300">
-							Comprehensive analytics for your NGINX server, providing real-time insights into API performance, usage patterns, and geographic distribution.
+					{/* Heading */}
+					<div className="w-4/5 max-w-3xl mt-24 text-center">
+						<h2 className="font-semibold text-3xl text-white">See what others can&apos;t.</h2>
+						<p className="mt-4 text-[var(--text-muted4)] text-lg leading-relaxed">
+							Most analytics tools require you to ship data to someone else&apos;s servers. NGINX Analytics runs on yours — built entirely from the logs NGINX already produces.
 						</p>
-						{/* More content sections can be added here */}
 					</div>
 
-					<div className='grid grid-cols-2'>
-						<div className='min-w-128 rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
-							Highly Flexible
+					{/* Feature grid */}
+					<div className="w-4/5 max-w-5xl mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-32">
 
+						<div className="rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] p-6">
+							<FileText className="mb-4 text-[var(--highlight)]" size={22} strokeWidth={1.5} />
+							<h3 className="text-white font-semibold mb-2">Zero configuration</h3>
+							<p className="text-[var(--text-muted4)] text-sm leading-relaxed">
+								Points directly at your existing NGINX access logs. No agents to install, no SDKs to integrate, no changes to your server.
+							</p>
 						</div>
 
-						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
-							Real-Time
-
+						<div className="rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] p-6">
+							<Shield className="mb-4 text-[var(--highlight)]" size={22} strokeWidth={1.5} />
+							<h3 className="text-white font-semibold mb-2">Completely private</h3>
+							<p className="text-[var(--text-muted4)] text-sm leading-relaxed">
+								Self-hosted on your own infrastructure. Your log data never leaves your server — no third-party services, no accounts, no tracking.
+							</p>
 						</div>
 
-						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
-							100% Private
-
+						<div className="rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] p-6">
+							<Zap className="mb-4 text-[var(--highlight)]" size={22} strokeWidth={1.5} />
+							<h3 className="text-white font-semibold mb-2">Live traffic</h3>
+							<p className="text-[var(--text-muted4)] text-sm leading-relaxed">
+								Polls your logs every 30 seconds so the dashboard stays current without a page refresh. Watch requests come in as they happen.
+							</p>
 						</div>
 
-						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
-							Intuitive
-
+						<div className="rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] p-6">
+							<SlidersHorizontal className="mb-4 text-[var(--highlight)]" size={22} strokeWidth={1.5} />
+							<h3 className="text-white font-semibold mb-2">Interactive filtering</h3>
+							<p className="text-[var(--text-muted4)] text-sm leading-relaxed">
+								Click any chart to filter the entire dashboard. Drill into traffic by endpoint, location, device, browser, OS, time of day, or referrer.
+							</p>
 						</div>
 
-						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
-							Log-based
-
+						<div className="rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] p-6">
+							<GlobeIcon className="mb-4 text-[var(--highlight)]" size={22} strokeWidth={1.5} />
+							<h3 className="text-white font-semibold mb-2">Geographic intelligence</h3>
+							<p className="text-[var(--text-muted4)] text-sm leading-relaxed">
+								IP geolocation maps every request to a country. Filter the dashboard to a specific region to see exactly how that audience behaves.
+							</p>
 						</div>
 
-						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
-							Customisable
-
+						<div className="rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] p-6">
+							<Server className="mb-4 text-[var(--highlight)]" size={22} strokeWidth={1.5} />
+							<h3 className="text-white font-semibold mb-2">System monitoring</h3>
+							<p className="text-[var(--text-muted4)] text-sm leading-relaxed">
+								CPU, memory, and disk usage tracked alongside your traffic data — so you can correlate load spikes with the requests that caused them.
+							</p>
 						</div>
-
-						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
-							System Monitoring
-
-						</div>
-
-						<div className='rounded bg-[var(--card-background)] border border-[var(--border-color)] bg-opacity-80 backdrop-blur-sm p-4 m-4'>
-							Location Tracking
-
-						</div>
-
-
 
 					</div>
+
+					{/* CTA */}
+					<div className="w-4/5 max-w-3xl mb-32 flex flex-col items-center text-center gap-6">
+						<h2 className="text-white font-semibold text-2xl">Ready to get started?</h2>
+						<p className="text-[var(--text-muted4)]">Self-host in minutes. Free and open source.</p>
+						<div className="flex gap-3">
+							<a
+								href="https://github.com/tom-draper/nginx-analytics"
+								className="w-36 text-center py-2.5 rounded bg-[var(--highlight)] text-black font-medium text-sm hover:opacity-90 transition-opacity"
+							>
+								Get Started
+							</a>
+							<a
+								href="/dashboard/demo"
+								className="w-36 text-center py-2.5 rounded border border-[var(--border-color)] text-[var(--text-muted4)] text-sm hover:text-white transition-colors"
+							>
+								Try the demo
+							</a>
+						</div>
+					</div>
+
 				</div>
 			</section>
 		</div>

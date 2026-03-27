@@ -3,487 +3,294 @@
 import { landPoints } from '@/lib/globe';
 import { useEffect, useRef } from 'react';
 import {
-  Scene,
-  PerspectiveCamera,
-  WebGLRenderer,
-  SphereGeometry,
-  MeshBasicMaterial,
-  Mesh,
-  BufferGeometry,
-  BufferAttribute,
-  Float32BufferAttribute,
-  PointsMaterial,
-  Points,
-  Group,
-  Vector3,
-  PointLight,
-  LineBasicMaterial,
-  Line,
-  QuadraticBezierCurve3,
-  AmbientLight
+    Scene,
+    PerspectiveCamera,
+    WebGLRenderer,
+    SphereGeometry,
+    MeshBasicMaterial,
+    Mesh,
+    BufferGeometry,
+    BufferAttribute,
+    Float32BufferAttribute,
+    PointsMaterial,
+    Points,
+    Group,
+    Vector3,
+    PointLight,
+    LineBasicMaterial,
+    Line,
+    QuadraticBezierCurve3,
+    AmbientLight,
 } from 'three';
 
+const CURVE_SEGMENTS = 80;
+
 export default function Globe() {
-  const globeRef = useRef<HTMLDivElement | null>(null);
+    const globeRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    // Initialize Three.js scene
-    const scene = new Scene();
-    const camera = new PerspectiveCamera(50, document.documentElement.clientWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 300;
+    useEffect(() => {
+        const scene = new Scene();
+        const camera = new PerspectiveCamera(50, document.documentElement.clientWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 300;
 
-    const renderer = new WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(document.documentElement.clientWidth, window.innerHeight);
-    renderer.setClearColor(0x000000, 0);
+        const renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+        renderer.setSize(document.documentElement.clientWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(0x000000, 0);
 
-    if (globeRef.current) {
-      globeRef.current.innerHTML = '';
-      globeRef.current.appendChild(renderer.domElement);
-    }
-
-    // Globe parameters
-    const globeRadius = 115;
-
-    // Create globe base (nearly invisible)
-    const shellGeometry = new SphereGeometry(globeRadius, 64, 64);
-    const shellMaterial = new MeshBasicMaterial({
-      color: 0x1a1a2e,
-      transparent: true,
-      opacity: 0.2,
-      wireframe: true
-    });
-    const globe = new Mesh(shellGeometry, shellMaterial);
-
-    // Initialize outside the loop
-    const lineGeometry = new BufferGeometry();
-    const positionAttribute = new BufferAttribute(new Float32Array(51 * 3), 3);
-    lineGeometry.setAttribute('position', positionAttribute);
-
-    // Apply tilt to the globe (23.5 degrees like Earth's axial tilt)
-    const tiltAngle = 23.5 * (Math.PI / 180);
-    globe.rotation.x = tiltAngle;
-    scene.add(globe);
-
-    // Globe group to contain all elements that should rotate together
-    const globeGroup = new Group();
-    globeGroup.add(globe);
-    scene.add(globeGroup);
-
-    // Create a points material for land dots
-    const dotMaterial = new PointsMaterial({
-      color: 0x1af073,
-      size: 1.2,
-      opacity: 0.8,
-      transparent: true,
-      sizeAttenuation: true
-    });
-
-    // Create a denser distribution of points within each landmass
-    function createDenseLandDots() {
-      const positions: any[] = [];
-      const allLandCoords: number[][] = [];
-
-      landPoints.forEach(([lat, lon]) => {
-        const vector = latLongToVector3(lat, lon, globeRadius);
-        positions.push(vector.x, vector.y, vector.z);
-        allLandCoords.push([lat, lon]);
-      });
-
-      const geometry = new BufferGeometry();
-      geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-
-      const pointCloud = new Points(geometry, dotMaterial);
-      pointCloud.rotation.x = tiltAngle; // Apply same tilt as the globe
-      globeGroup.add(pointCloud);
-
-      return { pointCloud, allLandCoords };
-    }
-
-    // Convert lat/long to 3D coordinates
-    function latLongToVector3(lat: number, lon: number, radius: number) {
-      const phi = (90 - lat) * (Math.PI / 180);
-      const theta = (lon + 180) * (Math.PI / 180);
-
-      const x = -radius * Math.sin(phi) * Math.cos(theta);
-      const y = radius * Math.cos(phi);
-      const z = radius * Math.sin(phi) * Math.sin(theta);
-
-      return new Vector3(x, y, z);
-    }
-
-    // Create land dots
-    const { pointCloud: landDots, allLandCoords } = createDenseLandDots();
-
-    // Modify the target point color from red to white
-    const getRandomTargetPoint = () => {
-      const randomIndex = Math.floor(Math.random() * allLandCoords.length);
-      const targetLatLon = allLandCoords[randomIndex];
-      const targetPosition = latLongToVector3(targetLatLon[0], targetLatLon[1], globeRadius);
-
-      // Create a visible target marker
-      const targetMarker = new Mesh(
-        new SphereGeometry(2.5, 16, 16),
-        new MeshBasicMaterial({ color: 0x1af073 })
-      );
-      targetMarker.position.copy(targetPosition);
-      targetMarker.rotation.x = tiltAngle; // Apply tilt to marker
-      globeGroup.add(targetMarker);
-
-      // Create a pulsing effect for the target
-      const pulsingLight = new PointLight(0x1af073, 1, 20);
-      pulsingLight.position.copy(targetPosition);
-      globeGroup.add(pulsingLight);
-
-      // Create a glow sphere
-      const glowSphere = new Mesh(
-        new SphereGeometry(4, 16, 16),
-        new MeshBasicMaterial({
-          color: 0x1af073,
-          transparent: true,
-          opacity: 0.3
-        })
-      );
-      glowSphere.position.copy(targetPosition);
-      globeGroup.add(glowSphere);
-
-      return {
-        position: targetPosition,
-        marker: targetMarker,
-        light: pulsingLight,
-        glow: glowSphere,
-        latLon: targetLatLon
-      };
-    };
-
-    // Function to get a random color based on specified probabilities
-    function getRandomRequestColor() {
-      const rand = Math.random();
-      if (rand < 0.4) {
-        return 0x1af073; // 40% chance for green
-      } else if (rand < 0.8) {
-        return 0x00bfff; // 40% chance for blue
-      } else if (rand < 0.9) {
-        return 0xffaa4b; // 10% chance for orange
-      } else {
-        return 0xff5050; // 10% chance for red
-      }
-    }
-
-    // Function to create a new connection
-    function createConnection() {
-      if (connections.length >= maxConnections) return;
-
-      // Get random start point but fixed end point (target)
-      const startPointArray = landPoints[Math.floor(Math.random() * landPoints.length)];
-
-      // Make sure start point is not too close to target
-      const distance = Math.sqrt(
-        Math.pow(startPointArray[0] - target.latLon[0], 2) +
-        Math.pow(startPointArray[1] - target.latLon[1], 2)
-      );
-
-      if (distance < 15) return; // Too close, try again next time
-
-      // Convert to 3D positions
-      const startPosition = latLongToVector3(startPointArray[0], startPointArray[1], globeRadius);
-      const endPosition = target.position;
-
-      // Create midpoint for arced path
-      const midPoint = new Vector3().addVectors(startPosition, endPosition).multiplyScalar(0.5);
-
-      // Push midpoint outward
-      const midPointLength = midPoint.length();
-      midPoint.normalize().multiplyScalar(midPointLength * 1.3);
-
-      // Create curve
-      const curve = new QuadraticBezierCurve3(
-        startPosition,
-        midPoint,
-        endPosition
-      );
-
-      // Create the return curve (from target back to origin)
-      const returnCurve = new QuadraticBezierCurve3(
-        endPosition,
-        midPoint,
-        startPosition
-      );
-
-      // Create curve points
-      const curvePoints = curve.getPoints(50);
-      const returnCurvePoints = returnCurve.getPoints(50);
-
-      // Create an empty line geometry - will be updated during animation
-      const lineGeometry = new BufferGeometry().setFromPoints([curvePoints[0]]);
-      const returnLineGeometry = new BufferGeometry().setFromPoints([returnCurvePoints[0]]);
-
-      // Get random color for this connection based on specified distribution
-      const connectionColor = getRandomRequestColor();
-
-      // Create line material with the random color
-      const lineMaterial = new LineBasicMaterial({
-        color: connectionColor,
-        transparent: true,
-        opacity: 0.6
-      });
-
-      const returnLineMaterial = new LineBasicMaterial({
-        color: connectionColor,
-        transparent: true,
-        opacity: 0.6
-      });
-
-      const line = new Line(lineGeometry, lineMaterial);
-      const returnLine = new Line(returnLineGeometry, returnLineMaterial);
-      globeGroup.add(line);
-      globeGroup.add(returnLine);
-
-      // Create moving dot for outbound path
-      const dotGeometry = new SphereGeometry(0.8, 8, 8);
-      const dotMaterial = new MeshBasicMaterial({
-        color: connectionColor,
-        transparent: true,
-        opacity: 0.9
-      });
-
-      const movingDot = new Mesh(dotGeometry, dotMaterial);
-      movingDot.position.copy(startPosition);
-      globeGroup.add(movingDot);
-
-      // Create moving dot for return path
-      const returnDotMaterial = new MeshBasicMaterial({
-        color: connectionColor,
-        transparent: true,
-        opacity: 0.9
-      });
-
-      const returnDot = new Mesh(dotGeometry, returnDotMaterial);
-      returnDot.position.copy(endPosition);
-      returnDot.visible = false; // Hidden until outbound journey completes
-      globeGroup.add(returnDot);
-
-      connections.push({
-        // Outbound properties
-        line,
-        movingDot,
-        curve,
-        points: curvePoints,
-        progress: 0,
-
-        // Return journey properties
-        returnLine,
-        returnDot,
-        returnCurve,
-        returnPoints: returnCurvePoints,
-        returnProgress: 0,
-
-        // Shared properties
-        totalPoints: curvePoints.length,
-        duration: 2 + Math.random() * 3, // Random duration between 2-5 seconds
-        startTime: Date.now(),
-        returnStartTime: null, // Will be set when outbound journey completes
-
-        // States
-        complete: false,
-        outboundComplete: false,
-        returnComplete: false,
-
-        // Fade properties
-        fadeStartTime: null,
-        fadeDuration: 1.2, // Seconds to fade out
-        fading: false
-      });
-    }
-
-    // Set the single target for all connections
-    const target = getRandomTargetPoint();
-
-    // Active connections lines
-    const connections: any[] = [];
-    const maxConnections = 25;
-
-    // Update connections
-    function updateConnections() {
-      const now = Date.now();
-      const connectionsToRemove: any[] = [];
-
-      connections.forEach((connection, index) => {
-        // Handle outbound journey if not complete
-        if (!connection.outboundComplete) {
-          const elapsedTime = (now - connection.startTime) / 1000;
-          connection.progress = Math.min(elapsedTime / connection.duration, 1);
-
-          // Calculate current point index
-          const pointIndex = Math.floor(connection.progress * (connection.totalPoints - 1));
-
-          // Update line geometry to draw up to current point
-          const linePoints = connection.points.slice(0, pointIndex + 1);
-          connection.line.geometry.dispose();
-          connection.line.geometry = new BufferGeometry().setFromPoints(linePoints);
-
-          // Update moving dot position
-          if (pointIndex < connection.totalPoints) {
-            connection.movingDot.position.copy(connection.points[pointIndex]);
-          }
-
-          // Check if outbound journey is complete
-          if (connection.progress >= 1) {
-            connection.outboundComplete = true;
-            connection.returnStartTime = now;
-            connection.returnDot.visible = true; // Show return dot
-          }
+        if (globeRef.current) {
+            globeRef.current.innerHTML = '';
+            globeRef.current.appendChild(renderer.domElement);
         }
 
-        // Handle return journey if outbound is complete but return is not
-        if (connection.outboundComplete && !connection.returnComplete) {
-          const returnElapsedTime = (now - connection.returnStartTime) / 1000;
-          connection.returnProgress = Math.min(returnElapsedTime / connection.duration, 1);
+        const globeRadius = 115;
+        const tiltAngle = 23.5 * (Math.PI / 180);
 
-          // Calculate current point index for return journey
-          const returnPointIndex = Math.floor(connection.returnProgress * (connection.totalPoints - 1));
+        const globe = new Mesh(
+            new SphereGeometry(globeRadius, 64, 64),
+            new MeshBasicMaterial({ color: 0x1a1a2e, transparent: true, opacity: 0.2, wireframe: true })
+        );
+        globe.rotation.x = tiltAngle;
 
-          // Update return line geometry
-          const returnLinePoints = connection.returnPoints.slice(0, returnPointIndex + 1);
-          connection.returnLine.geometry.dispose();
-          connection.returnLine.geometry = new BufferGeometry().setFromPoints(returnLinePoints);
+        const globeGroup = new Group();
+        globeGroup.add(globe);
+        scene.add(globeGroup);
 
-          // Update return dot position
-          if (returnPointIndex < connection.totalPoints) {
-            connection.returnDot.position.copy(connection.returnPoints[returnPointIndex]);
-          }
-
-          // Check if return journey is complete
-          if (connection.returnProgress >= 1) {
-            connection.returnComplete = true;
-            connection.fadeStartTime = now;
-            connection.fading = true;
-          }
+        function latLonToVec3(lat: number, lon: number): Vector3 {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            return new Vector3(
+                -globeRadius * Math.sin(phi) * Math.cos(theta),
+                globeRadius * Math.cos(phi),
+                globeRadius * Math.sin(phi) * Math.sin(theta)
+            );
         }
 
-        // Handle fading after both journeys are complete
-        if (connection.fading) {
-          const fadeElapsedTime = (now - connection.fadeStartTime) / 1000;
-          const fadeProgress = Math.min(fadeElapsedTime / connection.fadeDuration, 1);
-
-          // Fade out both lines and dots
-          const remainingOpacity = 0.6 * (1 - fadeProgress);
-          connection.line.material.opacity = remainingOpacity;
-          connection.returnLine.material.opacity = remainingOpacity;
-          connection.movingDot.material.opacity = remainingOpacity;
-          connection.returnDot.material.opacity = remainingOpacity;
-
-          // When fade is complete, mark for removal
-          if (fadeProgress >= 1) {
-            connection.complete = true;
-            connectionsToRemove.push(index);
-          }
+        // Land dots
+        const landPositions: number[] = [];
+        for (const [lat, lon] of landPoints) {
+            const v = latLonToVec3(lat, lon);
+            landPositions.push(v.x, v.y, v.z);
         }
-      });
+        const landGeo = new BufferGeometry();
+        landGeo.setAttribute('position', new Float32BufferAttribute(landPositions, 3));
+        const landMesh = new Points(landGeo, new PointsMaterial({ color: 0x1af073, size: 1.2, opacity: 0.8, transparent: true, sizeAttenuation: true }));
+        landMesh.rotation.x = tiltAngle;
+        globeGroup.add(landMesh);
 
-      // Remove completed connections
-      for (let i = connectionsToRemove.length - 1; i >= 0; i--) {
-        const index = connectionsToRemove[i];
-        const connection = connections[index];
+        // Shared geometry for all moving dots — avoids per-connection allocation
+        const sharedDotGeo = new SphereGeometry(0.8, 8, 8);
 
-        // Remove all elements from scene
-        globeGroup.remove(connection.line);
-        globeGroup.remove(connection.returnLine);
-        globeGroup.remove(connection.movingDot);
-        globeGroup.remove(connection.returnDot);
+        // Target
+        const [tLat, tLon] = landPoints[Math.floor(Math.random() * landPoints.length)];
+        const targetPos = latLonToVec3(tLat, tLon);
 
-        // Dispose of geometries and materials
-        connection.line.geometry.dispose();
-        connection.line.material.dispose();
-        connection.returnLine.geometry.dispose();
-        connection.returnLine.material.dispose();
-        connection.movingDot.geometry.dispose();
-        connection.movingDot.material.dispose();
-        connection.returnDot.geometry.dispose();
-        connection.returnDot.material.dispose();
+        const targetMarker = new Mesh(new SphereGeometry(2.5, 16, 16), new MeshBasicMaterial({ color: 0x1af073 }));
+        targetMarker.position.copy(targetPos);
+        globeGroup.add(targetMarker);
 
-        // Remove from connections array
-        connections.splice(index, 1);
-      }
+        const pulsingLight = new PointLight(0x1af073, 1, 20);
+        pulsingLight.position.copy(targetPos);
+        globeGroup.add(pulsingLight);
 
-      // Create new connections to maintain flow
-      if (connections.length < maxConnections && Math.random() < 0.05) {
-        createConnection();
-      }
+        const glowSphere = new Mesh(
+            new SphereGeometry(4, 16, 16),
+            new MeshBasicMaterial({ color: 0x1af073, transparent: true, opacity: 0.3 })
+        );
+        glowSphere.position.copy(targetPos);
+        globeGroup.add(glowSphere);
 
-      // Pulse the target
-      const pulseScale = 1 + 0.2 * Math.sin(now * 0.005);
-      target.glow.scale.set(pulseScale, pulseScale, pulseScale);
-      target.light.intensity = 1 + 0.5 * Math.sin(now * 0.005);
-    }
+        const target = { position: targetPos, latLon: [tLat, tLon], glow: glowSphere, light: pulsingLight };
 
-    // Add ambient light
-    const ambientLight = new AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
+        function randomColor() {
+            const r = Math.random();
+            if (r < 0.4) return 0x1af073;
+            if (r < 0.8) return 0x00bfff;
+            if (r < 0.9) return 0xffaa4b;
+            return 0xff5050;
+        }
 
-    // Rotation settings
-    const rotationSpeed = 0.0005;
+        // Pre-allocate a line geometry with all curve points up front, use setDrawRange to
+        // reveal it progressively — avoids allocating a new BufferGeometry every frame.
+        function buildPreallocatedLineGeo(points: Vector3[]): BufferGeometry {
+            const arr = new Float32Array((CURVE_SEGMENTS + 1) * 3);
+            for (let i = 0; i < points.length; i++) {
+                arr[i * 3]     = points[i].x;
+                arr[i * 3 + 1] = points[i].y;
+                arr[i * 3 + 2] = points[i].z;
+            }
+            const geo = new BufferGeometry();
+            geo.setAttribute('position', new BufferAttribute(arr, 3));
+            geo.setDrawRange(0, 1);
+            return geo;
+        }
 
-    // Window resize handler
-    const handleResize = () => {
-      camera.aspect = document.documentElement.clientWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(document.documentElement.clientWidth, window.innerHeight);
-    };
+        const connections: any[] = [];
+        const maxConnections = 25;
 
-    window.addEventListener('resize', handleResize);
+        function createConnection(now: number) {
+            if (connections.length >= maxConnections) return;
 
-    // Create initial connections
-    for (let i = 0; i < 8; i++) {
-      createConnection();
-    }
+            const startArr = landPoints[Math.floor(Math.random() * landPoints.length)];
+            const dist = Math.hypot(startArr[0] - target.latLon[0], startArr[1] - target.latLon[1]);
+            if (dist < 15) return;
 
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
+            const startPos = latLonToVec3(startArr[0], startArr[1]);
+            const endPos = target.position;
 
-      // Rotate globe group - this rotates everything together
-      globeGroup.rotation.y += rotationSpeed;
+            const midPoint = new Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+            const midLen = midPoint.length();
+            midPoint.normalize().multiplyScalar(midLen * 1.3);
 
-      // Update connections
-      updateConnections();
+            const curve = new QuadraticBezierCurve3(startPos, midPoint, endPos);
+            const returnCurve = new QuadraticBezierCurve3(endPos, midPoint, startPos);
+            const points = curve.getPoints(CURVE_SEGMENTS);
+            const returnPoints = returnCurve.getPoints(CURVE_SEGMENTS);
 
-      renderer.render(scene, camera);
-    };
+            const color = randomColor();
+            const lineGeo = buildPreallocatedLineGeo(points);
+            const returnLineGeo = buildPreallocatedLineGeo(returnPoints);
 
-    animate();
+            const line = new Line(lineGeo, new LineBasicMaterial({ color, transparent: true, opacity: 0.6 }));
+            const returnLine = new Line(returnLineGeo, new LineBasicMaterial({ color, transparent: true, opacity: 0.6 }));
+            globeGroup.add(line);
+            globeGroup.add(returnLine);
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
+            const movingDot = new Mesh(sharedDotGeo, new MeshBasicMaterial({ color, transparent: true, opacity: 0.9 }));
+            movingDot.position.copy(startPos);
+            globeGroup.add(movingDot);
 
-      // Dispose of all Three.js objects
-      renderer.dispose();
+            const returnDot = new Mesh(sharedDotGeo, new MeshBasicMaterial({ color, transparent: true, opacity: 0.9 }));
+            returnDot.position.copy(endPos);
+            returnDot.visible = false;
+            globeGroup.add(returnDot);
 
-      // Dispose of all geometries and materials
-      globe.geometry.dispose();
-      globe.material.dispose();
+            connections.push({
+                line, returnLine, movingDot, returnDot,
+                points, returnPoints,
+                totalPoints: points.length,
+                duration: 2 + Math.random() * 3,
+                startTime: now,
+                returnStartTime: 0,
+                outboundComplete: false,
+                returnComplete: false,
+                fadeStartTime: 0,
+                fadeDuration: 1.2,
+                fading: false,
+            });
+        }
 
-      // Dispose of all connections
-      connections.forEach(connection => {
-        connection.line.geometry.dispose();
-        connection.line.material.dispose();
-        connection.returnLine.geometry.dispose();
-        connection.returnLine.material.dispose();
-        connection.movingDot.geometry.dispose();
-        connection.movingDot.material.dispose();
-        connection.returnDot.geometry.dispose();
-        connection.returnDot.material.dispose();
-      });
+        scene.add(new AmbientLight(0xffffff, 0.6));
 
-      // Clear all references
-      scene.clear();
+        // rad/ms — equivalent to 0.0005 rad/frame at 60fps
+        const rotationSpeed = 0.00003;
+        let lastTime = performance.now();
+        let animId: number;
 
-      if (globeRef.current) {
-        globeRef.current.innerHTML = '';
-      }
-    };
-  }, []);
+        const animate = (now: number) => {
+            animId = requestAnimationFrame(animate);
 
-  return (
-    <div ref={globeRef} className="w-full h-full"></div>
-  );
+            const delta = Math.min(now - lastTime, 50); // cap at 50ms to avoid jumps after tab switch
+            lastTime = now;
+            globeGroup.rotation.y += rotationSpeed * delta;
+
+            // Update connections
+            const toRemove: number[] = [];
+            for (let i = 0; i < connections.length; i++) {
+                const c = connections[i];
+
+                if (!c.outboundComplete) {
+                    const progress = Math.min(Math.max(0, (now - c.startTime) / 1000 / c.duration), 1);
+                    const idx = Math.min(Math.floor(progress * (c.points.length - 1)), c.points.length - 1);
+                    c.line.geometry.setDrawRange(0, idx + 1);
+                    c.movingDot.position.copy(c.points[idx]);
+                    if (progress >= 1) {
+                        c.outboundComplete = true;
+                        c.returnStartTime = now;
+                        c.returnDot.visible = true;
+                    }
+                }
+
+                if (c.outboundComplete && !c.returnComplete) {
+                    const progress = Math.min(Math.max(0, (now - c.returnStartTime) / 1000 / c.duration), 1);
+                    const idx = Math.min(Math.floor(progress * (c.returnPoints.length - 1)), c.returnPoints.length - 1);
+                    c.returnLine.geometry.setDrawRange(0, idx + 1);
+                    c.returnDot.position.copy(c.returnPoints[idx]);
+                    if (progress >= 1) {
+                        c.returnComplete = true;
+                        c.fadeStartTime = now;
+                        c.fading = true;
+                    }
+                }
+
+                if (c.fading) {
+                    const fadeProgress = Math.min((now - c.fadeStartTime) / 1000 / c.fadeDuration, 1);
+                    const opacity = 0.6 * (1 - fadeProgress);
+                    c.line.material.opacity = opacity;
+                    c.returnLine.material.opacity = opacity;
+                    c.movingDot.material.opacity = opacity;
+                    c.returnDot.material.opacity = opacity;
+                    if (fadeProgress >= 1) toRemove.push(i);
+                }
+            }
+
+            for (let i = toRemove.length - 1; i >= 0; i--) {
+                const c = connections[toRemove[i]];
+                globeGroup.remove(c.line, c.returnLine, c.movingDot, c.returnDot);
+                c.line.geometry.dispose();
+                c.line.material.dispose();
+                c.returnLine.geometry.dispose();
+                c.returnLine.material.dispose();
+                c.movingDot.material.dispose();
+                c.returnDot.material.dispose();
+                connections.splice(toRemove[i], 1);
+            }
+
+            if (connections.length < maxConnections && Math.random() < 0.05) {
+                createConnection(now);
+            }
+
+            // Pulse target
+            const pulseScale = 1 + 0.2 * Math.sin(now * 0.005);
+            target.glow.scale.set(pulseScale, pulseScale, pulseScale);
+            target.light.intensity = 1 + 0.5 * Math.sin(now * 0.005);
+
+            renderer.render(scene, camera);
+        };
+
+        // Seed initial connections
+        const t0 = performance.now();
+        for (let i = 0; i < 8; i++) createConnection(t0);
+
+        animId = requestAnimationFrame(animate);
+
+        const handleResize = () => {
+            camera.aspect = document.documentElement.clientWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(document.documentElement.clientWidth, window.innerHeight);
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            cancelAnimationFrame(animId);
+            window.removeEventListener('resize', handleResize);
+            connections.forEach(c => {
+                c.line.geometry.dispose();
+                c.line.material.dispose();
+                c.returnLine.geometry.dispose();
+                c.returnLine.material.dispose();
+                c.movingDot.material.dispose();
+                c.returnDot.material.dispose();
+            });
+            globe.geometry.dispose();
+            globe.material.dispose();
+            landGeo.dispose();
+            sharedDotGeo.dispose();
+            renderer.dispose();
+            scene.clear();
+            if (globeRef.current) globeRef.current.innerHTML = '';
+        };
+    }, []);
+
+    return <div ref={globeRef} className="w-full h-full" />;
 }
