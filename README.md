@@ -16,9 +16,9 @@ Transform your existing NGINX logs into an interactive real-time analytics dashb
 
 Deploy a single Next.js dashboard to the same server as NGINX.
 
-<img src="./diagrams/option-1.svg" />
-
 Follow the <a href="./dashboard/README.md">dashboard deployment guide</a>.
+
+<img src="https://github.com/user-attachments/assets/73d1a241-a3bc-48d1-8700-399bb3d23cd7" />
 
 #### Option 2: Dashboard + Agent
 
@@ -26,7 +26,7 @@ Follow the <a href="./dashboard/README.md">dashboard deployment guide</a>.
 
 Deploy the lightweight agent to your server to securely expose your log files to the dashboard, and stream log file content and changes in real-time. Deploy the Next.js dashboard anywhere.
 
-<img src="./diagrams/option-2.svg" />
+<img src="https://github.com/user-attachments/assets/607e6077-0fbb-4162-950f-b07e95e77ec2" />
 
 Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
@@ -36,14 +36,13 @@ Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
 Update your existing NGINX configuration to serve your log files as restricted static files. Deploy the Next.js dashboard anywhere.
 
-<img src="./diagrams/option-3.svg" />
+<img src="https://github.com/user-attachments/assets/6576e946-08b7-49dd-b0b9-68b22f91c76c" />
 
 Follow the <a href="./dashboard/nginx/README.md">NGINX configuration guide</a>.
 
 #### Options 4: File Upload
 
 Drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="https://nginx.apianalytics.dev/dashboard">our deployment</a>.
-
 
 ### TUI
 
@@ -55,7 +54,7 @@ For those that prefer to work in the terminal, a TUI is available as an alternat
 
 Deploy the TUI to the server running NGINX. Access via SSH.
 
-<img src="./diagrams/tui-option-1.svg" />
+<img src="https://github.com/user-attachments/assets/3fbd3aff-bc26-420e-9fbd-7a05fee7da66" />
 
 Follow the <a href="./cli/README.md">TUI deployment guide</a>.
 
@@ -63,7 +62,7 @@ Follow the <a href="./cli/README.md">TUI deployment guide</a>.
 
 Deploy the agent to the server. Run the TUI from anywhere.
 
-<img src="./diagrams/tui-option-2.svg" />
+<img src="https://github.com/user-attachments/assets/a70d98ca-6c25-43a2-9f47-8e15cabfed27" />
 
 Follow the <a href="./agent/README.md">agent deployment guide</a>.
 
