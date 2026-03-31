@@ -7,11 +7,10 @@ import { Navigation } from "@/lib/components/navigation";
 import { Requests } from "@/lib/components/requests";
 import { SuccessRate } from "@/lib/components/success-rate";
 import Users from "@/lib/components/users";
-import { Version, getVersion } from "@/lib/components/version";
+import { Version } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
-import { parseNginxLogs } from "@/lib/parse";
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useDeferredValue, useEffect, useRef, useState, useTransition } from "react";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -27,39 +26,24 @@ import LiveGlobeCard from "@/lib/components/live-globe-card";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
-import { getClient, getOS, getDevice } from "@/lib/get-device-info";
-import { isBotOrCrawler } from "@/lib/user-agent";
 import dynamic from "next/dynamic";
 
 const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
 const FileUpload = dynamic(() => import("./file-upload"));
 
-const EMPTY_MAP = new Map<string, LocationType>();
-const PARSE_CHUNK_SIZE = 5000;
-
-// Comparator: sort NginxLog entries ascending by timestamp (nulls sort to the end)
-const compareByTimestamp = (a: NginxLog, b: NginxLog): number => {
-    if (a.timestamp === null) return 1;
-    if (b.timestamp === null) return -1;
-    return a.timestamp - b.timestamp; // both numbers
-};
-
-// Binary search: returns the first index in (sorted) logs whose timestamp >= targetMs.
-// Logs with null timestamps are sorted to the END of the array (compareByTimestamp puts
-// nulls last), so a null at mid means the answer lies before mid — set hi = mid.
-function lowerBound(logs: NginxLog[], targetMs: number): number {
-    let lo = 0, hi = logs.length;
-    while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        const t = logs[mid].timestamp;
-        if (t !== null && t < targetMs) {
-            lo = mid + 1;
-        } else {
-            // t === null (null zone at end) or t >= targetMs: answer is at or before mid
-            hi = mid;
-        }
+// Merge two timestamp-sorted NginxLog arrays into one sorted array (O(n)).
+// Null timestamps sort to the end, matching parse.worker sort order.
+function mergeSorted(a: NginxLog[], b: NginxLog[]): NginxLog[] {
+    const result: NginxLog[] = new Array(a.length + b.length);
+    let i = 0, j = 0, k = 0;
+    while (i < a.length && j < b.length) {
+        const ta = a[i].timestamp, tb = b[j].timestamp;
+        if (ta === null || (tb !== null && ta <= tb)) result[k++] = a[i++];
+        else result[k++] = b[j++];
     }
-    return lo;
+    while (i < a.length) result[k++] = a[i++];
+    while (j < b.length) result[k++] = b[j++];
+    return result;
 }
 
 function getUrl(positions: { filename: string; position: number }[] | null, includeCompressed: boolean) {
@@ -89,6 +73,19 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
     const [filter, setFilter] = useState<Filter>(newFilter());
     const [, startTransition] = useTransition();
+
+    const [filteredData, setFilteredData] = useState<NginxLog[]>([]);
+
+    const [aggregates, setAggregates] = useState({
+        endpointCounts: new Map<string, number>(),
+        referrerCounts: new Map<string, number>(),
+        responseSizes: [] as number[],
+        versionCounts: {} as Record<string, number>,
+        clientCounts: {} as Record<string, number>,
+        osCounts: {} as Record<string, number>,
+        deviceTypeCounts: {} as Record<string, number>,
+        dayCounts: new Array(7).fill(0) as number[],
+    });
 
     const setPeriod = useCallback((period: Period) => {
         startTransition(() => setFilter((previous) => ({ ...previous, period })))
@@ -135,65 +132,110 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     }, [])
 
     const parsedAccessCount = useRef(0);
-    const parseCancelRef = useRef(false);
+    const batchIdRef = useRef(0);
+    const workerRef = useRef<Worker | null>(null);
+    const filterVersionRef = useRef(0);
+    const aggregateWorkerRef = useRef<Worker | null>(null);
 
     useEffect(() => {
-        if (accessLogs.length <= parsedAccessCount.current) return;
+        const worker = new Worker(new URL('../workers/parse.worker.ts', import.meta.url));
+        workerRef.current = worker;
+
+        worker.onmessage = (e: MessageEvent<{ parsed: NginxLog[]; batchId: number; isFirstBatch: boolean }>) => {
+            const { parsed, batchId, isFirstBatch } = e.data;
+            if (batchId !== batchIdRef.current || parsed.length === 0) return;
+
+            if (isFirstBatch) {
+                let maxDate = parsed[0].timestamp;
+                for (const log of parsed) {
+                    if (log.timestamp !== null && (maxDate === null || log.timestamp > maxDate)) {
+                        maxDate = log.timestamp;
+                    }
+                }
+                if (maxDate) {
+                    if (inPeriod(maxDate, 'week')) setPeriod('week');
+                    else if (inPeriod(maxDate, 'month')) setPeriod('month');
+                    else if (inPeriod(maxDate, '6 months')) setPeriod('6 months');
+                    else setPeriod('all time');
+                }
+            }
+
+            // Merge sorted batch into logs state (O(n) vs O(n log n) full sort)
+            setLogs(prev => mergeSorted(prev, parsed));
+
+            // Forward parsed batch to aggregate worker for incremental filter+aggregate
+            aggregateWorkerRef.current?.postMessage({
+                type: 'logs',
+                logs: parsed,
+                filterVersion: filterVersionRef.current,
+            });
+        };
+
+        return () => worker.terminate();
+    }, []);
+
+    useEffect(() => {
+        const worker = new Worker(new URL('../workers/aggregate.worker.ts', import.meta.url));
+        aggregateWorkerRef.current = worker;
+
+        worker.onmessage = (e: MessageEvent<{
+            type: 'append' | 'replace';
+            newFiltered?: NginxLog[];
+            filteredData?: NginxLog[];
+            endpointCounts: Map<string, number>;
+            referrerCounts: Map<string, number>;
+            responseSizes: number[];
+            versionCounts: Record<string, number>;
+            clientCounts: Record<string, number>;
+            osCounts: Record<string, number>;
+            deviceTypeCounts: Record<string, number>;
+            dayCounts: number[];
+            filterVersion: number;
+        }>) => {
+            const { type, filterVersion, endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts } = e.data;
+            if (filterVersion !== filterVersionRef.current) return;
+
+            setAggregates({ endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts });
+
+            if (type === 'append' && e.data.newFiltered) {
+                setFilteredData(prev => mergeSorted(prev, e.data.newFiltered!));
+            } else if (type === 'replace' && e.data.filteredData) {
+                setFilteredData(e.data.filteredData);
+            }
+        };
+
+        return () => worker.terminate();
+    }, []);
+
+    useEffect(() => {
+        if (accessLogs.length <= parsedAccessCount.current || !workerRef.current) return;
 
         const newRawLogs = accessLogs.slice(parsedAccessCount.current);
         const isFirstBatch = parsedAccessCount.current === 0;
         parsedAccessCount.current = accessLogs.length;
 
-        const initPeriod = (parsed: ReturnType<typeof parseNginxLogs>) => {
-            let maxDate = parsed[0].timestamp;
-            for (const log of parsed) {
-                if (log.timestamp !== null && (maxDate === null || log.timestamp > maxDate)) {
-                    maxDate = log.timestamp;
-                }
-            }
-            if (maxDate) {
-                if (inPeriod(maxDate, 'week')) setPeriod('week');
-                else if (inPeriod(maxDate, 'month')) setPeriod('month');
-                else if (inPeriod(maxDate, '6 months')) setPeriod('6 months');
-                else setPeriod('all time');
-            }
-        };
+        batchIdRef.current++;
+        workerRef.current.postMessage({ logs: newRawLogs, logFormat, batchId: batchIdRef.current, isFirstBatch });
+    }, [accessLogs]);
 
-        // Small batches: parse synchronously
-        if (newRawLogs.length <= PARSE_CHUNK_SIZE) {
-            const newParsed = parseNginxLogs(newRawLogs, logFormat);
-            if (newParsed.length === 0) return;
-            if (isFirstBatch) initPeriod(newParsed);
-            setLogs(prev => [...prev, ...newParsed].sort(compareByTimestamp));
-            return;
-        }
-
-        // Large batches: chunk with setTimeout to avoid blocking the main thread,
-        // but accumulate all results and update state only once at the end.
-        parseCancelRef.current = false;
-        let offset = 0;
-        const allParsed: ReturnType<typeof parseNginxLogs> = [];
-        const processChunk = () => {
-            if (parseCancelRef.current) return;
-            const chunk = newRawLogs.slice(offset, offset + PARSE_CHUNK_SIZE);
-            if (chunk.length === 0) return;
-            const parsed = parseNginxLogs(chunk, logFormat);
-            if (parsed.length > 0) allParsed.push(...parsed);
-            offset += PARSE_CHUNK_SIZE;
-            if (offset < newRawLogs.length) {
-                setTimeout(processChunk, 0);
-            } else {
-                // All chunks done — single state update
-                if (allParsed.length > 0) {
-                    if (isFirstBatch) initPeriod(allParsed);
-                    setLogs(prev => [...prev, ...allParsed].sort(compareByTimestamp));
-                }
-            }
-        };
-        processChunk();
-
-        return () => { parseCancelRef.current = true; };
-    }, [accessLogs])
+    // Send filter/settings/locationMap to the aggregate worker whenever any of them change.
+    // The worker re-runs a full filter+aggregate and returns a 'replace' response.
+    // locationMap entries are sent as [ipAddress, country] pairs; empty when location
+    // filter is inactive (the worker skips the lookup in that case too).
+    useEffect(() => {
+        if (!aggregateWorkerRef.current) return;
+        filterVersionRef.current++;
+        const locationEntries: [string, string][] = filter.location !== null
+            ? [...locationMap.entries()].map(([ip, loc]) => [ip, loc.country])
+            : [];
+        aggregateWorkerRef.current.postMessage({
+            type: 'filter',
+            filter,
+            settings,
+            locationMap: locationEntries,
+            filterVersion: filterVersionRef.current,
+        });
+    }, [filter, settings, locationMap]);
 
     useEffect(() => {
         if (fileUpload) {
@@ -259,133 +301,11 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return () => clearInterval(interval);
     }, [demo, fileUpload]);
 
-    // Only track locationMap when a location filter is active — avoids recomputing
-    // filteredData on every IP-resolution batch when no location filter is set.
-    const effectiveLocationMap = filter.location !== null ? locationMap : EMPTY_MAP;
-
-    const filteredData = useMemo(() => {
-        const hasOtherFilters =
-            filter.location !== null
-            || filter.path !== null
-            || filter.method !== null
-            || filter.status !== null
-            || settings.ignore404
-            || settings.excludeBots
-            || settings.ignoreParams
-            || (settings.excludedEndpoints ?? []).length > 0
-            || filter.referrer !== null
-            || filter.hour !== null
-            || filter.dayOfWeek !== null
-            || filter.client !== null
-            || filter.os !== null
-            || filter.deviceType !== null
-            || filter.version !== null;
-
-        const start = periodStart(filter.period);
-
-        // Fast path: "all time" with no other active filters — return logs directly
-        if (start === null && !hasOtherFilters) {
-            return logs;
-        }
-
-        // Binary search to skip logs that are before the period start
-        const startIdx = start !== null ? lowerBound(logs, start) : 0;
-
-        // Fast path: period-only filter with nothing else — return the slice directly
-        if (!hasOtherFilters) {
-            return startIdx === 0 ? logs : logs.slice(startIdx);
-        }
-
-        const validStatus = (status: number | null) => {
-            if (status === null || filter.status === null) {
-                return true;
-            }
-            if (typeof filter.status === 'number') {
-                return status === filter.status;
-            }
-            for (const range of filter.status) {
-                if (range[0] <= status && range[1] >= status) {
-                    return true;
-                }
-            }
-            return false;
-        };
-
-        const excludedEndpoints = settings.excludedEndpoints ?? [];
-
-        const needsDate = filter.hour !== null || filter.dayOfWeek !== null;
-        const needsDeviceInfo = filter.client !== null || filter.os !== null || filter.deviceType !== null;
-
-        const result: NginxLog[] = [];
-        for (let i = startIdx; i < logs.length; i++) {
-            const row = logs[i];
-            const rowPath = settings.ignoreParams ? row.path.split('?')[0] : row.path;
-            const d = needsDate && row.timestamp !== null ? new Date(row.timestamp) : null;
-            if (
-                (filter.location === null || effectiveLocationMap.get(row.ipAddress)?.country === filter.location)
-                && (filter.path === null || row.path === filter.path)
-                && (filter.method === null || row.method === filter.method)
-                && (filter.status === null || validStatus(row.status))
-                && (!settings.ignore404 || row.status !== 404)
-                && (!settings.excludeBots || !isBotOrCrawler(row.userAgent))
-                && (excludedEndpoints.length === 0 || !excludedEndpoints.includes(rowPath))
-                && (filter.referrer === null || row.referrer === filter.referrer)
-                && (filter.hour === null || (d !== null && d.getHours() === filter.hour))
-                && (filter.dayOfWeek === null || (d !== null && d.getDay() === filter.dayOfWeek))
-                && (filter.version === null || getVersion(row.path) === filter.version)
-                && (!needsDeviceInfo || (
-                    (filter.client === null || getClient(row.userAgent) === filter.client)
-                    && (filter.os === null || getOS(row.userAgent) === filter.os)
-                    && (filter.deviceType === null || getDevice(row.userAgent) === filter.deviceType)
-                ))
-            ) {
-                result.push(row);
-            }
-        }
-        return result;
-    }, [logs, filter, settings, effectiveLocationMap]);
-
-    // Defer heavy re-renders when filteredData changes (e.g. switching to "All time").
-    // Components receive the previous dataset while React computes the new one in the
-    // background, keeping the UI responsive instead of freezing for seconds.
+    // Defer re-renders when filteredData state updates arrive from the aggregate worker,
+    // so the UI stays responsive while React applies the new dataset.
     const deferredFilteredData = useDeferredValue(filteredData);
 
-    // Single pass over deferredFilteredData to compute all derived values
-    const { endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts } = useMemo(() => {
-        const endpointCounts = new Map<string, number>();
-        const referrerCounts = new Map<string, number>();
-        const responseSizes: number[] = [];
-        const versionCounts: Record<string, number> = {};
-        const clientCounts: Record<string, number> = {};
-        const osCounts: Record<string, number> = {};
-        const deviceTypeCounts: Record<string, number> = {};
-        const dayCounts = new Array(7).fill(0);
-
-        for (const row of deferredFilteredData) {
-            const key = `${row.path}::${row.method}::${row.status ?? ''}`;
-            endpointCounts.set(key, (endpointCounts.get(key) ?? 0) + 1);
-
-            if (row.referrer && row.referrer !== '-') {
-                referrerCounts.set(row.referrer, (referrerCounts.get(row.referrer) ?? 0) + 1);
-            }
-
-            if (row.responseSize) responseSizes.push(row.responseSize);
-
-            const v = getVersion(row.path);
-            if (v) versionCounts[v] = (versionCounts[v] ?? 0) + 1;
-
-            const c = getClient(row.userAgent);
-            const o = getOS(row.userAgent);
-            const d = getDevice(row.userAgent);
-            if (c) clientCounts[c] = (clientCounts[c] ?? 0) + 1;
-            if (o) osCounts[o] = (osCounts[o] ?? 0) + 1;
-            if (d) deviceTypeCounts[d] = (deviceTypeCounts[d] ?? 0) + 1;
-
-            if (row.timestamp !== null) dayCounts[new Date(row.timestamp).getDay()]++;
-        }
-
-        return { endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts };
-    }, [deferredFilteredData]);
+    const { endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts } = aggregates;
 
     if (fileUpload && accessLogs.length === 0) {
         return (

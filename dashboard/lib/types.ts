@@ -8,6 +8,10 @@ export type NginxLog = {
     responseSize: number | null;
     referrer: string;
     userAgent: string;
+    client: string;
+    os: string;
+    device: string;
+    isBot: boolean;
 }
 
 export type NginxError = {

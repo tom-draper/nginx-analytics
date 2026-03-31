@@ -1,4 +1,6 @@
 import { NginxError, NginxLog } from "./types";
+import { getClient, getOS, getDevice } from "./get-device-info";
+import { isBotOrCrawler } from "./user-agent";
 
 // ---------------------------------------------------------------------------
 // Default compiled regex (handles standard combined + NPM vcombined prefix)
@@ -176,6 +178,7 @@ export function parseNginxLogs(logs: string[], logFormat?: string): NginxLog[] {
 
         const get = (idx?: number) => (idx && idx < matches.length) ? matches[idx] : '';
 
+        const userAgent = get(fields.userAgent);
         data.push({
             ipAddress:    get(fields.ipAddress),
             timestamp:    fields.timestamp ? parseDate(get(fields.timestamp)) || null : null,
@@ -185,7 +188,11 @@ export function parseNginxLogs(logs: string[], logFormat?: string): NginxLog[] {
             status:       fields.status ? parseInt(get(fields.status)) || null : null,
             responseSize: fields.responseSize ? parseInt(get(fields.responseSize)) || null : null,
             referrer:     get(fields.referrer),
-            userAgent:    get(fields.userAgent),
+            userAgent,
+            client:       getClient(userAgent),
+            os:           getOS(userAgent),
+            device:       getDevice(userAgent),
+            isBot:        isBotOrCrawler(userAgent),
         });
     }
     return data;
