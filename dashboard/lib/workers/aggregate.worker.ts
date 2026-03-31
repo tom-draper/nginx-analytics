@@ -261,6 +261,24 @@ function accumulateIntoAggregates(row: NginxLog) {
     }
 }
 
+// Pre-stamp every activity bucket slot across the visible time range with a zero
+// entry so the strip of success-rate divs spans the full period even where there
+// are no logs, matching the behaviour of the original per-render loop.
+function prefillActivityBuckets() {
+    const period = currentFilter?.period ?? 'all time';
+    const periodStartMs = periodStart(period);
+    const startMs = periodStartMs !== null ? periodStartMs : aggMinTs;
+    if (startMs === null) return; // no data and no fixed start — nothing to fill
+    const endMs = period === 'all time' ? (aggMaxTs ?? Date.now()) : Date.now();
+
+    for (let t = currentActivityBucketFn(startMs); t <= currentActivityBucketFn(endMs); t += currentActivityStep) {
+        if (!aggActivityReq.has(t))   aggActivityReq.set(t, 0);
+        // aggActivityTotal must also have an entry so activityRateBuckets includes
+        // this slot (value=null → rendered as a grey "no-data" div in the strip).
+        if (!aggActivityTotal.has(t)) aggActivityTotal.set(t, 0);
+    }
+}
+
 function recomputeAggregates(filteredData: NginxLog[]) {
     aggEndpointCounts  = new Map(); aggReferrerCounts = new Map();
     aggResponseSizes   = [];        aggVersionCounts  = {};
@@ -276,6 +294,7 @@ function recomputeAggregates(filteredData: NginxLog[]) {
     aggMinTs         = null;      aggMaxTs         = null;
 
     for (const row of filteredData) accumulateIntoAggregates(row);
+    prefillActivityBuckets();
 }
 
 // ─── Serialise aggregates ─────────────────────────────────────────────────────
