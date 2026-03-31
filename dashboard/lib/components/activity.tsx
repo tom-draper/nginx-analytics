@@ -92,12 +92,15 @@ function Activity({
             ],
         };
 
-        // Cap x-axis at the current bucket for non-"all time" periods
-        const maxBucket = period === 'all time' ? undefined : Math.floor(Date.now() / step) * step;
+        // Match the original: only set an explicit max so the chart doesn't extend
+        // past "now" for fixed periods. min is left to Chart.js auto-range — its
+        // default bar-chart offset (half an interval at each end) then aligns the
+        // first and last bars with the edges of the success-rate strip below.
+        const xMax = period === 'all time' ? undefined : Math.floor(Date.now() / step) * step;
 
         const plotOptions: object = {
             scales: {
-                x: { type: 'time', display: false, grid: { display: false }, max: maxBucket },
+                x: { type: 'time', display: false, grid: { display: false }, max: xMax },
                 y: { display: false, title: { text: 'Requests' }, min: 0, stacked: true },
             },
             maintainAspectRatio: false,
