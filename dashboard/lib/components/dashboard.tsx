@@ -73,7 +73,12 @@ function inPeriod(date: number, period: Period) {
 
 export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload: boolean, demo: boolean, logFormat?: string }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
-    const [logs, setLogs] = useState<NginxLog[]>([]);
+    // logsRef holds all parsed logs sorted by timestamp.  We avoid storing them
+    // in React state (saves reconciler overhead for a large array that components
+    // don't directly render).  logVersion is a cheap counter that lets the
+    // filteredData useMemo re-run when new logs arrive.
+    const logVersion = useRef(0);
+    const [logVersionState, setLogVersionState] = useState(0);
 
     const [errorLogs, setErrorLogs] = useState<string[]>([]);
 
@@ -106,28 +111,50 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const hasOtherFiltersRef = useRef(false);
     hasOtherFiltersRef.current = hasOtherFilters;
 
+    // logsRef holds the master sorted log array. It is updated synchronously on
+    // every parse batch so the filteredData useMemo and the aggregate worker always
+    // see fresh data without waiting for a React state flush.
+    const logsRef = useRef<NginxLog[]>([]);
+
     // For period-only changes filteredData is derived synchronously from the local
     // sorted logs copy via binary search + slice — no worker round-trip needed.
     // This means period switches update filteredData in the same render as the
     // period label, eliminating the "wrong proportions" intermediate frame.
     // Complex filters still delegate to the worker and use workerFilteredData.
     const filteredData = useMemo(() => {
+        void logVersionState; // reactive dependency — actual data comes from logsRef
         if (hasOtherFilters) return workerFilteredData;
         const start = periodStart(filter.period);
+        const logs = logsRef.current;
         if (!start) return logs;
         const idx = lowerBound(logs, start);
         return idx === 0 ? logs : logs.slice(idx);
-    }, [hasOtherFilters, workerFilteredData, filter.period, logs]);
+    }, [hasOtherFilters, workerFilteredData, filter.period, logVersionState]);
 
     const [aggregates, setAggregates] = useState({
-        endpointCounts: new Map<string, number>(),
-        referrerCounts: new Map<string, number>(),
-        responseSizes: [] as number[],
-        versionCounts: {} as Record<string, number>,
-        clientCounts: {} as Record<string, number>,
-        osCounts: {} as Record<string, number>,
+        endpointCounts:   new Map<string, number>(),
+        referrerCounts:   new Map<string, number>(),
+        responseSizes:    [] as number[],
+        versionCounts:    {} as Record<string, number>,
+        clientCounts:     {} as Record<string, number>,
+        osCounts:         {} as Record<string, number>,
         deviceTypeCounts: {} as Record<string, number>,
-        dayCounts: new Array(7).fill(0) as number[],
+        dayCounts:        new Array(7).fill(0) as number[],
+        // Chart pre-computed by the aggregate worker — eliminates O(n) main-thread
+        // iteration in Activity, SuccessRate, Requests, and Users.
+        activityBuckets:     [] as Array<{ ts: number; req: number; users: number }>,
+        activityRateBuckets: [] as Array<{ ts: number; success: number; total: number }>,
+        trendReqBuckets:     [] as number[],
+        trendUserBuckets:    [] as number[],
+        trendRateBuckets:    [] as Array<{ success: number; total: number }>,
+        timeUnit:            'day' as 'minute' | 'hour' | 'day',
+        step:                86400000,
+        periodLabels:        { start: '', end: '' } as { start: string; end: string },
+        totalRequests:       0,
+        totalUsers:          0,
+        totalHours:          1,
+        successCount:        0,
+        successTotal:        0,
     });
 
     const setPeriod = useCallback((period: Period) => {
@@ -179,9 +206,10 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const workerRef = useRef<Worker | null>(null);
     const filterVersionRef = useRef(0);
     const aggregateWorkerRef = useRef<Worker | null>(null);
-    // Mirrors the `logs` state but updated synchronously so the aggregate worker
-    // onmessage handler can slice it immediately without waiting for a React flush.
-    const logsRef = useRef<NginxLog[]>([]);
+    // Throttle: schedule at most one logVersionState bump per animation frame so
+    // that rapid initial-load batches don't each trigger a separate render cycle
+    // for Location / UsageTime (the only two components still reading filteredData).
+    const logUpdatePending = useRef(false);
 
     useEffect(() => {
         const worker = new Worker(new URL('../workers/parse.worker.ts', import.meta.url));
@@ -206,12 +234,19 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 }
             }
 
-            // Merge sorted batch into logs state (O(n) vs O(n log n) full sort).
-            // logsRef is updated synchronously so periodSlice responses can slice
-            // it immediately without waiting for the React state flush.
-            const merged = mergeSorted(logsRef.current, parsed);
-            logsRef.current = merged;
-            setLogs(merged);
+            // Merge sorted batch into logsRef synchronously (O(n) merge).
+            logsRef.current = mergeSorted(logsRef.current, parsed);
+
+            // Bump the version counter so the filteredData useMemo re-runs, but
+            // coalesce rapid batches into a single rAF to avoid per-batch renders.
+            if (!logUpdatePending.current) {
+                logUpdatePending.current = true;
+                requestAnimationFrame(() => {
+                    logVersion.current++;
+                    setLogVersionState(logVersion.current);
+                    logUpdatePending.current = false;
+                });
+            }
 
             // Forward parsed batch to aggregate worker for incremental filter+aggregate
             aggregateWorkerRef.current?.postMessage({
@@ -232,6 +267,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             type: 'append' | 'replace' | 'aggregatesOnly';
             newFiltered?: NginxLog[];
             filteredData?: NginxLog[];
+            // existing aggregates
             endpointCounts: Map<string, number>;
             referrerCounts: Map<string, number>;
             responseSizes: number[];
@@ -240,23 +276,51 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             osCounts: Record<string, number>;
             deviceTypeCounts: Record<string, number>;
             dayCounts: number[];
+            // chart pre-computed data
+            activityBuckets: Array<{ ts: number; req: number; users: number }>;
+            activityRateBuckets: Array<{ ts: number; success: number; total: number }>;
+            trendReqBuckets: number[];
+            trendUserBuckets: number[];
+            trendRateBuckets: Array<{ success: number; total: number }>;
+            timeUnit: 'minute' | 'hour' | 'day';
+            step: number;
+            periodLabels: { start: string; end: string };
+            totalRequests: number;
+            totalUsers: number;
+            totalHours: number;
+            successCount: number;
+            successTotal: number;
             filterVersion: number;
         }>) => {
-            const { type, filterVersion, endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts } = e.data;
+            const { type, filterVersion } = e.data;
             if (filterVersion !== filterVersionRef.current) return;
 
-            setAggregates({ endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts });
+            const {
+                endpointCounts, referrerCounts, responseSizes, versionCounts,
+                clientCounts, osCounts, deviceTypeCounts, dayCounts,
+                activityBuckets, activityRateBuckets,
+                trendReqBuckets, trendUserBuckets, trendRateBuckets,
+                timeUnit, step, periodLabels,
+                totalRequests, totalUsers, totalHours, successCount, successTotal,
+            } = e.data;
+
+            setAggregates({
+                endpointCounts, referrerCounts, responseSizes, versionCounts,
+                clientCounts, osCounts, deviceTypeCounts, dayCounts,
+                activityBuckets, activityRateBuckets,
+                trendReqBuckets, trendUserBuckets, trendRateBuckets,
+                timeUnit, step, periodLabels,
+                totalRequests, totalUsers, totalHours, successCount, successTotal,
+            });
 
             if (type === 'append') {
-                // Only update workerFilteredData when complex filters are active;
-                // for period-only cases filteredData is derived from logs via useMemo.
                 if (e.data.newFiltered && hasOtherFiltersRef.current) {
                     setWorkerFilteredData(prev => mergeSorted(prev, e.data.newFiltered!));
                 }
             } else if (type === 'replace' && e.data.filteredData) {
                 setWorkerFilteredData(e.data.filteredData);
             }
-            // 'aggregatesOnly': aggregates already set above; filteredData derived from logs.
+            // 'aggregatesOnly': filteredData derived from logsRef via useMemo.
         };
 
         return () => worker.terminate();
@@ -361,7 +425,14 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     // changes where large workerFilteredData payloads arrive asynchronously.
     const deferredFilteredData = useDeferredValue(filteredData);
 
-    const { endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts } = aggregates;
+    const {
+        endpointCounts, referrerCounts, responseSizes, versionCounts,
+        clientCounts, osCounts, deviceTypeCounts, dayCounts,
+        activityBuckets, activityRateBuckets,
+        trendReqBuckets, trendUserBuckets, trendRateBuckets,
+        timeUnit, step, periodLabels,
+        totalRequests, totalUsers, totalHours, successCount, successTotal,
+    } = aggregates;
 
     if (fileUpload && accessLogs.length === 0) {
         return (
@@ -404,7 +475,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     return (
         <div>
             <main className="sm:p-12 !pt-7">
-                <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => { exportCSV(logs) }} />
+                <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => { exportCSV(logsRef.current) }} />
 
                 <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} isDemo={demo} />
 
@@ -413,12 +484,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                     <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
-                            <SuccessRate data={deferredFilteredData} period={filter.period} />
+                            <SuccessRate successCount={successCount} successTotal={successTotal} trendRateBuckets={trendRateBuckets} />
                         </div>
 
                         <div className="flex">
-                            <Requests data={deferredFilteredData} period={filter.period} />
-                            <Users data={deferredFilteredData} period={filter.period} />
+                            <Requests totalRequests={totalRequests} totalHours={totalHours} trendReqBuckets={trendReqBuckets} />
+                            <Users totalUsers={totalUsers} totalHours={totalHours} trendUserBuckets={trendUserBuckets} />
                         </div>
 
                         <div className="flex">
@@ -436,7 +507,14 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                     {/* Right */}
                     <div className="min-[950px]:flex-1 min-w-0">
-                        <Activity data={deferredFilteredData} period={filter.period} />
+                        <Activity
+                            activityBuckets={activityBuckets}
+                            activityRateBuckets={activityRateBuckets}
+                            timeUnit={timeUnit}
+                            step={step}
+                            periodLabels={periodLabels}
+                            period={filter.period}
+                        />
 
                         <div className="flex max-[1500px]:flex-col">
                             <Location data={deferredFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />

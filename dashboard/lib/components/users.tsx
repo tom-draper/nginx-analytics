@@ -1,73 +1,26 @@
 'use client';
 
 import { useMemo, useState, memo } from "react";
-import { NginxLog } from "@/lib/types";
-import { Period, periodStart, getPeriodRange, hoursInRange } from "@/lib/period";
-import { getUserId } from "@/lib/user";
 import TrendGraph, { consolidateTo6 } from "@/lib/components/trend-graph";
 
-const MS_PER_HOUR = 3_600_000;
-const MS_PER_DAY = 86_400_000;
-
-function getUserCount(data: NginxLog[]): number {
-    const users = new Set<string>();
-    for (const row of data) {
-        users.add(getUserId(row.ipAddress, row.userAgent));
-    }
-    return users.size;
-}
-
-function getUsersByTime(data: NginxLog[], period: Period): number[] {
-    const startDate = periodStart(period);
-    const byHour = period === '24 hours';
-    const step = byHour ? MS_PER_HOUR : MS_PER_DAY;
-
-    // Generate all time buckets using integer keys — avoids toISOString() / string
-    // allocation on every row in the hot loop below.
-    const allBuckets = new Map<number, Set<string>>();
-
-    if (startDate) {
-        const startKey = Math.floor(startDate / step);
-        const endKey = Math.floor(Date.now() / step);
-        for (let key = startKey; key <= endKey; key++) {
-            allBuckets.set(key, new Set());
-        }
-    }
-
-    for (const row of data) {
-        const ts = row.timestamp;
-        if (!ts) continue;
-        const userId = getUserId(row.ipAddress, row.userAgent);
-        if (!userId) continue;
-
-        const timeKey = Math.floor(ts / step);
-
-        if (!allBuckets.has(timeKey)) allBuckets.set(timeKey, new Set());
-        allBuckets.get(timeKey)!.add(userId);
-    }
-
-    const values = Array.from(allBuckets.entries())
-        .sort((a, b) => a[0] - b[0])
-        .map(([, userSet]) => userSet.size);
-
-    return consolidateTo6(values);
-}
-
-export default memo(function Users({ data, period }: { data: NginxLog[], period: Period }) {
+export default memo(function Users({
+    totalUsers,
+    totalHours,
+    trendUserBuckets,
+}: {
+    totalUsers:       number;
+    totalHours:       number;
+    trendUserBuckets: number[];
+}) {
     const [displayMode, setDisplayMode] = useState<'total' | 'per-hour'>('total');
 
-    const { users, userValues } = useMemo(() => {
-        const range = getPeriodRange(period, data);
-        if (!range) return { users: { total: 0, perHour: 0 }, userValues: [] };
-
-        const totalUsers = getUserCount(data);
-        const usersPerHour = totalUsers / hoursInRange(range.start, range.end);
-
-        return {
-            users: { total: totalUsers, perHour: usersPerHour },
-            userValues: getUsersByTime(data, period),
-        };
-    }, [data, period]);
+    const { users, userValues } = useMemo(() => ({
+        users: {
+            total:   totalUsers,
+            perHour: totalUsers / Math.max(totalHours, 1),
+        },
+        userValues: consolidateTo6(trendUserBuckets),
+    }), [totalUsers, totalHours, trendUserBuckets]);
 
     const toggleDisplayMode = () => {
         setDisplayMode(current => current === 'total' ? 'per-hour' : 'total');

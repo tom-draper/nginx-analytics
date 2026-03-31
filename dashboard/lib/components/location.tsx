@@ -1,12 +1,12 @@
 import { NginxLog } from "@/lib/types";
-import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
-import { type Location } from '@/lib/location'
+import { Dispatch, memo, SetStateAction, useEffect, useMemo, useState } from "react";
+import { type Location as LocationData } from '@/lib/location'
 import { generateDemoLocations } from "../demo";
 
 
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 
-export function Location({
+export const Location = memo(function Location({
     data,
     locationMap,
     setLocationMap,
@@ -16,8 +16,8 @@ export function Location({
     demo,
 }: {
     data: NginxLog[];
-    locationMap: Map<string, Location>;
-    setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>;
+    locationMap: Map<string, LocationData>;
+    setLocationMap: Dispatch<SetStateAction<Map<string, LocationData>>>;
     filterLocation: string | null;
     setFilterLocation: (location: string | null) => void;
     noFetch: boolean;
@@ -95,7 +95,7 @@ export function Location({
         const fetchData = async () => {
             setLoading(true);
             try {
-                let fetchedLocations: Location[];
+                let fetchedLocations: LocationData[];
                 if (demo) {
                     fetchedLocations = generateDemoLocations(unknownIPs);
                 } else {
@@ -174,4 +174,4 @@ export function Location({
             </div>
         </div >
     )
-}
+});
