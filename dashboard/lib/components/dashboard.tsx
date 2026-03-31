@@ -10,7 +10,7 @@ import Users from "@/lib/components/users";
 import { Version } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
-import { useCallback, useDeferredValue, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -33,6 +33,17 @@ const FileUpload = dynamic(() => import("./file-upload"));
 
 // Merge two timestamp-sorted NginxLog arrays into one sorted array (O(n)).
 // Null timestamps sort to the end, matching parse.worker sort order.
+function lowerBound(logs: NginxLog[], targetMs: number): number {
+    let lo = 0, hi = logs.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        const t = logs[mid].timestamp;
+        if (t !== null && t < targetMs) lo = mid + 1;
+        else hi = mid;
+    }
+    return lo;
+}
+
 function mergeSorted(a: NginxLog[], b: NginxLog[]): NginxLog[] {
     const result: NginxLog[] = new Array(a.length + b.length);
     let i = 0, j = 0, k = 0;
@@ -74,7 +85,39 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const [filter, setFilter] = useState<Filter>(newFilter());
     const [, startTransition] = useTransition();
 
-    const [filteredData, setFilteredData] = useState<NginxLog[]>([]);
+    // filteredData returned by the worker for complex (non-period-only) filter states.
+    const [workerFilteredData, setWorkerFilteredData] = useState<NginxLog[]>([]);
+
+    // Whether any filter beyond the period cut is active.
+    const hasOtherFilters = useMemo(() =>
+        filter.location !== null || filter.path !== null ||
+        filter.method !== null || filter.status !== null ||
+        settings.ignore404 || settings.excludeBots ||
+        settings.ignoreParams || (settings.excludedEndpoints ?? []).length > 0 ||
+        filter.referrer !== null || filter.hour !== null ||
+        filter.dayOfWeek !== null || filter.client !== null ||
+        filter.os !== null || filter.deviceType !== null ||
+        filter.version !== null,
+        [filter, settings]
+    );
+
+    // Ref kept synchronously in step with hasOtherFilters so the async worker
+    // onmessage handler can read it without stale-closure issues.
+    const hasOtherFiltersRef = useRef(false);
+    hasOtherFiltersRef.current = hasOtherFilters;
+
+    // For period-only changes filteredData is derived synchronously from the local
+    // sorted logs copy via binary search + slice — no worker round-trip needed.
+    // This means period switches update filteredData in the same render as the
+    // period label, eliminating the "wrong proportions" intermediate frame.
+    // Complex filters still delegate to the worker and use workerFilteredData.
+    const filteredData = useMemo(() => {
+        if (hasOtherFilters) return workerFilteredData;
+        const start = periodStart(filter.period);
+        if (!start) return logs;
+        const idx = lowerBound(logs, start);
+        return idx === 0 ? logs : logs.slice(idx);
+    }, [hasOtherFilters, workerFilteredData, filter.period, logs]);
 
     const [aggregates, setAggregates] = useState({
         endpointCounts: new Map<string, number>(),
@@ -136,6 +179,9 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const workerRef = useRef<Worker | null>(null);
     const filterVersionRef = useRef(0);
     const aggregateWorkerRef = useRef<Worker | null>(null);
+    // Mirrors the `logs` state but updated synchronously so the aggregate worker
+    // onmessage handler can slice it immediately without waiting for a React flush.
+    const logsRef = useRef<NginxLog[]>([]);
 
     useEffect(() => {
         const worker = new Worker(new URL('../workers/parse.worker.ts', import.meta.url));
@@ -160,8 +206,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 }
             }
 
-            // Merge sorted batch into logs state (O(n) vs O(n log n) full sort)
-            setLogs(prev => mergeSorted(prev, parsed));
+            // Merge sorted batch into logs state (O(n) vs O(n log n) full sort).
+            // logsRef is updated synchronously so periodSlice responses can slice
+            // it immediately without waiting for the React state flush.
+            const merged = mergeSorted(logsRef.current, parsed);
+            logsRef.current = merged;
+            setLogs(merged);
 
             // Forward parsed batch to aggregate worker for incremental filter+aggregate
             aggregateWorkerRef.current?.postMessage({
@@ -179,7 +229,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         aggregateWorkerRef.current = worker;
 
         worker.onmessage = (e: MessageEvent<{
-            type: 'append' | 'replace';
+            type: 'append' | 'replace' | 'aggregatesOnly';
             newFiltered?: NginxLog[];
             filteredData?: NginxLog[];
             endpointCounts: Map<string, number>;
@@ -197,11 +247,16 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
             setAggregates({ endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts });
 
-            if (type === 'append' && e.data.newFiltered) {
-                setFilteredData(prev => mergeSorted(prev, e.data.newFiltered!));
+            if (type === 'append') {
+                // Only update workerFilteredData when complex filters are active;
+                // for period-only cases filteredData is derived from logs via useMemo.
+                if (e.data.newFiltered && hasOtherFiltersRef.current) {
+                    setWorkerFilteredData(prev => mergeSorted(prev, e.data.newFiltered!));
+                }
             } else if (type === 'replace' && e.data.filteredData) {
-                setFilteredData(e.data.filteredData);
+                setWorkerFilteredData(e.data.filteredData);
             }
+            // 'aggregatesOnly': aggregates already set above; filteredData derived from logs.
         };
 
         return () => worker.terminate();
@@ -301,8 +356,9 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return () => clearInterval(interval);
     }, [demo, fileUpload]);
 
-    // Defer re-renders when filteredData state updates arrive from the aggregate worker,
-    // so the UI stays responsive while React applies the new dataset.
+    // filteredData is now a derived value (useMemo) so period-only changes update it
+    // synchronously in the same render.  useDeferredValue still helps for complex filter
+    // changes where large workerFilteredData payloads arrive asynchronously.
     const deferredFilteredData = useDeferredValue(filteredData);
 
     const { endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts } = aggregates;

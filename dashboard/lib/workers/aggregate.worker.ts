@@ -214,6 +214,14 @@ ctx.onmessage = (e: MessageEvent<LogsMessage | FilterMessage>) => {
         }
 
         recomputeAggregates(filteredData);
-        ctx.postMessage({ type: 'replace', filteredData, ...aggregates(), filterVersion: msg.filterVersion });
+
+        // When no field-level filters are active (period-only), the main thread
+        // derives filteredData synchronously from its own logs copy via useMemo,
+        // so we only need to return the aggregates.
+        if (!hasOtherFilters) {
+            ctx.postMessage({ type: 'aggregatesOnly', ...aggregates(), filterVersion: msg.filterVersion });
+        } else {
+            ctx.postMessage({ type: 'replace', filteredData, ...aggregates(), filterVersion: msg.filterVersion });
+        }
     }
 };
