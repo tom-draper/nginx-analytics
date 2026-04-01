@@ -14,6 +14,7 @@ export const Location = memo(function Location({
     setFilterLocation,
     noFetch,
     demo,
+    dataReady,
 }: {
     unknownIPs: string[];
     locationCounts: Record<string, number>;
@@ -23,6 +24,7 @@ export const Location = memo(function Location({
     setFilterLocation: (location: string | null) => void;
     noFetch: boolean;
     demo: boolean;
+    dataReady: boolean;
 }) {
     const [loading, setLoading] = useState(false);
     const [endpointDisabled, setEndpointDisabled] = useState(false);
@@ -138,7 +140,7 @@ export const Location = memo(function Location({
                         {locations.length} {locations.length === 1 ? 'location' : 'locations'}
                     </div>
                 )}
-                {locations.length === 0 && (
+                {locations.length === 0 && dataReady && (
                     <div className="flex-1">
                         {loading ? (
                             <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center">
