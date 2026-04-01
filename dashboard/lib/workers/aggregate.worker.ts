@@ -4,6 +4,67 @@ import { Settings } from '../settings';
 import { periodStart, Period } from '../period';
 import { getVersion } from '../get-version';
 
+// ─── Histogram helpers ────────────────────────────────────────────────────────
+
+type Histogram = { bins: number[]; binLabels: string[]; min: number; avg: number; max: number };
+
+function formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const k = 1024;
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i)) + ' ' + (sizes[i] || 'Bytes');
+}
+
+function responseSizeMinMax(values: number[]): { min: number; max: number } {
+    let min = Infinity, max = -Infinity;
+    for (const v of values) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+    }
+    return { min, max };
+}
+
+function generateHistogram(data: number[], maxBinCount = 500): Histogram | null {
+    const filtered = data.filter(v => v !== 0);
+    if (filtered.length === 0) return null;
+
+    const sorted = [...filtered].sort((a, b) => a - b);
+    const lq = sorted[Math.floor(sorted.length * 0.1)];
+    const uq = sorted[Math.floor(sorted.length * 0.95)];
+    const quartileData = sorted.filter(v => v >= lq && v <= uq);
+    if (quartileData.length === 0) return null;
+
+    const { min: qMin, max: qMax } = responseSizeMinMax(quartileData);
+    const roundedMin = Math.floor(qMin), roundedMax = Math.ceil(qMax);
+    const range = roundedMax - roundedMin;
+
+    let bins: number[], binLabels: string[];
+    if (range <= maxBinCount) {
+        bins = new Array(range + 1).fill(0);
+        binLabels = [];
+        for (let i = 0; i <= range; i++) binLabels.push(formatBytes(roundedMin + i));
+        for (const v of quartileData) {
+            const idx = Math.round(v) - roundedMin;
+            if (idx >= 0 && idx < bins.length) bins[idx]++;
+        }
+    } else {
+        const binWidth = range / maxBinCount;
+        bins = new Array(maxBinCount).fill(0);
+        binLabels = [];
+        for (let i = 0; i < maxBinCount; i++) binLabels.push(formatBytes(roundedMin + i * binWidth));
+        for (const v of quartileData) {
+            if (v >= qMax) { bins[maxBinCount - 1]++; continue; }
+            const idx = Math.min(Math.floor((v - roundedMin) / binWidth), maxBinCount - 1);
+            if (idx >= 0) bins[idx]++;
+        }
+    }
+
+    const { min, max } = responseSizeMinMax(filtered);
+    const avg = filtered.reduce((s, v) => s + v, 0) / filtered.length;
+    return { bins, binLabels, min, avg, max };
+}
+
 const ctx = self as unknown as Worker;
 
 // ─── Internal state ───────────────────────────────────────────────────────────
@@ -340,7 +401,7 @@ function aggregates() {
         // Existing aggregates
         endpointCounts: aggEndpointCounts,
         referrerCounts: aggReferrerCounts,
-        responseSizes:  aggResponseSizes,
+        histogram:      generateHistogram(aggResponseSizes),
         versionCounts:  aggVersionCounts,
         clientCounts:   aggClientCounts,
         osCounts:       aggOsCounts,

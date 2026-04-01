@@ -26,6 +26,7 @@ import LiveGlobeCard from "@/lib/components/live-globe-card";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
+import { getVersion } from "@/lib/get-version";
 import dynamic from "next/dynamic";
 
 const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
@@ -88,7 +89,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const [aggregates, setAggregates] = useState({
         endpointCounts:   new Map<string, number>(),
         referrerCounts:   new Map<string, number>(),
-        responseSizes:    [] as number[],
+        histogram:        null as { bins: number[]; binLabels: string[]; min: number; avg: number; max: number } | null,
         versionCounts:    {} as Record<string, number>,
         clientCounts:     {} as Record<string, number>,
         osCounts:         {} as Record<string, number>,
@@ -209,7 +210,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             // existing aggregates
             endpointCounts: Map<string, number>;
             referrerCounts: Map<string, number>;
-            responseSizes: number[];
+            histogram: { bins: number[]; binLabels: string[]; min: number; avg: number; max: number } | null;
             versionCounts: Record<string, number>;
             clientCounts: Record<string, number>;
             osCounts: Record<string, number>;
@@ -238,7 +239,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             if (filterVersion !== filterVersionRef.current) return;
 
             const {
-                endpointCounts, referrerCounts, responseSizes, versionCounts,
+                endpointCounts, referrerCounts, histogram, versionCounts,
                 clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts, unknownIPs,
                 activityBuckets, activityRateBuckets,
                 trendReqBuckets, trendUserBuckets, trendRateBuckets,
@@ -247,7 +248,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             } = e.data;
 
             setAggregates({
-                endpointCounts, referrerCounts, responseSizes, versionCounts,
+                endpointCounts, referrerCounts, histogram, versionCounts,
                 clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts, unknownIPs,
                 activityBuckets, activityRateBuckets,
                 trendReqBuckets, trendUserBuckets, trendRateBuckets,
@@ -273,17 +274,23 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         workerRef.current.postMessage({ logs: newRawLogs, logFormat, batchId: batchIdRef.current, isFirstBatch });
     }, [accessLogs]);
 
+    // Keep a pre-serialized locationMap so we only pay the serialization cost when
+    // locationMap actually changes — not on every filter/settings change.
+    const locationMapEntriesRef = useRef<[string, string][]>([]);
+    useEffect(() => {
+        locationMapEntriesRef.current = [...locationMap.entries()].map(([ip, loc]) => [ip, loc.country]);
+    }, [locationMap]);
+
     // Send filter/settings/locationMap to the aggregate worker whenever any of them change.
     // The worker re-runs a full filter+aggregate and returns updated aggregates.
     useEffect(() => {
         if (!aggregateWorkerRef.current) return;
         filterVersionRef.current++;
-        const locationEntries: [string, string][] = [...locationMap.entries()].map(([ip, loc]) => [ip, loc.country]);
         aggregateWorkerRef.current.postMessage({
             type: 'filter',
             filter,
             settings,
-            locationMap: locationEntries,
+            locationMap: locationMapEntriesRef.current,
             filterVersion: filterVersionRef.current,
         });
     }, [filter, settings, locationMap]);
@@ -353,7 +360,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     }, [demo, fileUpload]);
 
     const {
-        endpointCounts, referrerCounts, responseSizes, versionCounts,
+        endpointCounts, referrerCounts, histogram, versionCounts,
         clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts, unknownIPs,
         activityBuckets, activityRateBuckets,
         trendReqBuckets, trendUserBuckets, trendRateBuckets,
@@ -402,7 +409,40 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     return (
         <div>
             <main className="sm:p-12 !pt-7">
-                <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => { exportCSV(logsRef.current) }} />
+                <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => {
+                    const start = periodStart(filter.period);
+                    const locMap = new Map([...locationMap.entries()].map(([ip, loc]) => [ip, loc.country]));
+                    const filtered = logsRef.current.filter(row => {
+                        if (start !== null && (row.timestamp === null || row.timestamp < start)) return false;
+                        if (filter.location !== null && locMap.get(row.ipAddress) !== filter.location) return false;
+                        if (filter.path !== null && row.path !== filter.path) return false;
+                        if (filter.method !== null && row.method !== filter.method) return false;
+                        if (settings.ignore404 && row.status === 404) return false;
+                        if (settings.excludeBots && row.isBot) return false;
+                        if (filter.referrer !== null && row.referrer !== filter.referrer) return false;
+                        if (filter.version !== null && getVersion(row.path) !== filter.version) return false;
+                        if (filter.client !== null && row.client !== filter.client) return false;
+                        if (filter.os !== null && row.os !== filter.os) return false;
+                        if (filter.deviceType !== null && row.device !== filter.deviceType) return false;
+                        if (filter.status !== null) {
+                            if (row.status === null) return false;
+                            if (typeof filter.status === 'number') {
+                                if (row.status !== filter.status) return false;
+                            } else {
+                                if (!filter.status.some(([lo, hi]) => row.status! >= lo && row.status! <= hi)) return false;
+                            }
+                        }
+                        const excludedEndpoints = settings.excludedEndpoints ?? [];
+                        if (excludedEndpoints.length > 0) {
+                            const rowPath = settings.ignoreParams ? row.path.split('?')[0] : row.path;
+                            if (excludedEndpoints.includes(rowPath)) return false;
+                        }
+                        if (filter.hour !== null && row.hour !== filter.hour) return false;
+                        if (filter.dayOfWeek !== null && row.dayOfWeek !== filter.dayOfWeek) return false;
+                        return true;
+                    });
+                    exportCSV(filtered);
+                }} />
 
                 <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} isDemo={demo} />
 
@@ -424,7 +464,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                         </div>
 
                         <div className="flex">
-                            <ResponseSize responseSizes={responseSizes} />
+                            <ResponseSize histogram={histogram} />
                         </div>
 
                         <div className="flex">
