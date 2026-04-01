@@ -179,9 +179,13 @@ export function parseNginxLogs(logs: string[], logFormat?: string): NginxLog[] {
         const get = (idx?: number) => (idx && idx < matches.length) ? matches[idx] : '';
 
         const userAgent = get(fields.userAgent);
+        const timestamp = fields.timestamp ? parseDate(get(fields.timestamp)) || null : null;
+        const d = timestamp !== null ? new Date(timestamp) : null;
         data.push({
             ipAddress:    get(fields.ipAddress),
-            timestamp:    fields.timestamp ? parseDate(get(fields.timestamp)) || null : null,
+            timestamp,
+            hour:         d !== null ? d.getHours() : null,
+            dayOfWeek:    d !== null ? d.getDay() : null,
             method:       get(fields.method),
             path:         get(fields.path),
             httpVersion:  get(fields.httpVersion),

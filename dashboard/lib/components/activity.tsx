@@ -21,7 +21,7 @@ const getSuccessRateLevel = (successRate: number | null) => {
     return Math.ceil(successRate * 10);
 };
 
-function calculateDisplayRates(rates: { timestamp: number; value: number | null }[], width: number) {
+function calculateDisplayRates(rates: { timestamp: number; value: number | null; title: string }[], width: number) {
     if (width === 0 || rates.length === 0) return rates;
     const maxDivs = Math.floor(width / 3);
     if (rates.length <= maxDivs) return rates;
@@ -126,10 +126,14 @@ function Activity({
             },
         };
 
-        const successRates = activityRateBuckets.map(({ ts, success, total }) => ({
-            timestamp: ts,
-            value: total > 0 ? success / total : null,
-        }));
+        const successRates = activityRateBuckets.map(({ ts, success, total }) => {
+            const value = total > 0 ? success / total : null;
+            const time = new Date(ts).toLocaleString();
+            const title = value === null
+                ? `No requests\n${time}`
+                : `Success rate: ${(value === 0 || value === 1) ? (value * 100).toFixed(0) : (value * 100).toFixed(1)}%\n${time}`;
+            return { timestamp: ts, value, title };
+        });
 
         return { plotData, plotOptions, successRates };
     }, [activityBuckets, activityRateBuckets, step, period]);
@@ -138,15 +142,6 @@ function Activity({
         () => calculateDisplayRates(successRates, containerWidth),
         [successRates, containerWidth],
     );
-
-    const getSuccessRateTitle = (sr: { timestamp: number; value: number | null }) => {
-        const time = new Date(sr.timestamp).toLocaleString();
-        if (sr.value === null) return `No requests\n${time}`;
-        const pct = (sr.value === 0 || sr.value === 1)
-            ? `${(sr.value * 100).toFixed(0)}%`
-            : `${(sr.value * 100).toFixed(1)}%`;
-        return `Success rate: ${pct}\n${time}`;
-    };
 
     return (
         <div className="card flex-1 px-4 py-3 m-3">
@@ -168,7 +163,7 @@ function Activity({
                         <div
                             key={index}
                             className={`flex-1 h-12 mx-[0.5px] rounded-[2px] ${sr.value === null ? 'level-none' : 'level-' + getSuccessRateLevel(sr.value)}`}
-                            title={getSuccessRateTitle(sr)}
+                            title={sr.title}
                             suppressHydrationWarning
                         />
                     ))}

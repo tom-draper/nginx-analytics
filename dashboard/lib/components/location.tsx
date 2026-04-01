@@ -1,4 +1,3 @@
-import { NginxLog } from "@/lib/types";
 import { Dispatch, memo, SetStateAction, useEffect, useMemo, useState } from "react";
 import { type Location as LocationData } from '@/lib/location'
 import { generateDemoLocations } from "../demo";
@@ -7,7 +6,7 @@ import { generateDemoLocations } from "../demo";
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 
 export const Location = memo(function Location({
-    data,
+    unknownIPs,
     locationCounts,
     locationMap,
     setLocationMap,
@@ -16,7 +15,7 @@ export const Location = memo(function Location({
     noFetch,
     demo,
 }: {
-    data: NginxLog[];
+    unknownIPs: string[];
     locationCounts: Record<string, number>;
     locationMap: Map<string, LocationData>;
     setLocationMap: Dispatch<SetStateAction<Map<string, LocationData>>>;
@@ -75,21 +74,6 @@ export const Location = memo(function Location({
             setFilterLocation(location)
         }
     }
-
-    // Derive unknown IPs from data and locationMap
-    const unknownIPs = useMemo(() => {
-        const seen = new Set<string>();
-        const unknown: string[] = [];
-        for (const row of data) {
-            const ip = row.ipAddress;
-            if (!ip || seen.has(ip)) continue;
-            seen.add(ip);
-            if (!locationMap.has(ip)) {
-                unknown.push(ip);
-            }
-        }
-        return unknown;
-    }, [data, locationMap]);
 
     useEffect(() => {
         if (noFetch || endpointDisabled || unknownIPs.length === 0) return;

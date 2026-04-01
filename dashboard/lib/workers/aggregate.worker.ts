@@ -25,6 +25,7 @@ let aggDeviceTypeCounts:  Record<string, number> = {};
 let aggDayCounts:         number[] = new Array(7).fill(0);
 let aggHourCounts:        number[] = new Array(24).fill(0);
 let aggLocationCounts:    Record<string, number> = {};
+let aggUnknownIPs:        Set<string> = new Set();
 
 // ─── Chart pre-computation ────────────────────────────────────────────────────
 // All four chart components (Activity, SuccessRate, Requests, Users) previously
@@ -140,12 +141,8 @@ function passesFilter(
         if (excludedEndpoints.includes(rowPath)) return false;
     }
 
-    if (filter.hour !== null || filter.dayOfWeek !== null) {
-        if (row.timestamp === null) return false;
-        const d = new Date(row.timestamp);
-        if (filter.hour !== null && d.getHours() !== filter.hour) return false;
-        if (filter.dayOfWeek !== null && d.getDay() !== filter.dayOfWeek) return false;
-    }
+    if (filter.hour !== null && row.hour !== filter.hour) return false;
+    if (filter.dayOfWeek !== null && row.dayOfWeek !== filter.dayOfWeek) return false;
 
     return true;
 }
@@ -219,14 +216,12 @@ function accumulateIntoAggregates(row: NginxLog) {
     if (row.os)     aggOsCounts[row.os]          = (aggOsCounts[row.os]    ?? 0) + 1;
     if (row.device) aggDeviceTypeCounts[row.device] = (aggDeviceTypeCounts[row.device] ?? 0) + 1;
 
-    if (row.timestamp !== null) {
-        const d = new Date(row.timestamp);
-        aggDayCounts[d.getDay()]++;
-        aggHourCounts[d.getHours()]++;
-    }
+    if (row.dayOfWeek !== null) aggDayCounts[row.dayOfWeek]++;
+    if (row.hour !== null)      aggHourCounts[row.hour]++;
 
     const country = currentLocationMap.get(row.ipAddress);
     if (country) aggLocationCounts[country] = (aggLocationCounts[country] ?? 0) + 1;
+    else aggUnknownIPs.add(row.ipAddress);
 
     // ── Chart aggregates ──
     aggTotalRequests++;
@@ -295,6 +290,7 @@ function recomputeAggregates(filteredData: NginxLog[]) {
     aggDeviceTypeCounts = {};       aggDayCounts      = new Array(7).fill(0);
     aggHourCounts       = new Array(24).fill(0);
     aggLocationCounts   = {};
+    aggUnknownIPs       = new Set();
 
     aggActivityReq   = new Map(); aggActivityUsers = new Map();
     aggActivitySucc  = new Map(); aggActivityTotal = new Map();
@@ -352,6 +348,7 @@ function aggregates() {
         dayCounts:      aggDayCounts,
         hourCounts:     aggHourCounts,
         locationCounts: aggLocationCounts,
+        unknownIPs:     Array.from(aggUnknownIPs),
         // Chart pre-computed data
         activityBuckets,
         activityRateBuckets,
