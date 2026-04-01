@@ -14,7 +14,6 @@ export const Location = memo(function Location({
     setFilterLocation,
     noFetch,
     demo,
-    dataReady,
 }: {
     unknownIPs: string[];
     locationCounts: Record<string, number>;
@@ -24,9 +23,7 @@ export const Location = memo(function Location({
     setFilterLocation: (location: string | null) => void;
     noFetch: boolean;
     demo: boolean;
-    dataReady: boolean;
 }) {
-    const [loading, setLoading] = useState(false);
     const [endpointDisabled, setEndpointDisabled] = useState(false);
 
     const fetchLocations = async (ipAddresses: string[]) => {
@@ -41,7 +38,6 @@ export const Location = memo(function Location({
                 return [];
             }
             console.log('Failed to fetch locations');
-            setLoading(false);
             return [];
         }
 
@@ -81,7 +77,6 @@ export const Location = memo(function Location({
         if (noFetch || endpointDisabled || unknownIPs.length === 0) return;
 
         const fetchData = async () => {
-            setLoading(true);
             try {
                 let fetchedLocations: LocationData[];
                 if (demo) {
@@ -105,7 +100,6 @@ export const Location = memo(function Location({
             } catch (err) {
                 console.error('Error fetching locations:', err);
             }
-            setLoading(false);
         };
 
         fetchData();
@@ -140,17 +134,9 @@ export const Location = memo(function Location({
                         {locations.length} {locations.length === 1 ? 'location' : 'locations'}
                     </div>
                 )}
-                {locations.length === 0 && dataReady && (
-                    <div className="flex-1">
-                        {loading ? (
-                            <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center">
-                                <div className="spinner"></div>
-                            </div>
-                        ) : (
-                            <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center" title={`No locations found`}>
-                                <div className="text-[var(--text-muted3)]">No locations found</div>
-                            </div>
-                        )}
+                {locations.length === 0 && (
+                    <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center" title="No locations found">
+                        <div className="text-[var(--text-muted3)]">No locations found</div>
                     </div>
                 )}
             </div>

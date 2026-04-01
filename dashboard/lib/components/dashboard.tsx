@@ -445,7 +445,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                         />
 
                         <div className="flex max-[1500px]:flex-col">
-                            <Location unknownIPs={unknownIPs} locationCounts={locationCounts} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} dataReady={dataReady} />
+                            <Location unknownIPs={unknownIPs} locationCounts={locationCounts} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
                             <div className="min-[1500px]:w-[27em]">
                                 <Device
                                     clientCounts={clientCounts}
