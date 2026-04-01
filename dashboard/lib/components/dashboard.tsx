@@ -121,6 +121,9 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const hourRef = useRef<number | null>(null);
     hourRef.current = filter.hour;
 
+    const [dataReady, setDataReady] = useState(false);
+    const dataReadyRef = useRef(false);
+
     // logsRef holds the master sorted log array. It is updated synchronously on
     // every parse batch so the filteredData useMemo and the aggregate worker always
     // see fresh data without waiting for a React state flush.
@@ -330,6 +333,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             });
             setDisplayDayOfWeek(dayOfWeekRef.current);
             setDisplayHour(hourRef.current);
+            if (!dataReadyRef.current) { dataReadyRef.current = true; setDataReady(true); }
 
             if (type === 'append') {
                 if (e.data.newFiltered && hasOtherFiltersRef.current) {
@@ -530,6 +534,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                             step={step}
                             periodLabels={periodLabels}
                             period={filter.period}
+                            dataReady={dataReady}
                         />
 
                         <div className="flex max-[1500px]:flex-col">

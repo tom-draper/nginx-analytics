@@ -41,6 +41,7 @@ function Activity({
     step,
     periodLabels,
     period,
+    dataReady,
 }: {
     activityBuckets:     Array<{ ts: number; req: number; users: number }>;
     activityRateBuckets: Array<{ ts: number; success: number; total: number }>;
@@ -48,6 +49,7 @@ function Activity({
     step:                number;
     periodLabels:        { start: string; end: string };
     period:              Period;
+    dataReady:           boolean;
 }) {
     const [containerWidth, setContainerWidth] = useState<number>(0);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -92,15 +94,23 @@ function Activity({
             ],
         };
 
-        // Match the original: only set an explicit max so the chart doesn't extend
-        // past "now" for fixed periods. min is left to Chart.js auto-range — its
-        // default bar-chart offset (half an interval at each end) then aligns the
-        // first and last bars with the edges of the success-rate strip below.
-        const xMax = period === 'all time' ? undefined : Math.floor(Date.now() / step) * step;
+        // For fixed periods: cap at the current bucket boundary so the chart
+        // doesn't extend past "now". min is left to Chart.js auto-range — with
+        // offset:true it adds half a step at each end, aligning bars with the
+        // success-rate strip edges.
+        // For "all time": pin min/max to the actual data extent so Chart.js's
+        // offset:true adds the correct half-step padding at both edges regardless
+        // of container width (fixes clipped edge bars in fullscreen).
+        const xMin = period === 'all time' && activityBuckets.length > 0
+            ? activityBuckets[0].ts
+            : undefined;
+        const xMax = period === 'all time'
+            ? (activityBuckets.length > 0 ? activityBuckets[activityBuckets.length - 1].ts : undefined)
+            : Math.floor(Date.now() / step) * step;
 
         const plotOptions: object = {
             scales: {
-                x: { type: 'time', display: false, grid: { display: false }, max: xMax },
+                x: { type: 'time', display: false, grid: { display: false }, min: xMin, max: xMax, offset: true },
                 y: { display: false, title: { text: 'Requests' }, min: 0, stacked: true },
             },
             maintainAspectRatio: false,
@@ -150,11 +160,11 @@ function Activity({
             <div className="relative w-full h-[200px] pt-2">
                 {plotData && plotOptions ? (
                     <Bar data={plotData} options={plotOptions} />
-                ) : (
+                ) : dataReady ? (
                     <div className="flex items-center justify-center w-full h-full text-sm text-[var(--text-muted3)]">
                         No data
                     </div>
-                )}
+                ) : null}
             </div>
 
             <div className="pb-0 pt-2" ref={containerRef}>
