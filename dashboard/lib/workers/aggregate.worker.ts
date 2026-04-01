@@ -375,16 +375,14 @@ ctx.onmessage = (e: MessageEvent<LogsMessage | FilterMessage>) => {
         internalLogs = mergeSorted(internalLogs, msg.logs);
 
         const start = currentFilter ? periodStart(currentFilter.period) : null;
-        const newFiltered: NginxLog[] = [];
 
         for (const row of msg.logs) {
             if (!currentFilter || !currentSettings || passesFilter(row, currentFilter, currentSettings, currentLocationMap, start)) {
-                newFiltered.push(row);
                 accumulateIntoAggregates(row);
             }
         }
 
-        ctx.postMessage({ type: 'append', newFiltered, ...aggregates(), filterVersion: msg.filterVersion });
+        ctx.postMessage({ ...aggregates(), filterVersion: msg.filterVersion });
 
     } else {
         currentFilter    = msg.filter;
@@ -436,10 +434,6 @@ ctx.onmessage = (e: MessageEvent<LogsMessage | FilterMessage>) => {
 
         recomputeAggregates(filteredData);
 
-        if (!hasOtherFilters) {
-            ctx.postMessage({ type: 'aggregatesOnly', ...aggregates(), filterVersion: msg.filterVersion });
-        } else {
-            ctx.postMessage({ type: 'replace', filteredData, ...aggregates(), filterVersion: msg.filterVersion });
-        }
+        ctx.postMessage({ ...aggregates(), filterVersion: msg.filterVersion });
     }
 };
