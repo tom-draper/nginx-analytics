@@ -111,6 +111,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const hasOtherFiltersRef = useRef(false);
     hasOtherFiltersRef.current = hasOtherFilters;
 
+    // Tracks the dayOfWeek value that the current dayCounts were computed for,
+    // so UsageDay's bar layout and counts always update in the same render.
+    const [displayDayOfWeek, setDisplayDayOfWeek] = useState<number | null>(null);
+    const dayOfWeekRef = useRef<number | null>(null);
+    dayOfWeekRef.current = filter.dayOfWeek;
+
     // logsRef holds the master sorted log array. It is updated synchronously on
     // every parse batch so the filteredData useMemo and the aggregate worker always
     // see fresh data without waiting for a React state flush.
@@ -140,6 +146,8 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         osCounts:         {} as Record<string, number>,
         deviceTypeCounts: {} as Record<string, number>,
         dayCounts:        new Array(7).fill(0) as number[],
+        hourCounts:       new Array(24).fill(0) as number[],
+        locationCounts:   {} as Record<string, number>,
         // Chart pre-computed by the aggregate worker — eliminates O(n) main-thread
         // iteration in Activity, SuccessRate, Requests, and Users.
         activityBuckets:     [] as Array<{ ts: number; req: number; users: number }>,
@@ -276,6 +284,8 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             osCounts: Record<string, number>;
             deviceTypeCounts: Record<string, number>;
             dayCounts: number[];
+            hourCounts: number[];
+            locationCounts: Record<string, number>;
             // chart pre-computed data
             activityBuckets: Array<{ ts: number; req: number; users: number }>;
             activityRateBuckets: Array<{ ts: number; success: number; total: number }>;
@@ -297,7 +307,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
             const {
                 endpointCounts, referrerCounts, responseSizes, versionCounts,
-                clientCounts, osCounts, deviceTypeCounts, dayCounts,
+                clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts,
                 activityBuckets, activityRateBuckets,
                 trendReqBuckets, trendUserBuckets, trendRateBuckets,
                 timeUnit, step, periodLabels,
@@ -306,12 +316,13 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
             setAggregates({
                 endpointCounts, referrerCounts, responseSizes, versionCounts,
-                clientCounts, osCounts, deviceTypeCounts, dayCounts,
+                clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts,
                 activityBuckets, activityRateBuckets,
                 trendReqBuckets, trendUserBuckets, trendRateBuckets,
                 timeUnit, step, periodLabels,
                 totalRequests, totalUsers, totalHours, successCount, successTotal,
             });
+            setDisplayDayOfWeek(dayOfWeekRef.current);
 
             if (type === 'append') {
                 if (e.data.newFiltered && hasOtherFiltersRef.current) {
@@ -344,9 +355,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     useEffect(() => {
         if (!aggregateWorkerRef.current) return;
         filterVersionRef.current++;
-        const locationEntries: [string, string][] = filter.location !== null
-            ? [...locationMap.entries()].map(([ip, loc]) => [ip, loc.country])
-            : [];
+        const locationEntries: [string, string][] = [...locationMap.entries()].map(([ip, loc]) => [ip, loc.country]);
         aggregateWorkerRef.current.postMessage({
             type: 'filter',
             filter,
@@ -427,7 +436,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
     const {
         endpointCounts, referrerCounts, responseSizes, versionCounts,
-        clientCounts, osCounts, deviceTypeCounts, dayCounts,
+        clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts,
         activityBuckets, activityRateBuckets,
         trendReqBuckets, trendUserBuckets, trendRateBuckets,
         timeUnit, step, periodLabels,
@@ -517,7 +526,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                         />
 
                         <div className="flex max-[1500px]:flex-col">
-                            <Location data={deferredFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
+                            <Location data={deferredFilteredData} locationCounts={locationCounts} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
                             <div className="min-[1500px]:w-[27em]">
                                 <Device
                                     clientCounts={clientCounts}
@@ -537,8 +546,8 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                         <div className="w-inherit flex max-[1500px]:flex-col">
                             <div className="max-[1500px]:!w-full flex-1 min-w-0 flex flex-col">
-                                <UsageTime data={deferredFilteredData} filterHour={filter.hour} setFilterHour={setHour} />
-                                <UsageDay dayCounts={dayCounts} filterDayOfWeek={filter.dayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
+                                <UsageTime hourCounts={hourCounts} filterHour={filter.hour} setFilterHour={setHour} />
+                                <UsageDay dayCounts={dayCounts} filterDayOfWeek={displayDayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={filter.period} noFetch={fileUpload} demo={demo} />
                                 {/* <LiveGlobeCard logs={logs} locationMap={locationMap} /> */}
                             </div>

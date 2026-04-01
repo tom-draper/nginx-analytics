@@ -8,6 +8,7 @@ const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 
 export const Location = memo(function Location({
     data,
+    locationCounts,
     locationMap,
     setLocationMap,
     filterLocation,
@@ -16,6 +17,7 @@ export const Location = memo(function Location({
     demo,
 }: {
     data: NginxLog[];
+    locationCounts: Record<string, number>;
     locationMap: Map<string, LocationData>;
     setLocationMap: Dispatch<SetStateAction<Map<string, LocationData>>>;
     filterLocation: string | null;
@@ -124,14 +126,8 @@ export const Location = memo(function Location({
     }, [unknownIPs, noFetch, demo, endpointDisabled]);
 
     const locations = useMemo(() => {
-        const locationCount: { [location: string]: number } = {};
-        for (const row of data) {
-            const location = locationMap.get(row.ipAddress);
-            if (!location || (!location.country && !location.city)) continue;
-            locationCount[location.country] = (locationCount[location.country] ?? 0) + 1;
-        }
-        return Object.entries(locationCount).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' }));
-    }, [data, locationMap]);
+        return Object.entries(locationCounts).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' }));
+    }, [locationCounts]);
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-53">

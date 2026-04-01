@@ -23,6 +23,8 @@ let aggClientCounts:      Record<string, number> = {};
 let aggOsCounts:          Record<string, number> = {};
 let aggDeviceTypeCounts:  Record<string, number> = {};
 let aggDayCounts:         number[] = new Array(7).fill(0);
+let aggHourCounts:        number[] = new Array(24).fill(0);
+let aggLocationCounts:    Record<string, number> = {};
 
 // ─── Chart pre-computation ────────────────────────────────────────────────────
 // All four chart components (Activity, SuccessRate, Requests, Users) previously
@@ -217,7 +219,14 @@ function accumulateIntoAggregates(row: NginxLog) {
     if (row.os)     aggOsCounts[row.os]          = (aggOsCounts[row.os]    ?? 0) + 1;
     if (row.device) aggDeviceTypeCounts[row.device] = (aggDeviceTypeCounts[row.device] ?? 0) + 1;
 
-    if (row.timestamp !== null) aggDayCounts[new Date(row.timestamp).getDay()]++;
+    if (row.timestamp !== null) {
+        const d = new Date(row.timestamp);
+        aggDayCounts[d.getDay()]++;
+        aggHourCounts[d.getHours()]++;
+    }
+
+    const country = currentLocationMap.get(row.ipAddress);
+    if (country) aggLocationCounts[country] = (aggLocationCounts[country] ?? 0) + 1;
 
     // ── Chart aggregates ──
     aggTotalRequests++;
@@ -284,6 +293,8 @@ function recomputeAggregates(filteredData: NginxLog[]) {
     aggResponseSizes   = [];        aggVersionCounts  = {};
     aggClientCounts    = {};        aggOsCounts       = {};
     aggDeviceTypeCounts = {};       aggDayCounts      = new Array(7).fill(0);
+    aggHourCounts       = new Array(24).fill(0);
+    aggLocationCounts   = {};
 
     aggActivityReq   = new Map(); aggActivityUsers = new Map();
     aggActivitySucc  = new Map(); aggActivityTotal = new Map();
@@ -339,6 +350,8 @@ function aggregates() {
         osCounts:       aggOsCounts,
         deviceTypeCounts: aggDeviceTypeCounts,
         dayCounts:      aggDayCounts,
+        hourCounts:     aggHourCounts,
+        locationCounts: aggLocationCounts,
         // Chart pre-computed data
         activityBuckets,
         activityRateBuckets,

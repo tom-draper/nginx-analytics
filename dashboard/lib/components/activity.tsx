@@ -75,7 +75,7 @@ function Activity({
             datasets: [
                 {
                     label: 'Users',
-                    data: activityBuckets.map(({ ts, users }) => ({ x: new Date(ts), y: users })) as any,
+                    data: activityBuckets.map(({ ts, users }) => ({ x: ts, y: users })) as any,
                     backgroundColor: '#00bfff',
                     borderWidth: 0,
                     borderRadius: 4,
@@ -83,7 +83,7 @@ function Activity({
                 },
                 {
                     label: 'Requests',
-                    data: activityBuckets.map(({ ts, req, users }) => ({ x: new Date(ts), y: req - users })) as any,
+                    data: activityBuckets.map(({ ts, req, users }) => ({ x: ts, y: req - users })) as any,
                     backgroundColor: 'rgb(26, 240, 115)',
                     borderWidth: 0,
                     borderRadius: 4,
