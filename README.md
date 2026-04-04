@@ -36,7 +36,7 @@ If you don’t want to run the dashboard or TUI on the same server as NGINX, <a 
 
 #### Locations
 
-Geolocation by IP address can be set up easily, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-City.mmdb` or `GeoLite2-Country.mmdb` file in the root folder of the agent or dashboard deployment on your server.
+Geolocation by IP address can be set up easily, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-City.mmdb` (preferred) or `GeoLite2-Country.mmdb` file in the root folder of the agent or dashboard deployment on your server.
 
 #### System Monitoring
 
