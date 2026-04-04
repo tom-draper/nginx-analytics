@@ -28,7 +28,7 @@ Deploy the TUI to the server running NGINX. Access via SSH.
 
 Follow the <a href="./cli/README.md">TUI deployment guide</a>.
 
-#### Remote Setup
+### Remote Setup
 
 If you don’t want to run the dashboard or TUI on the same server as NGINX, <a href="./agent/README.md">deploy the agent</a> to stream logs securely.
 
