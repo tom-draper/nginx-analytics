@@ -137,7 +137,9 @@ curl https://yourdomain.com/api/logs/status
 > {"status": "ok", "accessLogStatus": "ok", "errorLogStatus": "ok", ...}
 ```
 
-### Dashboard
+### Analytics
+
+#### Dashboard
 
 Host the dashboard on your preferred platform, with an environment variable set pointing to the agent's endpoint.
 
@@ -145,13 +147,17 @@ Host the dashboard on your preferred platform, with an environment variable set 
 NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 ```
 
-### CLI
+#### TUI
 
-Run the CLI from anywhere, with an environment variable set pointing to the agent's endpoint.
+Run the TUI from anywhere, with an environment variable set pointing to the agent's endpoint.
 
 ```env
 NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 ```
+
+#### NGINX
+
+If deploying the agent to your server is not feasible, it's possible to update your existing NGINX config to directly serve your raw log files instead. Follow the <a href="./nginx/README.md">guide</a> for more information.
 
 ## Configuration
 
@@ -189,13 +195,6 @@ By default, the standard NGINX combined log format is assumed. If you use a cust
 
 ```env
 NGINX_ANALYTICS_LOG_FORMAT=$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
-```
-
-**Nginx Proxy Manager** uses the `vcombined` format which prepends `$host:$server_port` before the client IP. Point the agent at `/data/logs/` and set:
-
-```env
-NGINX_ANALYTICS_ACCESS_PATH=/data/logs
-NGINX_ANALYTICS_LOG_FORMAT=$host:$server_port $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
 ```
 
 ### System Monitoring
