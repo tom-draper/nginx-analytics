@@ -48,7 +48,7 @@ To enable location lookups, mount a [MaxMind GeoLite2](https://www.maxmind.com/e
 docker run -d \
   -p 5000:5000 \
   -v /var/log/nginx:/var/log/nginx:ro \
-  -v /path/to/GeoLite2-Country.mmdb:/app/GeoLite2-Country.mmdb \
+  -v /path/to/GeoLite2-City.mmdb:/app/GeoLite2-City.mmdb \
   -e NGINX_ANALYTICS_ACCESS_PATH=/var/log/nginx \
   -e NGINX_ANALYTICS_AUTH_TOKEN=your-auth-token \
   ghcr.io/tom-draper/nginx-analytics-agent:latest
@@ -137,9 +137,7 @@ curl https://yourdomain.com/api/logs/status
 > {"status": "ok", "accessLogStatus": "ok", "errorLogStatus": "ok", ...}
 ```
 
-### Analytics
-
-#### Dashboard
+### Dashboard
 
 Host the dashboard on your preferred platform, with an environment variable set pointing to the agent's endpoint.
 
@@ -149,7 +147,7 @@ NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
 
 #### TUI
 
-Run the TUI from anywhere, with an environment variable set pointing to the agent's endpoint.
+Run the TUI dashboard from anywhere, with an environment variable set pointing to the agent's endpoint.
 
 ```env
 NGINX_ANALYTICS_SERVER_URL=https://yourserver.com
