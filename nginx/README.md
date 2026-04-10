@@ -120,6 +120,24 @@ set_real_ip_from 10.0.0.0/8;
 real_ip_header X-Forwarded-For;
 ```
 
+## NGINX Proxy Manager
+
+NGINX Proxy Manager may use a slightly different log format to default NGINX.
+
+```nginx
+log_format combined '$remote_addr - $remote_user [$time_local] '
+                    '"$request" $status $body_bytes_sent '
+                    '"$http_referer" "$http_user_agent"';
+```
+
+It also stores logs in `/data/logs`.
+
+```env
+NGINX_ANALYTICS_LOG_FORMAT='$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"'
+NGINX_ANALYTICS_ACCESS_PATH=/data/logs
+NGINX_ANALYTICS_ERROR_PATH=/data/logs
+```
+
 ## Docker
 
 If your NGINX instance runs inside a Docker container, you'll need to mount the log directory to ensure logs are persisted outside of the container.
