@@ -1,6 +1,6 @@
 # NGINX Analytics Dashboard
 
-A full-stack log analytics dashboard, built with Next.js.
+A full-stack NGINX log analytics dashboard, built with Next.js.
 
 ## Deployment Guide
 
@@ -36,12 +36,25 @@ docker run -d \
   ghcr.io/tom-draper/nginx-analytics-dashboard:latest
 ```
 
+To enable location lookups, mount a [MaxMind GeoLite2](https://www.maxmind.com/en/geolite2/signup) database:
+
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -v /var/log/nginx:/var/log/nginx:ro \
+  -v /path/to/GeoLite2-City.mmdb:/app/GeoLite2-City.mmdb \
+  -e NGINX_ANALYTICS_ACCESS_PATH=/var/log/nginx \
+  ghcr.io/tom-draper/nginx-analytics-agent:latest
+```
+
 Or build locally:
 
 ```bash
 docker build -t nginx-analytics-dashboard .
 docker run -d -p 3000:3000 nginx-analytics-dashboard
 ```
+
+<br>
 
 In a `.env` file, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory containing your log files. It's likely to be the default location `/var/log/nginx/`.
 
@@ -110,7 +123,7 @@ NGINX_ANALYTICS_ERROR_PATH=/path/to/nginx/error.log
 
 ### Locations
 
-IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the root folder of the agent or dashboard deployment.
+IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-City.mmdb` (preferred) or `GeoLite2-Country.mmdb` file in the root folder of the agent or dashboard deployment.
 
 ### System Monitoring
 
