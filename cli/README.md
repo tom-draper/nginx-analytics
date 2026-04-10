@@ -19,21 +19,19 @@ ssh user@yourserver
 chmod +x /usr/local/bin/nginx-analytics
 ```
 
+> If your NGINX log path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
+>
+> ```env
+> NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
+> NGINX_ANALYTICS_ERROR_PATH=/path/to/error/logs
+> ```
+
 ### Option 2: Docker
 
-Pull the pre-built image:
+Pull the pre-built image from GitHub Container Registry:
 
 ```bash
 docker pull ghcr.io/tom-draper/nginx-analytics-cli:latest
-```
-
-**Remote mode** - connect to a running [agent](../agent/README.md):
-
-```bash
-docker run -it \
-  -e NGINX_ANALYTICS_SERVER_URL=http://your-agent:5000 \
-  -e NGINX_ANALYTICS_AUTH_TOKEN=your-token \
-  ghcr.io/tom-draper/nginx-analytics-cli
 ```
 
 **Local mode** - read log files directly (mount them as a volume):
@@ -41,30 +39,35 @@ docker run -it \
 ```bash
 docker run -it \
   -v /var/log/nginx:/var/log/nginx:ro \
-  ghcr.io/tom-draper/nginx-analytics-cli
+  -e NGINX_ANALYTICS_ACCESS_PATH=/var/log/nginx \
+  ghcr.io/tom-draper/nginx-analytics-cli:latest
 ```
 
-To enable location lookups, also mount your GeoLite2 database:
+**Remote mode** - connect to a running [agent](../agent/README.md):
+
+```bash
+docker run -it \
+  -e NGINX_ANALYTICS_SERVER_URL=https://your-agent.com \
+  -e NGINX_ANALYTICS_AUTH_TOKEN=your-token \
+  ghcr.io/tom-draper/nginx-analytics-cli:latest
+```
+
+To enable location lookups, mount a [MaxMind GeoLite2](https://www.maxmind.com/en/geolite2/signup) database:
 
 ```bash
 docker run -it \
   -v /var/log/nginx:/var/log/nginx:ro \
   -v /path/to/GeoLite2-City.mmdb:/app/GeoLite2-City.mmdb:ro \
-  ghcr.io/tom-draper/nginx-analytics-cli
+  -e NGINX_ANALYTICS_ACCESS_PATH=/var/log/nginx \
+  ghcr.io/tom-draper/nginx-analytics-cli:latest
 ```
 
-To build the image yourself, run from the repo root:
+Or build locally:
 
 ```bash
-docker build -f cli/Dockerfile -t nginx-analytics-cli .
+docker build -t nginx-analytics-cli .
+docker run -it nginx-analytics-cli
 ```
-
-> If your NGINX log path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
->
-> ```env
-> NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
-> NGINX_ANALYTICS_ERROR_PATH=/path/to/error/logs
-> ```
 
 ### Access Logs
 
