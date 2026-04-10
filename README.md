@@ -18,19 +18,19 @@ Follow the <a href="./dashboard/README.md">dashboard deployment guide</a>.
 
 Alternatively, drag-and-drop your `access.log` and `error.log` directly into the dashboard. Get started straight away on <a href="https://nginx.apianalytics.dev/dashboard">our deployment</a>.
 
-### TUI
+#### TUI
 
-For those that prefer to work in the terminal, a TUI is available as an alternative to the dashboard. 
+For those that prefer to work in the terminal, a TUI dashboard is available as an alternative. 
 
 ![Screenshot 2025-07-07 152340](https://github.com/user-attachments/assets/a9b4bdd7-0773-46da-8811-9bd47046a22c)
 
-Deploy the TUI to the server running NGINX. Access via SSH.
+Deploy the TUI dashboard to the server running NGINX. Access via SSH.
 
-Follow the <a href="./cli/README.md">TUI deployment guide</a>.
+Follow the <a href="./cli/README.md">TUI dashboard deployment guide</a>.
 
 ### Remote Setup
 
-If you don’t want to run the dashboard or TUI on the same server as NGINX, <a href="./agent/README.md">deploy the agent</a> to stream logs securely.
+If you don’t want to run the dashboard on the same server as NGINX, <a href="./agent/README.md">deploy the agent</a> to stream logs securely.
 
 ### Configuration
 
