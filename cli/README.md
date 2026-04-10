@@ -19,12 +19,19 @@ ssh user@yourserver
 chmod +x /usr/local/bin/nginx-analytics
 ```
 
-> If your NGINX log path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
->
-> ```env
-> NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
-> NGINX_ANALYTICS_ERROR_PATH=/path/to/error/logs
-> ```
+If your NGINX log path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
+
+```env
+NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
+NGINX_ANALYTICS_ERROR_PATH=/path/to/error/logs
+```
+
+If you are using the [agent](../agent/README.md), set the agent URL and the option auth token.
+
+```env
+NGINX_SERVER_URL=https://your-agent.com
+NGINX_ANALYTICS_AUTH_TOKEN=your-token
+```
 
 ### Option 2: Docker
 
