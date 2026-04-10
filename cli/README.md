@@ -26,7 +26,7 @@ NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
 NGINX_ANALYTICS_ERROR_PATH=/path/to/error/logs
 ```
 
-If you are using the [agent](../agent/README.md), set the agent URL and the option auth token.
+If you are using the [agent](../agent/README.md), set the agent URL and the optional auth token.
 
 ```env
 NGINX_SERVER_URL=https://your-agent.com
