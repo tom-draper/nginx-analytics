@@ -61,7 +61,7 @@ Deploying with HTTPS is always recommended. Without this, you risk exposing any 
 By default, the standard NGINX combined log format is supported. If you use a custom log format, set `NGINX_ANALYTICS_LOG_FORMAT` to match the `log_format` directive in your NGINX config.
 
 ```env
-NGINX_ANALYTICS_LOG_FORMAT=$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
+NGINX_ANALYTICS_LOG_FORMAT='$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"'
 ```
 
 To better configure NGINX to get the most out of your analytics, take a look at the <a href="./nginx/README.md">NGINX configuration guide</a>.
