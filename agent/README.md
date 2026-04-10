@@ -199,6 +199,16 @@ NGINX_ANALYTICS_LOG_FORMAT=$remote_addr - $remote_user [$time_local] "$request" 
 
 By default, system monitoring is disabled. To enable it, set the `NGINX_ANALYTICS_SYSTEM_MONITORING` environment variable to `true`, or with the `--system-monitoring` command line argument.
 
+```env
+NGINX_ANALYTICS_SYSTEM_MONITORING=true
+```
+
+You can control how often resource usage is polled by adjusting `NGINX_ANALYTICS_MONITOR_INTERVAL`.
+
+```env
+NGINX_ANALYTICS_SYSTEM_MONITORING=2000  # 2s interval (default)
+```
+
 #### HTTPS
 
 Deploying over a secure HTTPS connection is always recommended. Without this, you risk exposing any personal information within your log files such as IP addresses.
