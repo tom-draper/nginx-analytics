@@ -4,7 +4,7 @@ A full-stack NGINX log analytics dashboard, built with Next.js.
 
 ## Deployment Guide
 
-Deploy the Next.js dashboard on the same server as NGINX.
+### Option 1: Build from source
 
 ```bash
 git clone https://github.com/tom-draper/nginx-analytics.git
@@ -15,12 +15,19 @@ npm run build
 npm start
 ```
 
-> You can use `pm2` to run the dashboard as a background process.
-> ```bash
-> pm2 start npm --name "nginx-analytics" -- start
+You can use `pm2` to run the dashboard as a background process.
+```bash
+pm2 start npm --name "nginx-analytics" -- start
+```
+
+> If your NGINX log path is different from the default `/var/log/nginx`, set the correct path as an environment variable within a `.env` file.
+>
+> ```env
+> NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
+> NGINX_ANALYTICS_ERROR_PATH=/path/to/error/logs
 > ```
 
-Or use Docker if preferred.
+### Option 2: Docker
 
 Pull the prebuilt image from GitHub Container Registry:
 
@@ -28,11 +35,23 @@ Pull the prebuilt image from GitHub Container Registry:
 docker pull ghcr.io/tom-draper/nginx-analytics-dashboard:latest
 ```
 
+**Local mode** - read log files directly (mount them as a volume):
+
 ```bash
 docker run -d \
   -p 3000:3000 \
   -v /var/log/nginx:/var/log/nginx:ro \
   -e NGINX_ANALYTICS_ACCESS_PATH=/var/log/nginx \
+  ghcr.io/tom-draper/nginx-analytics-dashboard:latest
+```
+
+**Remote mode** - connect to a running [agent](../agent/README.md):
+
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -e NGINX_ANALYTICS_SERVER_URL=https://your-agent.com \
+  -e NGINX_ANALYTICS_AUTH_TOKEN=your-token \
   ghcr.io/tom-draper/nginx-analytics-dashboard:latest
 ```
 
@@ -52,14 +71,6 @@ Or build locally:
 ```bash
 docker build -t nginx-analytics-dashboard .
 docker run -d -p 3000:3000 nginx-analytics-dashboard
-```
-
-<br>
-
-In a `.env` file, set `NGINX_ANALYTICS_ACCESS_PATH` to point to the directory containing your log files. It's likely to be the default location `/var/log/nginx/`.
-
-```env
-NGINX_ANALYTICS_ACCESS_PATH=/path/to/nginx/access/logs
 ```
 
 You may need to update your NGINX configuration to make the app publically accessible.
