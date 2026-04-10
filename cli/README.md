@@ -1,6 +1,6 @@
-# NGINX Analytics CLI
+# NGINX Analytics TUI
 
-A log analytics dashboard TUI app, built with Go.
+A NGINX log analytics TUI dashboard, built with Go.
 
 ## Deployment Guide
 
@@ -27,9 +27,7 @@ Pull the pre-built image:
 docker pull ghcr.io/tom-draper/nginx-analytics-cli:latest
 ```
 
-The CLI is a TUI app, so `-it` is required to allocate a pseudo-TTY.
-
-**Remote mode** — connect to a running [agent](../agent/README.md):
+**Remote mode** - connect to a running [agent](../agent/README.md):
 
 ```bash
 docker run -it \
@@ -38,7 +36,7 @@ docker run -it \
   ghcr.io/tom-draper/nginx-analytics-cli
 ```
 
-**Local mode** — read log files directly (mount them as a volume):
+**Local mode** - read log files directly (mount them as a volume):
 
 ```bash
 docker run -it \
@@ -51,11 +49,11 @@ To enable location lookups, also mount your GeoLite2 database:
 ```bash
 docker run -it \
   -v /var/log/nginx:/var/log/nginx:ro \
-  -v /path/to/GeoLite2-Country.mmdb:/app/GeoLite2-Country.mmdb:ro \
+  -v /path/to/GeoLite2-City.mmdb:/app/GeoLite2-City.mmdb:ro \
   ghcr.io/tom-draper/nginx-analytics-cli
 ```
 
-To build the image yourself, run from the **repo root** (required due to the shared agent dependency):
+To build the image yourself, run from the repo root:
 
 ```bash
 docker build -f cli/Dockerfile -t nginx-analytics-cli .
@@ -90,7 +88,7 @@ NGINX_ANALYTICS_ERROR_PATH=/path/to/nginx/error.log
 
 ### Locations
 
-IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-Country.mmdb` or `GeoLite2-City.mmdb` file in the same folder as the executable.
+IP-location inference can be set up quickly, utilising <a href="https://www.maxmind.com/en/home">MaxMind's free GeoLite2 database</a>. Simply drop the `GeoLite2-City.mmdb` (preferred) or `GeoLite2-Country.mmdb` file in the root folder of the agent or dashboard deployment.
 
 ### System Monitoring
 
