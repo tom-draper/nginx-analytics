@@ -142,6 +142,12 @@ type FilterMessage = {
     filterVersion: number;
 };
 
+type LocationMapMessage = {
+    type: 'locationMap';
+    locationMap: [string, string][];
+    filterVersion: number;
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function mergeSorted(a: NginxLog[], b: NginxLog[]): NginxLog[] {
@@ -427,9 +433,61 @@ function aggregates() {
     };
 }
 
+// ─── Recompute helper ─────────────────────────────────────────────────────────
+
+function recomputeWithCurrentFilter(filterVersion: number) {
+    if (!currentFilter || !currentSettings) return;
+
+    const start = periodStart(currentFilter.period);
+    const hasOtherFilters =
+        currentFilter.location !== null || currentFilter.path !== null ||
+        currentFilter.method !== null   || currentFilter.status !== null ||
+        currentSettings.ignore404 || currentSettings.excludeBots ||
+        currentSettings.ignoreParams || (currentSettings.excludedEndpoints ?? []).length > 0 ||
+        currentFilter.referrer !== null || currentFilter.hour !== null ||
+        currentFilter.dayOfWeek !== null || currentFilter.client !== null ||
+        currentFilter.os !== null || currentFilter.deviceType !== null ||
+        currentFilter.version !== null;
+
+    // Determine data range for 'all time' bucket config before recompute
+    let rangeMs: number | undefined;
+    if (currentFilter.period === 'all time' && internalLogs.length > 0) {
+        let minTs: number | null = null, maxTs: number | null = null;
+        for (let i = 0; i < internalLogs.length; i++) {
+            if (internalLogs[i].timestamp !== null) { minTs = internalLogs[i].timestamp!; break; }
+        }
+        for (let i = internalLogs.length - 1; i >= 0; i--) {
+            if (internalLogs[i].timestamp !== null) { maxTs = internalLogs[i].timestamp!; break; }
+        }
+        if (minTs !== null && maxTs !== null) rangeMs = maxTs - minTs;
+    }
+    updateBucketConfig(currentFilter.period, rangeMs);
+
+    let filteredData: NginxLog[];
+
+    if (start === null && !hasOtherFilters) {
+        filteredData = internalLogs;
+    } else {
+        const startIdx = start !== null ? lowerBound(internalLogs, start) : 0;
+        if (!hasOtherFilters) {
+            filteredData = startIdx === 0 ? internalLogs : internalLogs.slice(startIdx);
+        } else {
+            filteredData = [];
+            for (let i = startIdx; i < internalLogs.length; i++) {
+                if (passesFilter(internalLogs[i], currentFilter, currentSettings, currentLocationMap, null)) {
+                    filteredData.push(internalLogs[i]);
+                }
+            }
+        }
+    }
+
+    recomputeAggregates(filteredData);
+    ctx.postMessage({ ...aggregates(), filterVersion });
+}
+
 // ─── Message handler ──────────────────────────────────────────────────────────
 
-ctx.onmessage = (e: MessageEvent<LogsMessage | FilterMessage>) => {
+ctx.onmessage = (e: MessageEvent<LogsMessage | FilterMessage | LocationMapMessage>) => {
     const msg = e.data;
 
     if (msg.type === 'logs') {
@@ -445,56 +503,14 @@ ctx.onmessage = (e: MessageEvent<LogsMessage | FilterMessage>) => {
 
         ctx.postMessage({ ...aggregates(), filterVersion: msg.filterVersion });
 
-    } else {
-        currentFilter    = msg.filter;
-        currentSettings  = msg.settings;
+    } else if (msg.type === 'locationMap') {
         currentLocationMap = new Map(msg.locationMap);
+        recomputeWithCurrentFilter(msg.filterVersion);
 
-        const start = periodStart(currentFilter.period);
-        const hasOtherFilters =
-            currentFilter.location !== null || currentFilter.path !== null ||
-            currentFilter.method !== null   || currentFilter.status !== null ||
-            currentSettings.ignore404 || currentSettings.excludeBots ||
-            currentSettings.ignoreParams || (currentSettings.excludedEndpoints ?? []).length > 0 ||
-            currentFilter.referrer !== null || currentFilter.hour !== null ||
-            currentFilter.dayOfWeek !== null || currentFilter.client !== null ||
-            currentFilter.os !== null || currentFilter.deviceType !== null ||
-            currentFilter.version !== null;
-
-        // Determine data range for 'all time' bucket config before recompute
-        let rangeMs: number | undefined;
-        if (currentFilter.period === 'all time' && internalLogs.length > 0) {
-            let minTs: number | null = null, maxTs: number | null = null;
-            for (let i = 0; i < internalLogs.length; i++) {
-                if (internalLogs[i].timestamp !== null) { minTs = internalLogs[i].timestamp!; break; }
-            }
-            for (let i = internalLogs.length - 1; i >= 0; i--) {
-                if (internalLogs[i].timestamp !== null) { maxTs = internalLogs[i].timestamp!; break; }
-            }
-            if (minTs !== null && maxTs !== null) rangeMs = maxTs - minTs;
-        }
-        updateBucketConfig(currentFilter.period, rangeMs);
-
-        let filteredData: NginxLog[];
-
-        if (start === null && !hasOtherFilters) {
-            filteredData = internalLogs;
-        } else {
-            const startIdx = start !== null ? lowerBound(internalLogs, start) : 0;
-            if (!hasOtherFilters) {
-                filteredData = startIdx === 0 ? internalLogs : internalLogs.slice(startIdx);
-            } else {
-                filteredData = [];
-                for (let i = startIdx; i < internalLogs.length; i++) {
-                    if (passesFilter(internalLogs[i], currentFilter, currentSettings, currentLocationMap, null)) {
-                        filteredData.push(internalLogs[i]);
-                    }
-                }
-            }
-        }
-
-        recomputeAggregates(filteredData);
-
-        ctx.postMessage({ ...aggregates(), filterVersion: msg.filterVersion });
+    } else {
+        currentFilter      = msg.filter;
+        currentSettings    = msg.settings;
+        currentLocationMap = new Map(msg.locationMap);
+        recomputeWithCurrentFilter(msg.filterVersion);
     }
 };

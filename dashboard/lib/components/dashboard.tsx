@@ -281,8 +281,10 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         locationMapEntriesRef.current = [...locationMap.entries()].map(([ip, loc]) => [ip, loc.country]);
     }, [locationMap]);
 
-    // Send filter/settings/locationMap to the aggregate worker whenever any of them change.
+    // Send filter/settings to the aggregate worker whenever they change.
     // The worker re-runs a full filter+aggregate and returns updated aggregates.
+    // locationMap is read from a ref so the already-serialized value is included
+    // without re-transferring the full map on unrelated locationMap updates.
     useEffect(() => {
         if (!aggregateWorkerRef.current) return;
         filterVersionRef.current++;
@@ -293,7 +295,20 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             locationMap: locationMapEntriesRef.current,
             filterVersion: filterVersionRef.current,
         });
-    }, [filter, settings, locationMap]);
+    }, [filter, settings]);
+
+    // Send the location map to the worker only when it actually changes (new IPs
+    // geolocated). Separating this from the filter effect avoids copying the full
+    // map on every filter/settings change.
+    useEffect(() => {
+        if (!aggregateWorkerRef.current) return;
+        filterVersionRef.current++;
+        aggregateWorkerRef.current.postMessage({
+            type: 'locationMap',
+            locationMap: locationMapEntriesRef.current,
+            filterVersion: filterVersionRef.current,
+        });
+    }, [locationMap]);
 
     useEffect(() => {
         if (fileUpload) {
