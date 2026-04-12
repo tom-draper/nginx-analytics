@@ -54,6 +54,11 @@ const polarAreaPlugins = [{
 export default memo(function UsageTime({ hourCounts, filterHour, setFilterHour }: { hourCounts: number[], filterHour: number | null, setFilterHour: (hour: number | null) => void }) {
     const chartRef = useRef<ChartJS>(null);
 
+    // Keep a ref so the stable options object can read the latest filterHour
+    // without being recreated every time it changes.
+    const filterHourRef = useRef(filterHour);
+    filterHourRef.current = filterHour;
+
     const plotData = useMemo<ChartData<"polarArea"> | null>(() => {
         // Reorder the hours to start with 12 (noon) at the top
         const reorderedHours = [...hourCounts.slice(12), ...hourCounts.slice(0, 12)];
@@ -72,6 +77,8 @@ export default memo(function UsageTime({ hourCounts, filterHour, setFilterHour }
         };
     }, [hourCounts, filterHour]);
 
+    // options is created once — onClick reads filterHourRef so it always sees the
+    // current value without options needing to be rebuilt on each filterHour change.
     const options = useMemo(() => ({
         plugins: {
             legend: { display: false },
@@ -102,7 +109,7 @@ export default memo(function UsageTime({ hourCounts, filterHour, setFilterHour }
             if (elements.length === 0) return;
             const index = elements[0].index;
             const hour = (index + 12) % 24;
-            setFilterHour(filterHour === hour ? null : hour);
+            setFilterHour(filterHourRef.current === hour ? null : hour);
         },
         onHover: (event: any, elements: any[]) => {
             if (event.native?.target) {
@@ -111,7 +118,7 @@ export default memo(function UsageTime({ hourCounts, filterHour, setFilterHour }
         },
         responsive: true,
         maintainAspectRatio: false,
-    }), [filterHour]);
+    }), [setFilterHour]);
 
     return (
         <div className="card px-4 py-3 m-3">

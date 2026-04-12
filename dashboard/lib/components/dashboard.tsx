@@ -426,7 +426,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             <main className="sm:p-12 !pt-7">
                 <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => {
                     const start = periodStart(filter.period);
-                    const locMap = new Map([...locationMap.entries()].map(([ip, loc]) => [ip, loc.country]));
+                    const locMap = new Map(locationMapEntriesRef.current);
                     const filtered = logsRef.current.filter(row => {
                         if (start !== null && (row.timestamp === null || row.timestamp < start)) return false;
                         if (filter.location !== null && locMap.get(row.ipAddress) !== filter.location) return false;

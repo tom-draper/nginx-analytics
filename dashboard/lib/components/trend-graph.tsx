@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 const WIDTH = 100;
 const HEIGHT = 40;
 
@@ -12,7 +14,7 @@ export function consolidateTo6(values: number[]): number[] {
     return result;
 }
 
-export default function TrendGraph({ values, color = 'var(--highlight)' }: {
+export default memo(function TrendGraph({ values, color = 'var(--highlight)' }: {
     values: number[];
     color?: string;
 }) {
@@ -52,4 +54,4 @@ export default function TrendGraph({ values, color = 'var(--highlight)' }: {
             <path d={d} fill={color} stroke="none" />
         </svg>
     );
-}
+})
