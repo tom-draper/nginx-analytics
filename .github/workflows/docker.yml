@@ -96,8 +96,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  build-cli:
-    name: Build and push CLI image
+  build-tui:
+    name: Build and push TUI image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -118,7 +118,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/nginx-analytics-cli
+          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/nginx-analytics-tui
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -132,7 +132,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./cli/Dockerfile
+          file: ./tui/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
