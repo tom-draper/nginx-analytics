@@ -10,6 +10,38 @@ type Endpoint = {
     count: number
 }
 
+const TOP_N = 50;
+
+function siftDown(heap: Endpoint[], i: number, size: number) {
+    while (true) {
+        const left = 2 * i + 1, right = 2 * i + 2;
+        let smallest = i;
+        if (left < size && heap[left].count < heap[smallest].count) smallest = left;
+        if (right < size && heap[right].count < heap[smallest].count) smallest = right;
+        if (smallest === i) break;
+        [heap[i], heap[smallest]] = [heap[smallest], heap[i]];
+        i = smallest;
+    }
+}
+
+// O(N log TOP_N) min-heap selection — avoids a full O(N log N) sort when there
+// are more than TOP_N unique endpoints.
+function topEndpoints(items: Endpoint[]): Endpoint[] {
+    if (items.length <= TOP_N) return items.sort((a, b) => b.count - a.count);
+
+    const heap = items.slice(0, TOP_N);
+    for (let i = Math.floor(TOP_N / 2) - 1; i >= 0; i--) siftDown(heap, i, TOP_N);
+
+    for (let i = TOP_N; i < items.length; i++) {
+        if (items[i].count > heap[0].count) {
+            heap[0] = items[i];
+            siftDown(heap, 0, TOP_N);
+        }
+    }
+
+    return heap.sort((a, b) => b.count - a.count);
+}
+
 export const Endpoints = memo(function Endpoints({ endpointCounts, filterPath, filterMethod, filterStatus, setEndpoint, setStatus }: { endpointCounts: Map<string, number>, filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void }) {
     const endpoints = useMemo(() => {
         const result: Endpoint[] = [];
@@ -17,7 +49,7 @@ export const Endpoints = memo(function Endpoints({ endpointCounts, filterPath, f
             const [path, method, status] = key.split('::');
             result.push({ path, method, count, status: status ? parseInt(status) : undefined });
         }
-        return result.sort((a, b) => b.count - a.count).slice(0, 50);
+        return topEndpoints(result);
     }, [endpointCounts])
 
     const allSameMethod = useMemo(() => {
