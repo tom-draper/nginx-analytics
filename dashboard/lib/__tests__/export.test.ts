@@ -36,6 +36,8 @@ function makeLog(overrides: Partial<NginxLog> = {}): NginxLog {
     return {
         ipAddress: '1.2.3.4',
         timestamp: new Date('2024-06-15T09:30:00.000Z').getTime(),
+        hour: 9,
+        dayOfWeek: 6,
         method: 'GET',
         path: '/api/users',
         httpVersion: 'HTTP/1.1',
@@ -43,6 +45,10 @@ function makeLog(overrides: Partial<NginxLog> = {}): NginxLog {
         responseSize: 512,
         referrer: 'https://example.com',
         userAgent: 'Mozilla/5.0',
+        client: '',
+        os: '',
+        device: '',
+        isBot: false,
         ...overrides,
     }
 }

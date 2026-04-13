@@ -1,7 +1,6 @@
 import { PolarArea } from "react-chartjs-2";
 import { useMemo, useRef, memo } from "react";
 import { Chart as ChartJS, ChartData, RadialLinearScale, ArcElement, Tooltip } from "chart.js";
-import { NginxLog } from "@/lib/types";
 
 ChartJS.register(RadialLinearScale, ArcElement, Tooltip);
 
@@ -52,24 +51,16 @@ const polarAreaPlugins = [{
     }
 }];
 
-export default memo(function UsageTime({ data, filterHour, setFilterHour }: { data: NginxLog[], filterHour: number | null, setFilterHour: (hour: number | null) => void }) {
+export default memo(function UsageTime({ hourCounts, filterHour, setFilterHour }: { hourCounts: number[], filterHour: number | null, setFilterHour: (hour: number | null) => void }) {
     const chartRef = useRef<ChartJS>(null);
 
+    // Keep a ref so the stable options object can read the latest filterHour
+    // without being recreated every time it changes.
+    const filterHourRef = useRef(filterHour);
+    filterHourRef.current = filterHour;
+
     const plotData = useMemo<ChartData<"polarArea"> | null>(() => {
-        const hourCounts = new Array(24).fill(0);
-
-        // Assuming `data` has timestamps
-        for (const row of data) {
-            const date = row.timestamp; // Adjust this based on your data format
-            if (date === null) {
-                continue;
-            }
-            const hour = new Date(date).getHours();
-            hourCounts[hour]++;
-        }
-
         // Reorder the hours to start with 12 (noon) at the top
-        // This means we need to shift the array so that index 12 becomes index 0
         const reorderedHours = [...hourCounts.slice(12), ...hourCounts.slice(0, 12)];
         const timeLabels = Array.from({ length: 24 }, (_, i) => {
             const hour = (i + 12) % 24;
@@ -84,8 +75,10 @@ export default memo(function UsageTime({ data, filterHour, setFilterHour }: { da
             labels: timeLabels,
             datasets: [{ label: 'Requests per Hour', data: reorderedHours, backgroundColor, borderWidth: 1, borderColor: 'rgba(0,0,0, 0.05)' }]
         };
-    }, [data, filterHour]);
+    }, [hourCounts, filterHour]);
 
+    // options is created once — onClick reads filterHourRef so it always sees the
+    // current value without options needing to be rebuilt on each filterHour change.
     const options = useMemo(() => ({
         plugins: {
             legend: { display: false },
@@ -116,7 +109,7 @@ export default memo(function UsageTime({ data, filterHour, setFilterHour }: { da
             if (elements.length === 0) return;
             const index = elements[0].index;
             const hour = (index + 12) % 24;
-            setFilterHour(filterHour === hour ? null : hour);
+            setFilterHour(filterHourRef.current === hour ? null : hour);
         },
         onHover: (event: any, elements: any[]) => {
             if (event.native?.target) {
@@ -125,7 +118,7 @@ export default memo(function UsageTime({ data, filterHour, setFilterHour }: { da
         },
         responsive: true,
         maintainAspectRatio: false,
-    }), [filterHour]);
+    }), [setFilterHour]);
 
     return (
         <div className="card px-4 py-3 m-3">

@@ -7,11 +7,10 @@ import { Navigation } from "@/lib/components/navigation";
 import { Requests } from "@/lib/components/requests";
 import { SuccessRate } from "@/lib/components/success-rate";
 import Users from "@/lib/components/users";
-import { Version, getVersion } from "@/lib/components/version";
+import { Version } from "@/lib/components/version";
 import { Location } from "@/lib/components/location";
 import { type Location as LocationType } from "@/lib/location"
-import { parseNginxLogs } from "@/lib/parse";
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Device } from "@/lib/components/device/device";
 import { type Filter, newFilter } from "@/lib/filter";
 import { Period, periodStart } from "@/lib/period";
@@ -27,39 +26,23 @@ import LiveGlobeCard from "@/lib/components/live-globe-card";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
-import { getClient, getOS, getDevice } from "@/lib/get-device-info";
-import { isBotOrCrawler } from "@/lib/user-agent";
+import { getVersion } from "@/lib/get-version";
 import dynamic from "next/dynamic";
 
 const NetworkBackground = dynamic(() => import("./network-background"), { ssr: false });
 const FileUpload = dynamic(() => import("./file-upload"));
 
-const EMPTY_MAP = new Map<string, LocationType>();
-const PARSE_CHUNK_SIZE = 5000;
-
-// Comparator: sort NginxLog entries ascending by timestamp (nulls sort to the end)
-const compareByTimestamp = (a: NginxLog, b: NginxLog): number => {
-    if (a.timestamp === null) return 1;
-    if (b.timestamp === null) return -1;
-    return a.timestamp - b.timestamp; // both numbers
-};
-
-// Binary search: returns the first index in (sorted) logs whose timestamp >= targetMs.
-// Logs with null timestamps are sorted to the END of the array (compareByTimestamp puts
-// nulls last), so a null at mid means the answer lies before mid — set hi = mid.
-function lowerBound(logs: NginxLog[], targetMs: number): number {
-    let lo = 0, hi = logs.length;
-    while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        const t = logs[mid].timestamp;
-        if (t !== null && t < targetMs) {
-            lo = mid + 1;
-        } else {
-            // t === null (null zone at end) or t >= targetMs: answer is at or before mid
-            hi = mid;
-        }
+function mergeSorted(a: NginxLog[], b: NginxLog[]): NginxLog[] {
+    const result: NginxLog[] = new Array(a.length + b.length);
+    let i = 0, j = 0, k = 0;
+    while (i < a.length && j < b.length) {
+        const ta = a[i].timestamp, tb = b[j].timestamp;
+        if (ta === null || (tb !== null && ta <= tb)) result[k++] = a[i++];
+        else result[k++] = b[j++];
     }
-    return lo;
+    while (i < a.length) result[k++] = a[i++];
+    while (j < b.length) result[k++] = b[j++];
+    return result;
 }
 
 function getUrl(positions: { filename: string; position: number }[] | null, includeCompressed: boolean) {
@@ -78,8 +61,6 @@ function inPeriod(date: number, period: Period) {
 
 export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload: boolean, demo: boolean, logFormat?: string }) {
     const [accessLogs, setAccessLogs] = useState<string[]>([]);
-    const [logs, setLogs] = useState<NginxLog[]>([]);
-
     const [errorLogs, setErrorLogs] = useState<string[]>([]);
 
     const [locationMap, setLocationMap] = useState<Map<string, LocationType>>(new Map());
@@ -89,6 +70,50 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
     const [filter, setFilter] = useState<Filter>(newFilter());
     const [, startTransition] = useTransition();
+
+    // Tracks the filter values that the current aggregates were computed for, so
+    // UsageDay/UsageTime layout and counts always update in the same render.
+    const [displayDayOfWeek, setDisplayDayOfWeek] = useState<number | null>(null);
+    const dayOfWeekRef = useRef<number | null>(null);
+    dayOfWeekRef.current = filter.dayOfWeek;
+
+    const [displayHour, setDisplayHour] = useState<number | null>(null);
+    const hourRef = useRef<number | null>(null);
+    hourRef.current = filter.hour;
+
+    const [dataReady, setDataReady] = useState(false);
+    const dataReadyRef = useRef(false);
+
+    const logsRef = useRef<NginxLog[]>([]);
+
+    const [aggregates, setAggregates] = useState({
+        endpointCounts:   new Map<string, number>(),
+        referrerCounts:   new Map<string, number>(),
+        histogram:        null as { bins: number[]; binLabels: string[]; min: number; avg: number; max: number } | null,
+        versionCounts:    {} as Record<string, number>,
+        clientCounts:     {} as Record<string, number>,
+        osCounts:         {} as Record<string, number>,
+        deviceTypeCounts: {} as Record<string, number>,
+        dayCounts:        new Array(7).fill(0) as number[],
+        hourCounts:       new Array(24).fill(0) as number[],
+        locationCounts:   {} as Record<string, number>,
+        unknownIPs:       [] as string[],
+        // Chart pre-computed by the aggregate worker — eliminates O(n) main-thread
+        // iteration in Activity, SuccessRate, Requests, and Users.
+        activityBuckets:     [] as Array<{ ts: number; req: number; users: number }>,
+        activityRateBuckets: [] as Array<{ ts: number; success: number; total: number }>,
+        trendReqBuckets:     [] as number[],
+        trendUserBuckets:    [] as number[],
+        trendRateBuckets:    [] as Array<{ success: number; total: number }>,
+        timeUnit:            'day' as 'minute' | 'hour' | 'day',
+        step:                86400000,
+        periodLabels:        { start: '', end: '' } as { start: string; end: string },
+        totalRequests:       0,
+        totalUsers:          0,
+        totalHours:          1,
+        successCount:        0,
+        successTotal:        0,
+    });
 
     const setPeriod = useCallback((period: Period) => {
         startTransition(() => setFilter((previous) => ({ ...previous, period })))
@@ -135,65 +160,155 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     }, [])
 
     const parsedAccessCount = useRef(0);
-    const parseCancelRef = useRef(false);
+    const batchIdRef = useRef(0);
+    const workerRef = useRef<Worker | null>(null);
+    const filterVersionRef = useRef(0);
+    const aggregateWorkerRef = useRef<Worker | null>(null);
 
     useEffect(() => {
-        if (accessLogs.length <= parsedAccessCount.current) return;
+        const worker = new Worker(new URL('../workers/parse.worker.ts', import.meta.url));
+        workerRef.current = worker;
+
+        worker.onmessage = (e: MessageEvent<{ parsed: NginxLog[]; batchId: number; isFirstBatch: boolean }>) => {
+            const { parsed, batchId, isFirstBatch } = e.data;
+            if (batchId !== batchIdRef.current || parsed.length === 0) return;
+
+            if (isFirstBatch) {
+                let maxDate = parsed[0].timestamp;
+                for (const log of parsed) {
+                    if (log.timestamp !== null && (maxDate === null || log.timestamp > maxDate)) {
+                        maxDate = log.timestamp;
+                    }
+                }
+                if (maxDate) {
+                    if (inPeriod(maxDate, 'week')) setPeriod('week');
+                    else if (inPeriod(maxDate, 'month')) setPeriod('month');
+                    else if (inPeriod(maxDate, '6 months')) setPeriod('6 months');
+                    else setPeriod('all time');
+                }
+            }
+
+            // Merge sorted batch into logsRef synchronously (O(n) merge).
+            logsRef.current = mergeSorted(logsRef.current, parsed);
+
+            // Forward parsed batch to aggregate worker for incremental filter+aggregate
+            aggregateWorkerRef.current?.postMessage({
+                type: 'logs',
+                logs: parsed,
+                filterVersion: filterVersionRef.current,
+            });
+        };
+
+        return () => worker.terminate();
+    }, []);
+
+    useEffect(() => {
+        const worker = new Worker(new URL('../workers/aggregate.worker.ts', import.meta.url));
+        aggregateWorkerRef.current = worker;
+
+        worker.onmessage = (e: MessageEvent<{
+            // existing aggregates
+            endpointCounts: Map<string, number>;
+            referrerCounts: Map<string, number>;
+            histogram: { bins: number[]; binLabels: string[]; min: number; avg: number; max: number } | null;
+            versionCounts: Record<string, number>;
+            clientCounts: Record<string, number>;
+            osCounts: Record<string, number>;
+            deviceTypeCounts: Record<string, number>;
+            dayCounts: number[];
+            hourCounts: number[];
+            locationCounts: Record<string, number>;
+            unknownIPs: string[];
+            // chart pre-computed data
+            activityBuckets: Array<{ ts: number; req: number; users: number }>;
+            activityRateBuckets: Array<{ ts: number; success: number; total: number }>;
+            trendReqBuckets: number[];
+            trendUserBuckets: number[];
+            trendRateBuckets: Array<{ success: number; total: number }>;
+            timeUnit: 'minute' | 'hour' | 'day';
+            step: number;
+            periodLabels: { start: string; end: string };
+            totalRequests: number;
+            totalUsers: number;
+            totalHours: number;
+            successCount: number;
+            successTotal: number;
+            filterVersion: number;
+        }>) => {
+            const { filterVersion } = e.data;
+            if (filterVersion !== filterVersionRef.current) return;
+
+            const {
+                endpointCounts, referrerCounts, histogram, versionCounts,
+                clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts, unknownIPs,
+                activityBuckets, activityRateBuckets,
+                trendReqBuckets, trendUserBuckets, trendRateBuckets,
+                timeUnit, step, periodLabels,
+                totalRequests, totalUsers, totalHours, successCount, successTotal,
+            } = e.data;
+
+            setAggregates({
+                endpointCounts, referrerCounts, histogram, versionCounts,
+                clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts, unknownIPs,
+                activityBuckets, activityRateBuckets,
+                trendReqBuckets, trendUserBuckets, trendRateBuckets,
+                timeUnit, step, periodLabels,
+                totalRequests, totalUsers, totalHours, successCount, successTotal,
+            });
+            setDisplayDayOfWeek(dayOfWeekRef.current);
+            setDisplayHour(hourRef.current);
+            if (!dataReadyRef.current) { dataReadyRef.current = true; setDataReady(true); }
+        };
+
+        return () => worker.terminate();
+    }, []);
+
+    useEffect(() => {
+        if (accessLogs.length <= parsedAccessCount.current || !workerRef.current) return;
 
         const newRawLogs = accessLogs.slice(parsedAccessCount.current);
         const isFirstBatch = parsedAccessCount.current === 0;
         parsedAccessCount.current = accessLogs.length;
 
-        const initPeriod = (parsed: ReturnType<typeof parseNginxLogs>) => {
-            let maxDate = parsed[0].timestamp;
-            for (const log of parsed) {
-                if (log.timestamp !== null && (maxDate === null || log.timestamp > maxDate)) {
-                    maxDate = log.timestamp;
-                }
-            }
-            if (maxDate) {
-                if (inPeriod(maxDate, 'week')) setPeriod('week');
-                else if (inPeriod(maxDate, 'month')) setPeriod('month');
-                else if (inPeriod(maxDate, '6 months')) setPeriod('6 months');
-                else setPeriod('all time');
-            }
-        };
+        batchIdRef.current++;
+        workerRef.current.postMessage({ logs: newRawLogs, logFormat, batchId: batchIdRef.current, isFirstBatch });
+    }, [accessLogs]);
 
-        // Small batches: parse synchronously
-        if (newRawLogs.length <= PARSE_CHUNK_SIZE) {
-            const newParsed = parseNginxLogs(newRawLogs, logFormat);
-            if (newParsed.length === 0) return;
-            if (isFirstBatch) initPeriod(newParsed);
-            setLogs(prev => [...prev, ...newParsed].sort(compareByTimestamp));
-            return;
-        }
+    // Keep a pre-serialized locationMap so we only pay the serialization cost when
+    // locationMap actually changes — not on every filter/settings change.
+    const locationMapEntriesRef = useRef<[string, string][]>([]);
+    useEffect(() => {
+        locationMapEntriesRef.current = [...locationMap.entries()].map(([ip, loc]) => [ip, loc.country]);
+    }, [locationMap]);
 
-        // Large batches: chunk with setTimeout to avoid blocking the main thread,
-        // but accumulate all results and update state only once at the end.
-        parseCancelRef.current = false;
-        let offset = 0;
-        const allParsed: ReturnType<typeof parseNginxLogs> = [];
-        const processChunk = () => {
-            if (parseCancelRef.current) return;
-            const chunk = newRawLogs.slice(offset, offset + PARSE_CHUNK_SIZE);
-            if (chunk.length === 0) return;
-            const parsed = parseNginxLogs(chunk, logFormat);
-            if (parsed.length > 0) allParsed.push(...parsed);
-            offset += PARSE_CHUNK_SIZE;
-            if (offset < newRawLogs.length) {
-                setTimeout(processChunk, 0);
-            } else {
-                // All chunks done — single state update
-                if (allParsed.length > 0) {
-                    if (isFirstBatch) initPeriod(allParsed);
-                    setLogs(prev => [...prev, ...allParsed].sort(compareByTimestamp));
-                }
-            }
-        };
-        processChunk();
+    // Send filter/settings to the aggregate worker whenever they change.
+    // The worker re-runs a full filter+aggregate and returns updated aggregates.
+    // locationMap is read from a ref so the already-serialized value is included
+    // without re-transferring the full map on unrelated locationMap updates.
+    useEffect(() => {
+        if (!aggregateWorkerRef.current) return;
+        filterVersionRef.current++;
+        aggregateWorkerRef.current.postMessage({
+            type: 'filter',
+            filter,
+            settings,
+            locationMap: locationMapEntriesRef.current,
+            filterVersion: filterVersionRef.current,
+        });
+    }, [filter, settings]);
 
-        return () => { parseCancelRef.current = true; };
-    }, [accessLogs])
+    // Send the location map to the worker only when it actually changes (new IPs
+    // geolocated). Separating this from the filter effect avoids copying the full
+    // map on every filter/settings change.
+    useEffect(() => {
+        if (!aggregateWorkerRef.current) return;
+        filterVersionRef.current++;
+        aggregateWorkerRef.current.postMessage({
+            type: 'locationMap',
+            locationMap: locationMapEntriesRef.current,
+            filterVersion: filterVersionRef.current,
+        });
+    }, [locationMap]);
 
     useEffect(() => {
         if (fileUpload) {
@@ -259,133 +374,14 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         return () => clearInterval(interval);
     }, [demo, fileUpload]);
 
-    // Only track locationMap when a location filter is active — avoids recomputing
-    // filteredData on every IP-resolution batch when no location filter is set.
-    const effectiveLocationMap = filter.location !== null ? locationMap : EMPTY_MAP;
-
-    const filteredData = useMemo(() => {
-        const hasOtherFilters =
-            filter.location !== null
-            || filter.path !== null
-            || filter.method !== null
-            || filter.status !== null
-            || settings.ignore404
-            || settings.excludeBots
-            || settings.ignoreParams
-            || (settings.excludedEndpoints ?? []).length > 0
-            || filter.referrer !== null
-            || filter.hour !== null
-            || filter.dayOfWeek !== null
-            || filter.client !== null
-            || filter.os !== null
-            || filter.deviceType !== null
-            || filter.version !== null;
-
-        const start = periodStart(filter.period);
-
-        // Fast path: "all time" with no other active filters — return logs directly
-        if (start === null && !hasOtherFilters) {
-            return logs;
-        }
-
-        // Binary search to skip logs that are before the period start
-        const startIdx = start !== null ? lowerBound(logs, start) : 0;
-
-        // Fast path: period-only filter with nothing else — return the slice directly
-        if (!hasOtherFilters) {
-            return startIdx === 0 ? logs : logs.slice(startIdx);
-        }
-
-        const validStatus = (status: number | null) => {
-            if (status === null || filter.status === null) {
-                return true;
-            }
-            if (typeof filter.status === 'number') {
-                return status === filter.status;
-            }
-            for (const range of filter.status) {
-                if (range[0] <= status && range[1] >= status) {
-                    return true;
-                }
-            }
-            return false;
-        };
-
-        const excludedEndpoints = settings.excludedEndpoints ?? [];
-
-        const needsDate = filter.hour !== null || filter.dayOfWeek !== null;
-        const needsDeviceInfo = filter.client !== null || filter.os !== null || filter.deviceType !== null;
-
-        const result: NginxLog[] = [];
-        for (let i = startIdx; i < logs.length; i++) {
-            const row = logs[i];
-            const rowPath = settings.ignoreParams ? row.path.split('?')[0] : row.path;
-            const d = needsDate && row.timestamp !== null ? new Date(row.timestamp) : null;
-            if (
-                (filter.location === null || effectiveLocationMap.get(row.ipAddress)?.country === filter.location)
-                && (filter.path === null || row.path === filter.path)
-                && (filter.method === null || row.method === filter.method)
-                && (filter.status === null || validStatus(row.status))
-                && (!settings.ignore404 || row.status !== 404)
-                && (!settings.excludeBots || !isBotOrCrawler(row.userAgent))
-                && (excludedEndpoints.length === 0 || !excludedEndpoints.includes(rowPath))
-                && (filter.referrer === null || row.referrer === filter.referrer)
-                && (filter.hour === null || (d !== null && d.getHours() === filter.hour))
-                && (filter.dayOfWeek === null || (d !== null && d.getDay() === filter.dayOfWeek))
-                && (filter.version === null || getVersion(row.path) === filter.version)
-                && (!needsDeviceInfo || (
-                    (filter.client === null || getClient(row.userAgent) === filter.client)
-                    && (filter.os === null || getOS(row.userAgent) === filter.os)
-                    && (filter.deviceType === null || getDevice(row.userAgent) === filter.deviceType)
-                ))
-            ) {
-                result.push(row);
-            }
-        }
-        return result;
-    }, [logs, filter, settings, effectiveLocationMap]);
-
-    // Defer heavy re-renders when filteredData changes (e.g. switching to "All time").
-    // Components receive the previous dataset while React computes the new one in the
-    // background, keeping the UI responsive instead of freezing for seconds.
-    const deferredFilteredData = useDeferredValue(filteredData);
-
-    // Single pass over deferredFilteredData to compute all derived values
-    const { endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts } = useMemo(() => {
-        const endpointCounts = new Map<string, number>();
-        const referrerCounts = new Map<string, number>();
-        const responseSizes: number[] = [];
-        const versionCounts: Record<string, number> = {};
-        const clientCounts: Record<string, number> = {};
-        const osCounts: Record<string, number> = {};
-        const deviceTypeCounts: Record<string, number> = {};
-        const dayCounts = new Array(7).fill(0);
-
-        for (const row of deferredFilteredData) {
-            const key = `${row.path}::${row.method}::${row.status ?? ''}`;
-            endpointCounts.set(key, (endpointCounts.get(key) ?? 0) + 1);
-
-            if (row.referrer && row.referrer !== '-') {
-                referrerCounts.set(row.referrer, (referrerCounts.get(row.referrer) ?? 0) + 1);
-            }
-
-            if (row.responseSize) responseSizes.push(row.responseSize);
-
-            const v = getVersion(row.path);
-            if (v) versionCounts[v] = (versionCounts[v] ?? 0) + 1;
-
-            const c = getClient(row.userAgent);
-            const o = getOS(row.userAgent);
-            const d = getDevice(row.userAgent);
-            if (c) clientCounts[c] = (clientCounts[c] ?? 0) + 1;
-            if (o) osCounts[o] = (osCounts[o] ?? 0) + 1;
-            if (d) deviceTypeCounts[d] = (deviceTypeCounts[d] ?? 0) + 1;
-
-            if (row.timestamp !== null) dayCounts[new Date(row.timestamp).getDay()]++;
-        }
-
-        return { endpointCounts, referrerCounts, responseSizes, versionCounts, clientCounts, osCounts, deviceTypeCounts, dayCounts };
-    }, [deferredFilteredData]);
+    const {
+        endpointCounts, referrerCounts, histogram, versionCounts,
+        clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts, unknownIPs,
+        activityBuckets, activityRateBuckets,
+        trendReqBuckets, trendUserBuckets, trendRateBuckets,
+        timeUnit, step, periodLabels,
+        totalRequests, totalUsers, totalHours, successCount, successTotal,
+    } = aggregates;
 
     if (fileUpload && accessLogs.length === 0) {
         return (
@@ -428,7 +424,40 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     return (
         <div>
             <main className="sm:p-12 !pt-7">
-                <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => { exportCSV(logs) }} />
+                <Settings settings={settings} setSettings={setSettings} showSettings={showSettings} setShowSettings={setShowSettings} filter={filter} exportCSV={() => {
+                    const start = periodStart(filter.period);
+                    const locMap = new Map(locationMapEntriesRef.current);
+                    const filtered = logsRef.current.filter(row => {
+                        if (start !== null && (row.timestamp === null || row.timestamp < start)) return false;
+                        if (filter.location !== null && locMap.get(row.ipAddress) !== filter.location) return false;
+                        if (filter.path !== null && row.path !== filter.path) return false;
+                        if (filter.method !== null && row.method !== filter.method) return false;
+                        if (settings.ignore404 && row.status === 404) return false;
+                        if (settings.excludeBots && row.isBot) return false;
+                        if (filter.referrer !== null && row.referrer !== filter.referrer) return false;
+                        if (filter.version !== null && getVersion(row.path) !== filter.version) return false;
+                        if (filter.client !== null && row.client !== filter.client) return false;
+                        if (filter.os !== null && row.os !== filter.os) return false;
+                        if (filter.deviceType !== null && row.device !== filter.deviceType) return false;
+                        if (filter.status !== null) {
+                            if (row.status === null) return false;
+                            if (typeof filter.status === 'number') {
+                                if (row.status !== filter.status) return false;
+                            } else {
+                                if (!filter.status.some(([lo, hi]) => row.status! >= lo && row.status! <= hi)) return false;
+                            }
+                        }
+                        const excludedEndpoints = settings.excludedEndpoints ?? [];
+                        if (excludedEndpoints.length > 0) {
+                            const rowPath = settings.ignoreParams ? row.path.split('?')[0] : row.path;
+                            if (excludedEndpoints.includes(rowPath)) return false;
+                        }
+                        if (filter.hour !== null && row.hour !== filter.hour) return false;
+                        if (filter.dayOfWeek !== null && row.dayOfWeek !== filter.dayOfWeek) return false;
+                        return true;
+                    });
+                    exportCSV(filtered);
+                }} />
 
                 <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} isDemo={demo} />
 
@@ -437,12 +466,12 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                     <div className="min-[950px]:w-[27em]">
                         <div className="flex">
                             <Logo />
-                            <SuccessRate data={deferredFilteredData} period={filter.period} />
+                            <SuccessRate successCount={successCount} successTotal={successTotal} trendRateBuckets={trendRateBuckets} />
                         </div>
 
                         <div className="flex">
-                            <Requests data={deferredFilteredData} period={filter.period} />
-                            <Users data={deferredFilteredData} period={filter.period} />
+                            <Requests totalRequests={totalRequests} totalHours={totalHours} trendReqBuckets={trendReqBuckets} />
+                            <Users totalUsers={totalUsers} totalHours={totalHours} trendUserBuckets={trendUserBuckets} />
                         </div>
 
                         <div className="flex">
@@ -450,7 +479,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                         </div>
 
                         <div className="flex">
-                            <ResponseSize responseSizes={responseSizes} />
+                            <ResponseSize histogram={histogram} />
                         </div>
 
                         <div className="flex">
@@ -460,10 +489,18 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                     {/* Right */}
                     <div className="min-[950px]:flex-1 min-w-0">
-                        <Activity data={deferredFilteredData} period={filter.period} />
+                        <Activity
+                            activityBuckets={activityBuckets}
+                            activityRateBuckets={activityRateBuckets}
+                            timeUnit={timeUnit}
+                            step={step}
+                            periodLabels={periodLabels}
+                            period={filter.period}
+                            dataReady={dataReady}
+                        />
 
                         <div className="flex max-[1500px]:flex-col">
-                            <Location data={deferredFilteredData} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
+                            <Location unknownIPs={unknownIPs} locationCounts={locationCounts} locationMap={locationMap} setLocationMap={setLocationMap} filterLocation={filter.location} setFilterLocation={setLocation} noFetch={fileUpload} demo={demo} />
                             <div className="min-[1500px]:w-[27em]">
                                 <Device
                                     clientCounts={clientCounts}
@@ -483,8 +520,8 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
                         <div className="w-inherit flex max-[1500px]:flex-col">
                             <div className="max-[1500px]:!w-full flex-1 min-w-0 flex flex-col">
-                                <UsageTime data={deferredFilteredData} filterHour={filter.hour} setFilterHour={setHour} />
-                                <UsageDay dayCounts={dayCounts} filterDayOfWeek={filter.dayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
+                                <UsageTime hourCounts={hourCounts} filterHour={displayHour} setFilterHour={setHour} />
+                                <UsageDay dayCounts={dayCounts} filterDayOfWeek={displayDayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={filter.period} noFetch={fileUpload} demo={demo} />
                                 {/* <LiveGlobeCard logs={logs} locationMap={locationMap} /> */}
                             </div>

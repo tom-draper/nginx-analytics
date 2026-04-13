@@ -1,13 +1,13 @@
-import { NginxLog } from "@/lib/types";
-import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
-import { type Location } from '@/lib/location'
+import { Dispatch, memo, SetStateAction, useEffect, useMemo, useRef, useState } from "react";
+import { type Location as LocationData } from '@/lib/location'
 import { generateDemoLocations } from "../demo";
 
 
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 
-export function Location({
-    data,
+export const Location = memo(function Location({
+    unknownIPs,
+    locationCounts,
     locationMap,
     setLocationMap,
     filterLocation,
@@ -15,16 +15,17 @@ export function Location({
     noFetch,
     demo,
 }: {
-    data: NginxLog[];
-    locationMap: Map<string, Location>;
-    setLocationMap: Dispatch<SetStateAction<Map<string, Location>>>;
+    unknownIPs: string[];
+    locationCounts: Record<string, number>;
+    locationMap: Map<string, LocationData>;
+    setLocationMap: Dispatch<SetStateAction<Map<string, LocationData>>>;
     filterLocation: string | null;
     setFilterLocation: (location: string | null) => void;
     noFetch: boolean;
     demo: boolean;
 }) {
-    const [loading, setLoading] = useState(false);
     const [endpointDisabled, setEndpointDisabled] = useState(false);
+    const fetchedIPsRef = useRef(new Set<string>());
 
     const fetchLocations = async (ipAddresses: string[]) => {
         const response = await fetch('/api/location', {
@@ -38,7 +39,6 @@ export function Location({
                 return [];
             }
             console.log('Failed to fetch locations');
-            setLoading(false);
             return [];
         }
 
@@ -74,32 +74,20 @@ export function Location({
         }
     }
 
-    // Derive unknown IPs from data and locationMap
-    const unknownIPs = useMemo(() => {
-        const seen = new Set<string>();
-        const unknown: string[] = [];
-        for (const row of data) {
-            const ip = row.ipAddress;
-            if (!ip || seen.has(ip)) continue;
-            seen.add(ip);
-            if (!locationMap.has(ip)) {
-                unknown.push(ip);
-            }
-        }
-        return unknown;
-    }, [data, locationMap]);
-
     useEffect(() => {
         if (noFetch || endpointDisabled || unknownIPs.length === 0) return;
 
+        const newIPs = unknownIPs.filter(ip => !fetchedIPsRef.current.has(ip));
+        if (newIPs.length === 0) return;
+        newIPs.forEach(ip => fetchedIPsRef.current.add(ip));
+
         const fetchData = async () => {
-            setLoading(true);
             try {
-                let fetchedLocations: Location[];
+                let fetchedLocations: LocationData[];
                 if (demo) {
-                    fetchedLocations = generateDemoLocations(unknownIPs);
+                    fetchedLocations = generateDemoLocations(newIPs);
                 } else {
-                    fetchedLocations = await fetchLocations(unknownIPs);
+                    fetchedLocations = await fetchLocations(newIPs);
                 }
                 if (fetchedLocations.length > 0) {
                     setLocationMap((prevMap) => {
@@ -117,21 +105,14 @@ export function Location({
             } catch (err) {
                 console.error('Error fetching locations:', err);
             }
-            setLoading(false);
         };
 
         fetchData();
     }, [unknownIPs, noFetch, demo, endpointDisabled]);
 
     const locations = useMemo(() => {
-        const locationCount: { [location: string]: number } = {};
-        for (const row of data) {
-            const location = locationMap.get(row.ipAddress);
-            if (!location || (!location.country && !location.city)) continue;
-            locationCount[location.country] = (locationCount[location.country] ?? 0) + 1;
-        }
-        return Object.entries(locationCount).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' }));
-    }, [data, locationMap]);
+        return Object.entries(locationCounts).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' }));
+    }, [locationCounts]);
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-53">
@@ -159,19 +140,11 @@ export function Location({
                     </div>
                 )}
                 {locations.length === 0 && (
-                    <div className="flex-1">
-                        {loading ? (
-                            <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center">
-                                <div className="spinner"></div>
-                            </div>
-                        ) : (
-                            <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center" title={`No locations found`}>
-                                <div className="text-[var(--text-muted3)]">No locations found</div>
-                            </div>
-                        )}
+                    <div className="flex-1 rounded h-32 mx-1 my-1 grid place-items-center" title="No locations found">
+                        <div className="text-[var(--text-muted3)]">No locations found</div>
                     </div>
                 )}
             </div>
         </div >
     )
-}
+});

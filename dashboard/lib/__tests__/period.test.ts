@@ -9,6 +9,8 @@ import type { NginxLog } from '../types'
 const makeLog = (timestamp: Date | null): NginxLog => ({
     ipAddress: '1.1.1.1',
     timestamp: timestamp ? timestamp.getTime() : null,
+    hour: timestamp ? timestamp.getHours() : null,
+    dayOfWeek: timestamp ? timestamp.getDay() : null,
     method: 'GET',
     path: '/',
     httpVersion: 'HTTP/1.1',
@@ -16,6 +18,10 @@ const makeLog = (timestamp: Date | null): NginxLog => ({
     responseSize: 100,
     referrer: '-',
     userAgent: '-',
+    client: '',
+    os: '',
+    device: '',
+    isBot: false,
 })
 
 // ---------------------------------------------------------------------------

@@ -1,38 +1,15 @@
 import { NginxLog } from "./types"
 
 export const exportCSV = (logs: NginxLog[]) => {
-    const csv = [[
-        'timestamp',
-        'path',
-        'method',
-        'status',
-        'ipAddress',
-        'userAgent',
-        'responseSize',
-        'httpVersion',
-        'referrer',
-    ]]
+    let csv = 'timestamp,path,method,status,ipAddress,userAgent,responseSize,httpVersion,referrer\n';
     for (const log of logs) {
-        csv.push([
-            log.timestamp ? new Date(log.timestamp).toISOString() : '',
-            log.path ?? '',
-            log.method ?? '',
-            log.status ? log.status.toString() : '',
-            log.ipAddress ?? '',
-            log.userAgent ?? '',
-            log.responseSize ? log.responseSize.toString() : '',
-            log.httpVersion ?? '',
-            log.referrer ?? '',
-        ])
+        csv += `${log.timestamp ? new Date(log.timestamp).toISOString() : ''},${log.path ?? ''},${log.method ?? ''},${log.status ?? ''},${log.ipAddress ?? ''},${log.userAgent ?? ''},${log.responseSize ?? ''},${log.httpVersion ?? ''},${log.referrer ?? ''}\n`;
     }
 
-    const csvContent = csv.join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    const filename = `nginx-analytics-${new Date().toJSON().replace(/[: ._]/g, '-')}.csv`;
-    console.log(filename);
-    a.download = filename;
+    a.download = `nginx-analytics-${new Date().toJSON().replace(/[: ._]/g, '-')}.csv`;
     a.click()
 }

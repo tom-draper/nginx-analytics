@@ -1,7 +1,6 @@
 "use client";
 
 import { Dispatch, SetStateAction, useEffect, useRef, useState, useMemo } from "react";
-import { parseNginxErrors } from "../parse";
 import { NginxError } from "../types";
 import { Period, periodStart } from "../period";
 import { generateNginxErrorLogs } from "../demo";
@@ -154,6 +153,8 @@ export default function Errors({
 }) {
     const [parsedErrors, setParsedErrors] = useState<NginxError[]>([]);
     const parsedErrorCount = useRef(0);
+    const errorBatchIdRef = useRef(0);
+    const errorWorkerRef = useRef<Worker | null>(null);
     const [expandedError, setExpandedError] = useState<number | null>(null);
     const [filtering, setFiltering] = useState<string>("");
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -161,13 +162,22 @@ export default function Errors({
     const [selectedSeverities, setSelectedSeverities] = useState<string[]>([]);
 
     useEffect(() => {
-        if (errorLogs.length <= parsedErrorCount.current) return;
+        const worker = new Worker(new URL('../workers/error-parse.worker.ts', import.meta.url));
+        errorWorkerRef.current = worker;
+        worker.onmessage = (e: MessageEvent<{ parsed: NginxError[]; batchId: number }>) => {
+            const { parsed, batchId } = e.data;
+            if (batchId !== errorBatchIdRef.current || parsed.length === 0) return;
+            setParsedErrors(prev => [...prev, ...parsed]);
+        };
+        return () => worker.terminate();
+    }, []);
+
+    useEffect(() => {
+        if (errorLogs.length <= parsedErrorCount.current || !errorWorkerRef.current) return;
         const newRawLogs = errorLogs.slice(parsedErrorCount.current);
         parsedErrorCount.current = errorLogs.length;
-        const newParsed = parseNginxErrors(newRawLogs);
-        if (newParsed.length > 0) {
-            setParsedErrors(prev => [...prev, ...newParsed]);
-        }
+        errorBatchIdRef.current++;
+        errorWorkerRef.current.postMessage({ logs: newRawLogs, batchId: errorBatchIdRef.current });
     }, [errorLogs]);
 
     const errors = useMemo(() => {
@@ -267,6 +277,16 @@ export default function Errors({
         setSelectedSeverities([]);
     };
 
+    // Pre-compute a searchable string per error so filtering doesn't need to
+    // JSON.stringify on every keystroke.
+    const errorSearchStrings = useMemo(() =>
+        errors.map(e => [
+            e.level, e.message,
+            e.clientAddress ?? '', e.serverAddress ?? '',
+            e.request ?? '', e.referrer ?? '', e.host ?? '',
+        ].join(' ').toLowerCase()),
+    [errors]);
+
     // Filter errors based on search input and selected severities
     const filteredErrors = useMemo(() => {
         let filtered = errors;
@@ -274,9 +294,7 @@ export default function Errors({
         // Filter by text search
         if (filtering) {
             const lowercaseFilter = filtering.toLowerCase();
-            filtered = filtered.filter(error =>
-                JSON.stringify(error).toLowerCase().includes(lowercaseFilter)
-            );
+            filtered = errors.filter((_, i) => errorSearchStrings[i].includes(lowercaseFilter));
         }
 
         // Filter by severity
@@ -287,7 +305,7 @@ export default function Errors({
         }
 
         return filtered;
-    }, [errors, filtering, selectedSeverities]);
+    }, [errors, errorSearchStrings, filtering, selectedSeverities]);
 
     // Use custom sort hook
     const { sortedData: sortedErrors, sortConfig, requestSort } = useSortedData<NginxError>(

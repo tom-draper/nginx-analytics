@@ -10,6 +10,7 @@ type Endpoint = {
     count: number
 }
 
+
 export const Endpoints = memo(function Endpoints({ endpointCounts, filterPath, filterMethod, filterStatus, setEndpoint, setStatus }: { endpointCounts: Map<string, number>, filterPath: string | null, filterMethod: string | null, filterStatus: number | [number, number][] | null, setEndpoint: (path: string | null, method: string | null, status: number | [number, number][] | null) => void, setStatus: (status: number | [number, number][] | null) => void }) {
     const endpoints = useMemo(() => {
         const result: Endpoint[] = [];
@@ -20,31 +21,24 @@ export const Endpoints = memo(function Endpoints({ endpointCounts, filterPath, f
         return result.sort((a, b) => b.count - a.count).slice(0, 50);
     }, [endpointCounts])
 
+    const allSameMethod = useMemo(() => {
+        if (endpoints.length === 0) return false;
+        const method = endpoints[0].method;
+        return endpoints.every(e => e.method === method);
+    }, [endpoints]);
+
     const selectEndpoint = (path: string, method: string, status: number | null) => {
         if (endpoints.length <= 1) {
             setEndpoint(null, null, null)
         } else if (path !== filterPath) {
             setEndpoint(path, filterMethod, filterStatus)
-        } else if (method && path === filterPath && method !== filterMethod && !allSameMethod()) {
+        } else if (method && path === filterPath && method !== filterMethod && !allSameMethod) {
             setEndpoint(path, method, filterStatus)
-        } else if (status && path === filterPath && (method === filterMethod || allSameMethod()) && status !== filterStatus) {
+        } else if (status && path === filterPath && (method === filterMethod || allSameMethod) && status !== filterStatus) {
             setEndpoint(path, method, status)
         } else {
             setEndpoint(null, null, null)
         }
-    }
-
-    const allSameMethod = () => {
-        if (!endpoints) {
-            return false;
-        }
-        const method = endpoints[0].method;
-        for (let i = 1; i < endpoints.length; i++) {
-            if (endpoints[i].method !== method) {
-                return false;
-            }
-        }
-        return true;
     }
 
     const clearEndpointFilter = () => {

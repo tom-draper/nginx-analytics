@@ -5,11 +5,13 @@ import { Bar } from 'react-chartjs-2';
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-type Stats = {
-    min: number,
-    avg: number,
-    max: number
-}
+type Histogram = {
+    bins: number[];
+    binLabels: string[];
+    min: number;
+    avg: number;
+    max: number;
+};
 
 function formatBytes(bytes: number) {
     if (bytes === 0) {
@@ -21,113 +23,6 @@ function formatBytes(bytes: number) {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return Math.round(bytes / Math.pow(k, i)) + ' ' + (sizes[i] || 'Bytes');
-}
-
-function generateHistogramData(data: number[], maxBinCount = 500) {
-    // Filter out zero values
-    const filteredData = data.filter(value => value !== 0);
-
-    if (filteredData.length === 0) {
-        return { bins: [], binLabels: [] };
-    }
-
-    // Sort the data to calculate quartiles
-    const sortedData = [...filteredData].sort((a, b) => a - b);
-
-    // Calculate quartiles
-    const lqIndex = Math.floor(sortedData.length * 0.1);
-    const uqIndex = Math.floor(sortedData.length * 0.95);
-
-    const lowerQuartile = sortedData[lqIndex];
-    const upperQuartile = sortedData[uqIndex];
-
-    // Only use data between lower and upper quartiles
-    const quartileData = sortedData.filter(value =>
-        value >= lowerQuartile && value <= upperQuartile
-    );
-
-    if (quartileData.length === 0) {
-        return { bins: [], binLabels: [] };
-    }
-
-    // Get min and max from the quartile-filtered data
-    const { min, max } = minMax(quartileData)
-
-    // Round min and max to whole numbers
-    const roundedMin = Math.floor(min);
-    const roundedMax = Math.ceil(max);
-    const range = roundedMax - roundedMin;
-
-    // If range is less than or equal to maxBinCount, use unit-width bins
-    if (range <= maxBinCount) {
-        // Create array of bins with zeros
-        const bins = Array(range + 1).fill(0);
-        const binLabels = [];
-
-        // Create bin labels for each whole number
-        for (let i = 0; i <= range; i++) {
-            const value = roundedMin + i;
-            binLabels.push(formatBytes(value));
-        }
-
-        // Fill bins with counts
-        quartileData.forEach(value => {
-            const roundedValue = Math.round(value);
-            const binIndex = roundedValue - roundedMin;
-
-            // Ensure value falls within our bin range
-            if (binIndex >= 0 && binIndex < bins.length) {
-                bins[binIndex]++;
-            }
-        });
-
-        return { bins, binLabels };
-    }
-    // If range exceeds maxBinCount, use adaptive bin width
-    else {
-        const binWidth = range / maxBinCount;
-        const bins = Array(maxBinCount).fill(0);
-        const binLabels = [];
-
-        // Create bin labels
-        for (let i = 0; i < maxBinCount; i++) {
-            const binValue = roundedMin + i * binWidth;
-            binLabels.push(formatBytes(binValue));
-        }
-
-        // Fill bins
-        quartileData.forEach(value => {
-            // Special case for maximum value to avoid index out of bounds
-            if (value >= max) {
-                bins[maxBinCount - 1]++;
-                return;
-            }
-
-            const binIndex = Math.min(
-                Math.floor((value - roundedMin) / binWidth),
-                maxBinCount - 1
-            );
-
-            if (binIndex >= 0) {
-                bins[binIndex]++;
-            }
-        });
-
-        return { bins, binLabels };
-    }
-}
-
-const minMax = (values: number[]) => {
-    const result = { min: Infinity, max: -Infinity }
-    for (const value of values) {
-        if (value < result.min) {
-            result.min = value;
-        }
-        if (value > result.max) {
-            result.max = value;
-        }
-    }
-    return result;
 }
 
 // Static — no props/state, no reason to recreate on every render
@@ -159,22 +54,16 @@ const chartOptions = {
     },
 };
 
-export const ResponseSize = memo(function ResponseSize({ responseSizes }: { responseSizes: number[] }) {
+export const ResponseSize = memo(function ResponseSize({ histogram }: { histogram: Histogram | null }) {
     const chartRef = useRef(null);
 
-    const { stats, chartData } = useMemo(() => {
-        if (!responseSizes.length) return { stats: null, chartData: null };
-        const { min, max } = minMax(responseSizes);
-        const avg = responseSizes.reduce((sum, size) => sum + size, 0) / responseSizes.length;
-        const { bins, binLabels } = generateHistogramData(responseSizes);
+    const chartData = useMemo(() => {
+        if (!histogram || histogram.bins.length === 0) return null;
         return {
-            stats: { min, avg, max } as Stats,
-            chartData: {
-                labels: binLabels,
-                datasets: [{ data: bins, backgroundColor: 'rgb(26, 240, 115)', borderColor: 'rgb(26, 240, 115)', borderWidth: 0, borderRadius: 3, barPercentage: 1, categoryPercentage: 1 }]
-            }
+            labels: histogram.binLabels,
+            datasets: [{ data: histogram.bins, backgroundColor: 'rgb(26, 240, 115)', borderColor: 'rgb(26, 240, 115)', borderWidth: 0, borderRadius: 3, barPercentage: 1, categoryPercentage: 1 }]
         };
-    }, [responseSizes]);
+    }, [histogram]);
 
     return (
         <div className="card flex-2 px-4 py-3 m-3 relative min-h-46 overflow-hidden">
@@ -194,12 +83,12 @@ export const ResponseSize = memo(function ResponseSize({ responseSizes }: { resp
                 Response Size
             </h2>
             <div>
-                {stats && (
+                {histogram && (
                     <div className="flex mt-2 py-4">
                         <div className="flex-1 grid place-items-center">
                             <div className="px-4 py-3 rounded bg-[rgba(46,46,46,0.6)] backdrop-blur-[8px]">
                                 <div>
-                                    {formatBytes(stats.min)}
+                                    {formatBytes(histogram.min)}
                                 </div>
                                 <div className="text-center text-xs text-[var(--text-muted4)] mt-1">
                                     Min
@@ -209,7 +98,7 @@ export const ResponseSize = memo(function ResponseSize({ responseSizes }: { resp
                         <div className="flex-1 grid place-items-center">
                             <div className="px-4 py-3 rounded bg-[rgba(46,46,46,0.6)] backdrop-blur-[8px]">
                                 <div>
-                                    {formatBytes(stats.avg)}
+                                    {formatBytes(histogram.avg)}
                                 </div>
                                 <div className="text-center text-xs text-[var(--text-muted4)] mt-1">
                                     Avg
@@ -219,7 +108,7 @@ export const ResponseSize = memo(function ResponseSize({ responseSizes }: { resp
                         <div className="flex-1 grid place-items-center">
                             <div className="px-4 py-3 rounded bg-[rgba(46,46,46,0.6)] backdrop-blur-[8px]">
                                 <div>
-                                    {formatBytes(stats.max)}
+                                    {formatBytes(histogram.max)}
                                 </div>
                                 <div className="text-center text-xs text-[var(--text-muted4)] mt-1">
                                     Max

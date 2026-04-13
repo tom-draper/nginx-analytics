@@ -1,6 +1,8 @@
 export type NginxLog = {
     ipAddress: string;
     timestamp: number | null; // epoch milliseconds
+    hour: number | null;      // 0-23, local time
+    dayOfWeek: number | null; // 0=Sun … 6=Sat, local time
     method: string;
     path: string;
     httpVersion: string;
@@ -8,6 +10,10 @@ export type NginxLog = {
     responseSize: number | null;
     referrer: string;
     userAgent: string;
+    client: string;
+    os: string;
+    device: string;
+    isBot: boolean;
 }
 
 export type NginxError = {
