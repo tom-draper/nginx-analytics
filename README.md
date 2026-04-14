@@ -26,7 +26,7 @@ For those that prefer to work in the terminal, a TUI dashboard is available as a
 
 Deploy the TUI dashboard to the server running NGINX. Access via SSH.
 
-Follow the <a href="./cli/README.md">TUI dashboard deployment guide</a>.
+Follow the <a href="./tui/README.md">TUI dashboard deployment guide</a>.
 
 ### Remote Setup
 
