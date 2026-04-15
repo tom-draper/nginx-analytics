@@ -24,7 +24,6 @@ If your NGINX log path is different from the default `/var/log/nginx`, set the c
 
 ```env
 NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
-NGINX_ANALYTICS_ERROR_PATH=/path/to/error/logs
 ```
 
 If you are using the [agent](../agent/README.md), set the agent URL and the optional auth token.
