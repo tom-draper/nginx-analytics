@@ -25,7 +25,7 @@ If your NGINX log path is different from the default `/var/log/nginx`, set the c
 NGINX_ANALYTICS_ACCESS_PATH=/path/to/access/logs
 ```
 
-If you are using the [agent](../agent/README.md), set the agent URL and the optional auth token.
+If you are using the [agent](../agent/README.md), set the agent URL and the optional auth token instead.
 
 ```env
 NGINX_SERVER_URL=https://your-agent.com
