@@ -42,7 +42,7 @@ docker pull ghcr.io/tom-draper/nginx-analytics-tui:latest
 
 The TUI requires `-it` to allocate a pseudo-TTY.
 
-**Local mode** — read log files directly (mount them as a volume):
+Read log files directly (mount them as a volume):
 
 ```bash
 docker run -it \
@@ -51,7 +51,7 @@ docker run -it \
   ghcr.io/tom-draper/nginx-analytics-tui:latest
 ```
 
-**Remote mode** — connect to a running [agent](../agent/README.md):
+If you are using the [agent](../agent/README.md), set the agent URL and the optional auth token instead.
 
 ```bash
 docker run -it \
@@ -70,11 +70,12 @@ docker run -it \
   ghcr.io/tom-draper/nginx-analytics-tui:latest
 ```
 
-To build the image yourself, run from the **repo root** (required due to the shared agent dependency):
+To build the image yourself, run from the repo root (required due to the shared agent dependency):
 
 ```bash
 docker build -f tui/Dockerfile -t nginx-analytics-tui .
 ```
+
 ### Access Logs
 
 By default, when `NGINX_ANALYTICS_ACCESS_PATH` is set to a directory, all compressed (.gz) and uncompressed (.log) log files within the directory will be included. If you only intend to target a single `access.log` file, use a full filepath instead.
