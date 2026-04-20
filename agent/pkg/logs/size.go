@@ -55,10 +55,10 @@ func GetLogSizes(dirPath string) (LogSizes, error) {
 			summary.TotalSize += fileSize
 			summary.TotalFiles++
 
-			if extension == ".log" {
-				summary.LogFilesSize += fileSize
-				summary.LogFilesCount++
-			} else if extension == ".gz" || extension == ".zip" || extension == ".tar" {
+				if extension == ".log" || isRotatedLogFile(fileName) {
+					summary.LogFilesSize += fileSize
+					summary.LogFilesCount++
+				} else if extension == ".gz" || extension == ".zip" || extension == ".tar" {
 				summary.CompressedFilesSize += fileSize
 				summary.CompressedFilesCount++
 			}
@@ -100,20 +100,16 @@ func GetLogSize(filePath string) (LogSizes, error) {
 			},
 		},
 		Summary: LogFilesSummary{
-			TotalSize:            fileSize,
-			LogFilesSize:         fileSize,
-			CompressedFilesSize:  0,
-			TotalFiles:           1,
-			LogFilesCount:        1,
-			CompressedFilesCount: 0,
+			TotalSize:  fileSize,
+			TotalFiles: 1,
 		},
 	}
 
-	// If it's a compressed file, update the summary
-	if extension == ".gz" || extension == ".zip" || extension == ".tar" {
-		response.Summary.LogFilesSize = 0
+	if extension == ".log" || isRotatedLogFile(fileName) {
+		response.Summary.LogFilesSize = fileSize
+		response.Summary.LogFilesCount = 1
+	} else if extension == ".gz" || extension == ".zip" || extension == ".tar" {
 		response.Summary.CompressedFilesSize = fileSize
-		response.Summary.LogFilesCount = 0
 		response.Summary.CompressedFilesCount = 1
 	}
 
