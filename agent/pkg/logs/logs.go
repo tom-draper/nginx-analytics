@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -21,6 +22,22 @@ type Position struct {
 type LogResult struct {
 	Logs      []string   `json:"logs"`
 	Positions []Position `json:"positions,omitempty"`
+}
+
+func isNumericExtension(ext string) bool {
+	if len(ext) < 2 || ext[0] != '.' {
+		return false
+	}
+	_, err := strconv.Atoi(ext[1:])
+	return err == nil
+}
+
+func isRotatedLogFile(name string) bool {
+	ext := filepath.Ext(name)
+	if !isNumericExtension(ext) {
+		return false
+	}
+	return strings.HasSuffix(strings.TrimSuffix(name, ext), ".log")
 }
 
 func GetLogs(path string, positions []Position, isErrorLog bool, includeCompressed bool) (LogResult, error) {
@@ -157,13 +174,17 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 	// Filter log files
 	var logFiles []string
 	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
 		fileName := entry.Name()
 		// Check if it's a log file
 		isLogFile := strings.HasSuffix(fileName, ".log")
 		isGzipFile := strings.HasSuffix(fileName, ".gz")
+		isRotated := isRotatedLogFile(fileName)
 
 		// Filter by log type and extension
-		if (isLogFile || (isGzipFile && includeCompressed)) &&
+		if (isLogFile || isRotated || (isGzipFile && includeCompressed)) &&
 			(isErrorLog && strings.Contains(fileName, "error") || !isErrorLog && !strings.Contains(fileName, "error")) {
 			logFiles = append(logFiles, fileName)
 		}
@@ -214,7 +235,7 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 			}
 
 			r := fileResult{logs: result.Logs}
-			if strings.HasSuffix(fp.Filename, ".log") {
+			if !strings.HasSuffix(fp.Filename, ".gz") {
 				var pos int64
 				if len(result.Positions) > 0 {
 					pos = result.Positions[0].Position
