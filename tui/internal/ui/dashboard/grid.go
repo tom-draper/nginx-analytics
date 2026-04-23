@@ -436,13 +436,10 @@ func (l *Layout) renderFooterCards(sidebarWidth int) string {
 	var renderedCards []string
 	for i, card := range l.grid.cardsByPosition[PositionFooter] {
 		cardWidth := l.calculateCardWidth(sidebarWidth, len(l.grid.cardsByPosition[PositionFooter]), i)
-
-		height := DefaultFooterHeight
-		if dynamicRenderer, ok := card.Renderer.(cards.DynamicHeightCard); ok {
-			height = dynamicRenderer.GetRequiredHeight(cardWidth - BorderPadding)
-		}
-
-		card.SetSize(cardWidth, height)
+		// Keep the footer row at a stable viewport height so period-dependent
+		// list sizes (for example Referrers) do not change the Activity card's
+		// height as the user switches between time ranges.
+		card.SetSize(cardWidth, DefaultFooterHeight)
 		renderedCards = append(renderedCards, card.Render())
 	}
 
