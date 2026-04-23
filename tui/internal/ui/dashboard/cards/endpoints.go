@@ -27,11 +27,10 @@ type endpointID struct {
 type EndpointsCard struct {
 	endpoints     []endpoint
 	sorted        []endpoint
-	selectMode     bool
+	selectMode    bool
 	selectedIndex int
+	scrollOffset  int
 }
-
-const maxEndpoints = 35 // Maximum number of endpoints to display
 
 func NewEndpointsCard(logs []nginx.NGINXLog, period period.Period) *EndpointsCard {
 	card := &EndpointsCard{}
@@ -67,6 +66,21 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	}
 
 	endpoints := p.sorted
+	if p.selectMode {
+		p.ensureSelectionVisible(height)
+	} else {
+		p.scrollOffset = 0
+	}
+
+	start := p.scrollOffset
+	if start < 0 {
+		start = 0
+	}
+	if start > len(endpoints) {
+		start = len(endpoints)
+	}
+	end := min(start+height, len(endpoints))
+	visibleEndpoints := endpoints[start:end]
 
 	// Find max count for scaling bars
 	maxCount := endpoints[0].count
@@ -89,16 +103,13 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	var buf strings.Builder
 
 	// Render each endpoint as a horizontal bar with overlaid text
-	for i, ep := range endpoints {
-		if i >= height {
-			break // Don't exceed available height
-		}
-
+	for i, ep := range visibleEndpoints {
 		if i > 0 {
 			buf.WriteByte('\n')
 		}
 
-		isSelected := p.selectMode && i == p.selectedIndex
+		actualIndex := start + i
+		isSelected := p.selectMode && actualIndex == p.selectedIndex
 
 		// Calculate bar length proportional to count, using full width
 		barLength := 0
@@ -192,7 +203,7 @@ func (p *EndpointsCard) RenderContent(width, height int) string {
 	}
 
 	// Fill remaining height with empty lines
-	for i := min(len(endpoints), height); i < height; i++ {
+	for i := len(visibleEndpoints); i < height; i++ {
 		buf.WriteByte('\n')
 	}
 
@@ -219,9 +230,6 @@ func (r *EndpointsCard) sortEndpoints() []endpoint {
 		}
 		return sorted[i].status < sorted[j].status
 	})
-	if len(sorted) > maxEndpoints {
-		sorted = sorted[:maxEndpoints]
-	}
 	return sorted
 }
 
@@ -262,10 +270,12 @@ func (r *EndpointsCard) GetRequiredHeight(width int) int {
 func (r *EndpointsCard) EnterSelectMode() {
 	r.selectMode = true
 	r.selectedIndex = 0
+	r.scrollOffset = 0
 }
 
 func (r *EndpointsCard) ExitSelectMode() {
 	r.selectMode = false
+	r.scrollOffset = 0
 }
 
 func (r *EndpointsCard) IsInSelectMode() bool {
@@ -300,6 +310,7 @@ func (r *EndpointsCard) HasSelection() bool {
 func (r *EndpointsCard) ClearSelection() {
 	r.selectedIndex = 0
 	r.selectMode = false
+	r.scrollOffset = 0
 }
 
 // GetSelectedEndpoint returns the currently selected endpoint filter, or nil if none selected
@@ -313,4 +324,23 @@ func (r *EndpointsCard) GetSelectedEndpoint() *EndpointFilter {
 		Method: ep.method,
 		Status: ep.status,
 	}
+}
+
+func (r *EndpointsCard) ensureSelectionVisible(height int) {
+	if height <= 0 || len(r.sorted) == 0 {
+		r.scrollOffset = 0
+		return
+	}
+
+	maxOffset := max(len(r.sorted)-height, 0)
+	r.scrollOffset = min(max(r.scrollOffset, 0), maxOffset)
+
+	if r.selectedIndex < r.scrollOffset {
+		r.scrollOffset = r.selectedIndex
+	}
+	if r.selectedIndex >= r.scrollOffset+height {
+		r.scrollOffset = r.selectedIndex - height + 1
+	}
+
+	r.scrollOffset = min(max(r.scrollOffset, 0), maxOffset)
 }
