@@ -12,7 +12,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/guptarohit/asciigraph v0.9.0
 	github.com/joho/godotenv v1.5.1
-	github.com/tom-draper/nginx-analytics/agent v0.0.0-20260414175433-6be477ab9c8b
+	github.com/tom-draper/nginx-analytics/agent v0.0.0-20260423205527-22e0cdefd78e
 )
 
 require (
@@ -26,7 +26,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
-	github.com/mattn/go-isatty v0.0.21 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
