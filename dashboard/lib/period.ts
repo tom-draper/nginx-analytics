@@ -1,10 +1,13 @@
 import { NginxLog } from "./types";
 
-export type Period = '24 hours' | 'week' | 'month' | '6 months' | 'all time';
+export type Period = '1 hour' | '24 hours' | 'week' | 'month' | '6 months' | 'all time';
 
 export const periodStart = (period: Period): number | null => {
     const date = new Date();
     switch (period) {
+        case '1 hour':
+            date.setHours(date.getHours() - 1);
+            return date.getTime();
         case '24 hours':
             date.setHours(date.getHours() - 24);
             return date.getTime();

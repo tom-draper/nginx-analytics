@@ -29,6 +29,16 @@ const makeLog = (timestamp: Date | null): NginxLog => ({
 // ---------------------------------------------------------------------------
 
 describe('periodStart', () => {
+    it('returns a number for "1 hour"', () => {
+        const before = Date.now()
+        const result = periodStart('1 hour')
+        const after = Date.now()
+        expect(typeof result).toBe('number')
+        const expectedMs = 60 * 60 * 1000
+        expect(before - result!).toBeGreaterThanOrEqual(expectedMs - 100)
+        expect(after - result!).toBeLessThanOrEqual(expectedMs + 100)
+    })
+
     it('returns a number for "24 hours"', () => {
         const before = Date.now()
         const result = periodStart('24 hours')
@@ -158,6 +168,14 @@ describe('getPeriodRange', () => {
     it('returns a range with start before now for "24 hours"', () => {
         const before = Date.now()
         const result = getPeriodRange('24 hours', [])
+        expect(result).not.toBeNull()
+        expect(result!.start.getTime()).toBeLessThan(before)
+        expect(result!.end.getTime()).toBeGreaterThanOrEqual(before)
+    })
+
+    it('returns a range with start before now for "1 hour"', () => {
+        const before = Date.now()
+        const result = getPeriodRange('1 hour', [])
         expect(result).not.toBeNull()
         expect(result!.start.getTime()).toBeLessThan(before)
         expect(result!.end.getTime()).toBeGreaterThanOrEqual(before)

@@ -18,7 +18,7 @@ function formatStatus(status: Filter['status']): string {
 
 function filterPills(filter: Filter): { label: string; value: string; active: boolean }[] {
     return [
-        { label: 'Period', value: ({ 'week': 'Week', 'month': 'Month', '6 months': '6 Months', '24 hours': '24 Hours', 'all time': 'All Time' } as Record<string, string>)[filter.period] ?? filter.period, active: true },
+        { label: 'Period', value: ({ '1 hour': '1 Hour', '24 hours': '24 Hours', 'week': 'Week', 'month': 'Month', '6 months': '6 Months', 'all time': 'All Time' } as Record<string, string>)[filter.period] ?? filter.period, active: true },
         { label: 'Location', value: filter.location ?? 'None', active: filter.location !== null },
         { label: 'Path', value: filter.path ?? 'None', active: filter.path !== null },
         { label: 'Method', value: filter.method ?? 'None', active: filter.method !== null },

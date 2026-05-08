@@ -49,6 +49,9 @@ export function Navigation({ filterPeriod, setFilterPeriod, setShowSettings, isD
                     </button>
                 </div>
                 <div className="border rounded-[var(--border-radius)] border-[var(--border-color)] text-[0.9em] text-[var(--text-muted3)] overflow-hidden ">
+                    <button className={`px-3 py-1 hover:text-[var(--text)] cursor-pointer transition-colors duration-50 ease-in-out ${filterPeriod === '1 hour' ? 'bg-[var(--highlight)] !text-black' : ''}`} onClick={() => setFilterPeriod('1 hour')}>
+                        1 hour
+                    </button>
                     <button className={`px-3 py-1 hover:text-[var(--text)] cursor-pointer transition-colors duration-50 ease-in-out ${filterPeriod === '24 hours' ? 'bg-[var(--highlight)] !text-black' : ''}`} onClick={() => setFilterPeriod('24 hours')}>
                         24 hours
                     </button>
