@@ -60,6 +60,38 @@ const dateFormatter = new Intl.DateTimeFormat('default', {
     second: '2-digit'
 });
 
+const SortIndicator = ({
+    active,
+    direction,
+}: {
+    active: boolean;
+    direction: "asc" | "desc";
+}) => {
+    if (!active) return null;
+    return <span className="text-[10px] text-[var(--text-muted3)]">{direction === "asc" ? "Asc" : "Desc"}</span>;
+};
+
+const DetailItem = ({
+    label,
+    value,
+    wide = false,
+}: {
+    label: string;
+    value: string | number | undefined;
+    wide?: boolean;
+}) => {
+    if (value === undefined || value === '') return null;
+
+    return (
+        <div className={wide ? "sm:col-span-2" : ""}>
+            <div className="mb-1 text-[11px] uppercase tracking-normal text-[var(--text-muted3)]">{label}</div>
+            <div className="min-w-0 break-words rounded border border-[var(--border-color)] bg-[var(--background)] px-2 py-1.5 text-[var(--text-muted4)]">
+                {value}
+            </div>
+        </div>
+    );
+};
+
 // Error row component
 const ErrorRow = ({
     error,
@@ -77,64 +109,49 @@ const ErrorRow = ({
     getSeverityColor: (level: string) => string;
 }) => {
     const isExpanded = expandedError === index;
+    const severityColor = getSeverityColor(error.level);
 
     return (
-        <>
-            <tr
-                className={`cursor-pointer overflow-hidden hover:text-[var(--text)] transition-colors duration-50 ease-in-out border-b text-[var(--text-muted)] border-[var(--border-color)] last:border-none ${isExpanded ? 'bg-opacity-10 !text-[var(--text)]' : ''}`}
+        <div className={`border-b border-[var(--border-color)] last:border-none ${isExpanded ? 'bg-[var(--background)]' : ''}`}>
+            <button
+                className="grid w-full cursor-pointer grid-cols-1 gap-2 px-2 py-2.5 text-left text-sm text-[var(--text-muted4)] transition-colors duration-50 ease-in-out hover:bg-[var(--hover-background)] hover:text-[var(--text)] sm:grid-cols-[10rem_5rem_minmax(0,1fr)] sm:items-center"
                 onClick={() => setExpandedError(isExpanded ? null : index)}
             >
-                <td className="py-2 px-2 whitespace-nowrap">
+                <div className="whitespace-nowrap text-xs text-[var(--text-muted3)]">
                     {formatDate(error.timestamp)}
-                </td>
-                <td className="py-2 px-2">
-                    <span className={`px-2 py-1 rounded text-xs ${getSeverityColor(error.level)}`}>
+                </div>
+                <div>
+                    <span
+                        className="inline-flex min-w-14 justify-center rounded border px-2 py-0.5 text-[11px] font-medium uppercase"
+                        style={{
+                            color: severityColor,
+                            borderColor: severityColor,
+                            backgroundColor: `color-mix(in srgb, ${severityColor} 12%, transparent)`,
+                        }}
+                    >
                         {error.level}
                     </span>
-                </td>
-                <td className="py-2 px-2 max-w-0 w-full">
-                    <div className="truncate">
-                        {error.message}
-                    </div>
-                </td>
-            </tr>
+                </div>
+                <div className="min-w-0 truncate">
+                    {error.message}
+                </div>
+            </button>
             {isExpanded && (
-                <tr>
-                    <td colSpan={3} className="p-2 bg-opacity-5">
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div><strong>PID:</strong> {error.pid}</div>
-                            <div><strong>TID:</strong> {error.tid}</div>
-                            <div><strong>CID:</strong> {error.cid}</div>
-                            {error.clientAddress && (
-                                <div><strong>Client:</strong> {error.clientAddress}</div>
-                            )}
-                            {error.serverAddress && (
-                                <div><strong>Server:</strong> {error.serverAddress}</div>
-                            )}
-                            {error.host && (
-                                <div><strong>Host:</strong> {error.host}</div>
-                            )}
-                            {error.request && (
-                                <div className="col-span-2">
-                                    <strong>Request:</strong> {error.request}
-                                </div>
-                            )}
-                            {error.referrer && (
-                                <div className="col-span-2">
-                                    <strong>Referrer:</strong> {error.referrer}
-                                </div>
-                            )}
-                            <div className="col-span-2">
-                                <strong>Full Message:</strong>
-                                <div className="mt-1 p-2 bg-opacity-10 rounded whitespace-pre-wrap">
-                                    {error.message}
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
+                <div className="px-2 pb-3 text-sm">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <DetailItem label="PID" value={error.pid} />
+                        <DetailItem label="TID" value={error.tid} />
+                        <DetailItem label="CID" value={error.cid} />
+                        <DetailItem label="Client" value={error.clientAddress} />
+                        <DetailItem label="Server" value={error.serverAddress} />
+                        <DetailItem label="Host" value={error.host} />
+                        <DetailItem label="Request" value={error.request} wide />
+                        <DetailItem label="Referrer" value={error.referrer} wide />
+                        <DetailItem label="Message" value={error.message} wide />
+                    </div>
+                </div>
             )}
-        </>
+        </div>
     );
 };
 
@@ -316,14 +333,14 @@ export default function Errors({
     // Helper functions
     const getSeverityColor = (level: string) => {
         switch (level.toLowerCase()) {
-            case "error": return "bg-[var(--error)] text-[var(--card-background)]";
-            case "crit": case "critical": return "bg-[var(--error)] text-[var(--card-background)]";
-            case "alert": return "bg-[var(--warn)] text-[var(--card-background)]";
-            case "warn": case "warning": return "bg-[var(--warn)] text-[var(--card-background)]";
-            case "notice": return "bg-[var(--info)] text-[var(--card-background)]";
-            case "info": return "bg-[var(--info)] text-[var(--card-background)]";
-            case "debug": return "bg-[var(--info)] text-[var(--card-background)]";
-            default: return "bg-gray-100 text-gray-800";
+            case "error": return "var(--error)";
+            case "crit": case "critical": return "var(--error)";
+            case "alert": return "var(--warn)";
+            case "warn": case "warning": return "var(--warn)";
+            case "notice": return "var(--info)";
+            case "info": return "var(--info)";
+            case "debug": return "var(--info)";
+            default: return "var(--text-muted)";
         }
     };
 
@@ -346,116 +363,101 @@ export default function Errors({
         <>
             {errors.length > 0 && (
                 <div className="card px-4 py-3 m-3 mt-6 relative">
-                    <h2 className="font-semibold mb-2">
-                        Errors
-                    </h2>
+                    <div className="mb-3 flex flex-col gap-3 min-[850px]:flex-row min-[850px]:items-center min-[850px]:justify-between">
+                        <div className="flex items-baseline gap-3">
+                            <h2 className="font-semibold text-sm">Errors</h2>
+                            <span className="text-xs text-[var(--text-muted3)]">
+                                {filteredErrors.length.toLocaleString()} of {errors.length.toLocaleString()}
+                            </span>
+                        </div>
 
-                    {/* Filter controls - Made responsive */}
-                    {errors.length > 1 && (
-                        <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:absolute sm:top-3 sm:right-3">
-                            {/* Severity filter buttons */}
-                            {severityLevels.length > 1 && (
-                                <div className="flex text-xs text-[var(--text-muted3)] mb-2 sm:mb-0 sm:mr-2">
-                                    {selectedSeverities.length > 0 && (
-                                        <button
-                                            className="px-[0.5em] text-[var(--text)] cursor-pointer"
-                                            onClick={clearSeverityFilters}
-                                        >
-                                            Clear
-                                        </button>
-                                    )}
-                                    {severityLevels.map(level => (
-                                        <button
-                                            key={level}
-                                            className="px-[0.5em] hover:text-[var(--text)] cursor-pointer"
-                                            onClick={() => toggleSeverityFilter(level)}
-                                            style={{
-                                                color: selectedSeverities.includes(level)
-                                                    ? getSeverityFilterColor(level)
-                                                    : ''
-                                            }}
-                                        >
-                                            {level.charAt(0).toUpperCase() + level.slice(1)}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                        {errors.length > 1 && (
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                {severityLevels.length > 1 && (
+                                    <div className="flex flex-wrap gap-1 text-xs text-[var(--text-muted3)]">
+                                        {selectedSeverities.length > 0 && (
+                                            <button
+                                                className="rounded px-2 py-1 text-[var(--text)] hover:bg-[var(--hover-background)] cursor-pointer"
+                                                onClick={clearSeverityFilters}
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
+                                        {severityLevels.map(level => (
+                                            <button
+                                                key={level}
+                                                className="rounded border border-[var(--border-color)] px-2 py-1 hover:text-[var(--text)] cursor-pointer"
+                                                onClick={() => toggleSeverityFilter(level)}
+                                                style={{
+                                                    color: selectedSeverities.includes(level)
+                                                        ? getSeverityFilterColor(level)
+                                                        : '',
+                                                    borderColor: selectedSeverities.includes(level)
+                                                        ? getSeverityFilterColor(level)
+                                                        : '',
+                                                }}
+                                            >
+                                                {level.charAt(0).toUpperCase() + level.slice(1)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
 
-                            {/* Text filter */}
-                            <input
-                                type="text"
-                                placeholder={`Filter ${errors.length > 50 ? '50+' : errors.length} errors...`}
-                                className="px-3 py-1 border border-[var(--border-color)] rounded text-sm placeholder-[var(--text-muted3)] bg-transparent outline-none w-full sm:w-auto"
-                                value={filtering}
-                                onChange={(e) => setFiltering(e.target.value)}
-                                aria-label="Filter errors"
-                            />
+                                <input
+                                    type="text"
+                                    placeholder="Filter errors"
+                                    className="w-full rounded border border-[var(--border-color)] bg-transparent px-3 py-1 text-sm outline-none placeholder-[var(--text-muted3)] sm:w-44"
+                                    value={filtering}
+                                    onChange={(e) => setFiltering(e.target.value)}
+                                    aria-label="Filter errors"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="mb-1 grid grid-cols-1 gap-2 border-b border-[var(--border-color)] px-2 pb-2 text-xs text-[var(--text-muted3)] sm:grid-cols-[10rem_5rem_minmax(0,1fr)]">
+                        <button
+                            className="flex cursor-pointer items-center gap-2 text-left hover:text-[var(--text)]"
+                            onClick={() => requestSort("timestamp")}
+                        >
+                            Time
+                            <SortIndicator active={sortConfig.key === "timestamp"} direction={sortConfig.direction} />
+                        </button>
+                        <button
+                            className="flex cursor-pointer items-center gap-2 text-left hover:text-[var(--text)]"
+                            onClick={() => requestSort("level")}
+                        >
+                            Level
+                            <SortIndicator active={sortConfig.key === "level"} direction={sortConfig.direction} />
+                        </button>
+                        <div>Message</div>
+                    </div>
+
+                    <div className="overflow-hidden rounded">
+                        {sortedErrors.length > 0 ? (
+                            sortedErrors.slice(0, 50).map((error, index) => (
+                                <ErrorRow
+                                    key={`${error.timestamp}-${index}`}
+                                    error={error}
+                                    index={index}
+                                    expandedError={expandedError}
+                                    setExpandedError={setExpandedError}
+                                    formatDate={formatDate}
+                                    getSeverityColor={getSeverityColor}
+                                />
+                            ))
+                        ) : (
+                            <div className="py-5 text-center text-sm text-[var(--text-muted3)]">
+                                No errors match the current filters
+                            </div>
+                        )}
+                    </div>
+
+                    {sortedErrors.length > 50 && (
+                        <div className="pt-2 text-center text-xs text-[var(--text-muted3)]">
+                            Showing 50 of {sortedErrors.length.toLocaleString()} matching errors
                         </div>
                     )}
-
-                    {/* Error table - Added overflow handling wrapper */}
-                    <div className="overflow-x-auto">
-                        <div className="text-sm">
-                            <table className="w-full border-collapse table-fixed">
-                                <thead>
-                                    <tr>
-                                        <th
-                                            className="py-2 px-2 text-left border-b border-[var(--border-color)] cursor-pointer w-36 sm:w-44"
-                                            onClick={() => requestSort("timestamp")}
-                                        >
-                                            <div className="flex items-center">
-                                                <span className="mr-2">Timestamp</span>
-                                                {sortConfig.key === "timestamp" && (sortConfig.direction === "asc" ? <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-3">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
-                                                </svg>
-                                                    : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-3">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                        </th>
-                                        <th
-                                            className="py-2 px-2 text-left border-b border-[var(--border-color)] cursor-pointer w-24"
-                                            onClick={() => requestSort("level")}
-                                        >
-                                            <div className="flex items-center">
-                                                <span className="mr-2">Level</span>
-                                                {sortConfig.key === "level" && (sortConfig.direction === "asc" ? <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-3">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
-                                                </svg>
-                                                    : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="size-3">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                        </th>
-                                        <th className="py-2 px-2 text-left border-b border-[var(--border-color)]">Message</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sortedErrors.length > 0 ? (
-                                        sortedErrors.slice(0, 50).map((error, index) => (
-                                            <ErrorRow
-                                                key={`${error.timestamp}-${index}`}
-                                                error={error}
-                                                index={index}
-                                                expandedError={expandedError}
-                                                setExpandedError={setExpandedError}
-                                                formatDate={formatDate}
-                                                getSeverityColor={getSeverityColor}
-                                            />
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={3} className="py-4 text-center text-[var(--text-muted3)]">
-                                                No errors match the current filters
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 </div>
             )}
         </>
