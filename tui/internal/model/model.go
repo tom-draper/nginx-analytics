@@ -140,6 +140,7 @@ func newDataManager(cfg config.Config, serverURL string, authToken string) *Data
 // newNavigationManager creates a new NavigationManager
 func newNavigationManager(logs []nginx.NGINXLog) *NavigationManager {
 	periods := []period.Period{
+		period.Period1Hour,
 		period.Period24Hours,
 		period.Period1Week,
 		period.Period30Days,
@@ -884,7 +885,7 @@ func (m Model) GetSelectedPeriod() period.Period {
 
 func calculateInitialPeriod(periods []period.Period, logs []nginx.NGINXLog) int {
 	logStart, _ := period.LogRange(logs)
-	selectedPeriod := 2 // Default to 1 month
+	selectedPeriod := 3 // Default to 30 days
 
 	for i, p := range periods {
 		if p == period.PeriodAllTime || logStart.After(p.Start()) {

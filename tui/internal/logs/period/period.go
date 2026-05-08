@@ -10,6 +10,7 @@ import (
 type Period string
 
 const (
+	Period1Hour   Period = "1 hour"
 	Period24Hours Period = "24 hours"
 	Period1Week   Period = "1 week"
 	Period30Days  Period = "30 days"
@@ -19,6 +20,8 @@ const (
 
 func PeriodHours(period Period) int {
 	switch period {
+	case Period1Hour:
+		return 1
 	case Period24Hours:
 		return 24
 	case Period1Week:
@@ -96,6 +99,8 @@ func LogRangePeriodHours(logs []nginx.NGINXLog, period Period) int {
 
 func (p Period) TimeAgo() time.Duration {
 	switch p {
+	case Period1Hour:
+		return time.Hour
 	case Period24Hours:
 		return 24 * time.Hour
 	case Period1Week:
