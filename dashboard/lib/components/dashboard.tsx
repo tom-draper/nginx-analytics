@@ -70,6 +70,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
     const [filter, setFilter] = useState<Filter>(newFilter());
     const [, startTransition] = useTransition();
+    const [initialPeriodReady, setInitialPeriodReady] = useState(false);
 
     // Tracks the filter values that the current aggregates were computed for, so
     // UsageDay/UsageTime layout and counts always update in the same render.
@@ -107,6 +108,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         trendRateBuckets:    [] as Array<{ success: number; total: number }>,
         timeUnit:            'day' as 'minute' | 'hour' | 'day',
         step:                86400000,
+        period:              null as Period | null,
         periodLabels:        { start: '', end: '' } as { start: string; end: string },
         totalRequests:       0,
         totalUsers:          0,
@@ -116,7 +118,10 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     });
 
     const setPeriod = useCallback((period: Period) => {
-        startTransition(() => setFilter((previous) => ({ ...previous, period })))
+        startTransition(() => {
+            setFilter((previous) => ({ ...previous, period }));
+            setInitialPeriodReady(true);
+        })
     }, [])
 
     const setLocation = useCallback((location: string | null) => {
@@ -227,6 +232,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             trendRateBuckets: Array<{ success: number; total: number }>;
             timeUnit: 'minute' | 'hour' | 'day';
             step: number;
+            period: Period;
             periodLabels: { start: string; end: string };
             totalRequests: number;
             totalUsers: number;
@@ -243,7 +249,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts, unknownIPs,
                 activityBuckets, activityRateBuckets,
                 trendReqBuckets, trendUserBuckets, trendRateBuckets,
-                timeUnit, step, periodLabels,
+                timeUnit, step, period: aggregatePeriod, periodLabels,
                 totalRequests, totalUsers, totalHours, successCount, successTotal,
             } = e.data;
 
@@ -252,7 +258,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts, unknownIPs,
                 activityBuckets, activityRateBuckets,
                 trendReqBuckets, trendUserBuckets, trendRateBuckets,
-                timeUnit, step, periodLabels,
+                timeUnit, step, period: aggregatePeriod, periodLabels,
                 totalRequests, totalUsers, totalHours, successCount, successTotal,
             });
             setDisplayDayOfWeek(dayOfWeekRef.current);
@@ -379,9 +385,10 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         clientCounts, osCounts, deviceTypeCounts, dayCounts, hourCounts, locationCounts, unknownIPs,
         activityBuckets, activityRateBuckets,
         trendReqBuckets, trendUserBuckets, trendRateBuckets,
-        timeUnit, step, periodLabels,
+        timeUnit, step, period: aggregatePeriod, periodLabels,
         totalRequests, totalUsers, totalHours, successCount, successTotal,
     } = aggregates;
+    const showPeriodLabels = initialPeriodReady && aggregatePeriod === filter.period;
 
     if (fileUpload && accessLogs.length === 0) {
         return (
@@ -459,7 +466,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                     exportCSV(filtered);
                 }} />
 
-                <Navigation filterPeriod={filter.period} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} isDemo={demo} />
+                <Navigation filterPeriod={initialPeriodReady ? filter.period : null} setFilterPeriod={setPeriod} setShowSettings={setShowSettings} isDemo={demo} />
 
                 <div className="flex max-[950px]:flex-col">
                     {/* Left */}
@@ -494,7 +501,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                             activityRateBuckets={activityRateBuckets}
                             timeUnit={timeUnit}
                             step={step}
-                            periodLabels={periodLabels}
+                            periodLabels={showPeriodLabels ? periodLabels : { start: '', end: '' }}
                             period={filter.period}
                             dataReady={dataReady}
                         />

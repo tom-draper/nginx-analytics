@@ -168,7 +168,7 @@ function Activity({
             </div>
 
             <div className="pb-0 pt-2" ref={containerRef}>
-                <div className="flex ml-[0] mt-2 mb-2 overflow-hidden">
+                <div className="flex h-12 ml-[0] mt-2 mb-2 overflow-hidden">
                     {displayRates?.map((sr, index) => (
                         <div
                             key={index}
@@ -181,7 +181,7 @@ function Activity({
             </div>
 
             <div className="pb-0">
-                <div className="flex justify-between mt-2 mb-1 overflow-hidden text-xs text-[var(--text-muted3)] mx-1">
+                <div className="flex min-h-4 justify-between mt-2 mb-1 overflow-hidden text-xs text-[var(--text-muted3)] mx-1">
                     <div>{periodLabels.start}</div>
                     <div>{periodLabels.end}</div>
                 </div>
