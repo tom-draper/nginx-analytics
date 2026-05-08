@@ -14,6 +14,11 @@ func TestPeriodHours(t *testing.T) {
 		expected int
 	}{
 		{
+			name:     "1 hour",
+			period:   Period1Hour,
+			expected: 1,
+		},
+		{
 			name:     "24 hours",
 			period:   Period24Hours,
 			expected: 24,
@@ -247,6 +252,15 @@ func TestLogRangePeriodHours(t *testing.T) {
 		expected int
 	}{
 		{
+			name: "1 hour period",
+			logs: []nginx.NGINXLog{
+				{Timestamp: &twoDaysAgo},
+				{Timestamp: &now},
+			},
+			period:   Period1Hour,
+			expected: 1,
+		},
+		{
 			name: "24 hours period with logs",
 			logs: []nginx.NGINXLog{
 				{Timestamp: &twoDaysAgo},
@@ -297,6 +311,11 @@ func TestPeriodTimeAgo(t *testing.T) {
 		period   Period
 		expected time.Duration
 	}{
+		{
+			name:     "1 hour",
+			period:   Period1Hour,
+			expected: time.Hour,
+		},
 		{
 			name:     "24 hours",
 			period:   Period24Hours,
@@ -349,6 +368,12 @@ func TestPeriodStart(t *testing.T) {
 		wantZero   bool
 		wantWithin time.Duration // How close to expected time
 	}{
+		{
+			name:       "1 hour",
+			period:     Period1Hour,
+			wantZero:   false,
+			wantWithin: 1 * time.Second,
+		},
 		{
 			name:       "24 hours",
 			period:     Period24Hours,

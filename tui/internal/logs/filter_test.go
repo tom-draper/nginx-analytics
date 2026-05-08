@@ -41,6 +41,11 @@ func TestFilterLogs(t *testing.T) {
 		expected int
 	}{
 		{
+			name:     "1 hour period",
+			period:   period.Period1Hour,
+			expected: 1, // now only; oneHourAgo is on the exclusive boundary
+		},
+		{
 			name:     "24 hours period",
 			period:   period.Period24Hours,
 			expected: 2, // now and oneHourAgo
