@@ -186,7 +186,9 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                     }
                 }
                 if (maxDate) {
-                    if (inPeriod(maxDate, 'week')) setPeriod('week');
+                    if (inPeriod(maxDate, '1 hour')) setPeriod('1 hour');
+                    else if (inPeriod(maxDate, '24 hours')) setPeriod('24 hours');
+                    else if (inPeriod(maxDate, 'week')) setPeriod('week');
                     else if (inPeriod(maxDate, 'month')) setPeriod('month');
                     else if (inPeriod(maxDate, '6 months')) setPeriod('6 months');
                     else setPeriod('all time');

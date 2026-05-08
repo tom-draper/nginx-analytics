@@ -99,6 +99,7 @@ const getDayId    = (ts: number) => Math.floor(ts / 86400000) * 86400000;
 const getHourId   = (ts: number) => Math.floor(ts / 3600000)  * 3600000;
 const get6HourId  = (ts: number) => Math.floor(ts / 21600000) * 21600000;
 const get5MinId   = (ts: number) => Math.floor(ts / 300000)   * 300000;
+const getMinuteId = (ts: number) => Math.floor(ts / 60000)    * 60000;
 
 // Current bucket configs — set on every filter change, fixed during appends.
 let currentActivityBucketFn: BucketFn = getDayId;
@@ -112,7 +113,7 @@ let aggActivityUsers = new Map<number, Set<string>>();  // Sets kept here, only 
 let aggActivitySucc  = new Map<number, number>();
 let aggActivityTotal = new Map<number, number>();
 
-// Trend-scale buckets (1h for '24 hours', 1d otherwise — for sparklines)
+// Trend-scale buckets (1h for '1 hour'/'24 hours', 1d otherwise — for sparklines)
 let aggTrendReq   = new Map<number, number>();
 let aggTrendUsers = new Map<number, Set<string>>();
 let aggTrendSucc  = new Map<number, number>();
@@ -218,6 +219,10 @@ function passesFilter(
 
 function updateBucketConfig(period: Period, rangeMs?: number) {
     switch (period) {
+        case '1 hour':
+            currentActivityBucketFn = getMinuteId; currentActivityStep = 60000;    currentTimeUnit = 'minute';
+            currentTrendBucketFn    = getHourId;
+            break;
         case '24 hours':
             currentActivityBucketFn = get5MinId;  currentActivityStep = 300000;   currentTimeUnit = 'minute';
             currentTrendBucketFn    = getHourId;
@@ -252,6 +257,7 @@ function updateBucketConfig(period: Period, rangeMs?: number) {
 
 function getPeriodLabels(period: Period, minTs: number | null, maxTs: number | null): { start: string; end: string } {
     switch (period) {
+        case '1 hour':   return { start: 'One hour ago', end: 'Now' };
         case '24 hours': return { start: '24 hours ago', end: 'Now' };
         case 'week':     return { start: 'One week ago', end: 'Now' };
         case 'month':    return { start: 'One month ago', end: 'Now' };
