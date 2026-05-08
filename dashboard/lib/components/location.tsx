@@ -120,7 +120,7 @@ export const Location = memo(function Location({
                 Location
             </h2>
 
-            <div className="flex mt-2">
+            <div className="flex h-40 mt-2">
                 {locations && locations.slice(0, 12).map((location) => (
                     <div key={location.country} className="flex-1">
                         <div className="flex-1 rounded h-32 mx-1 my-1 cursor-pointer grid hover:bg-[var(--hover-background)]" title={`${countryCodeToName(location.country)}: ${location.count.toLocaleString()} requests`} onClick={() => { selectLocation(location.country) }}>
@@ -128,7 +128,7 @@ export const Location = memo(function Location({
                         </div>
 
                         <div className="flex flex-col text-center">
-                            <div className="flex-1">
+                            <div className="h-6 leading-6 overflow-hidden">
                                 {getFlagEmoji(location.country)}
                             </div>
                         </div>

@@ -51,7 +51,7 @@ export const Client = memo(function Client({
     }), [filterClient, setFilterClient]);
 
     return (
-        <div className="relative w-full flex items-center justify-center pb-4" >
+        <div className="relative w-full h-40 mt-2 flex items-center justify-center" >
             {plotData && <Doughnut data={plotData} options={options} />}
         </div>
     );
