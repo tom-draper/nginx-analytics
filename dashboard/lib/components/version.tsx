@@ -1,6 +1,6 @@
 "use client";
 
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData, ChartEvent, ActiveElement } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { useMemo, useRef, memo } from "react";
 import { labelColor, dimColor } from "@/lib/colors";
@@ -42,12 +42,17 @@ export const Version = memo(function Version({
     }, [versionCounts, filterVersion]);
 
     const options = useMemo(() => ({
+        onClick: (_event: ChartEvent, elements: ActiveElement[]) => {
+            const index = elements[0]?.index;
+            const version = index === undefined ? undefined : plotData?.labels?.[index];
+            if (typeof version === 'string') setFilterVersion(filterVersion === version ? null : version);
+        },
         plugins: {
             legend: { display: false },
         },
         responsive: true,
         maintainAspectRatio: false
-    }), []);
+    }), [filterVersion, plotData, setFilterVersion]);
 
     return (
         <>

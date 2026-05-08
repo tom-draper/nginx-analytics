@@ -1,6 +1,6 @@
 "use client";
 
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData } from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, ChartData, ChartEvent, ActiveElement } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
 import { useMemo, useRef, memo } from "react";
 import { labelColor, dimColor } from '../../colors';
@@ -42,12 +42,17 @@ export const OS = memo(function OS({
     }, [osCounts, filterOS]);
 
     const options = useMemo(() => ({
+        onClick: (_event: ChartEvent, elements: ActiveElement[]) => {
+            const index = elements[0]?.index;
+            const os = index === undefined ? undefined : plotData?.labels?.[index];
+            if (typeof os === 'string') setFilterOS(filterOS === os ? null : os);
+        },
         plugins: {
             legend: { display: false },
         },
         responsive: true,
         maintainAspectRatio: false
-    }), []);
+    }), [filterOS, plotData, setFilterOS]);
 
     return (
         <div className="relative w-full h-40 mt-2 flex items-center justify-center gap-3" >
