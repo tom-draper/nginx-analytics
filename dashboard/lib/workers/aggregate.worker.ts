@@ -424,6 +424,7 @@ function aggregates() {
         trendRateBuckets,
         timeUnit:        currentTimeUnit,
         step:            currentActivityStep,
+        period,
         periodLabels:    getPeriodLabels(period, aggMinTs, aggMaxTs),
         totalRequests:   aggTotalRequests,
         totalUsers:      aggTotalUsersSet.size,

@@ -1,6 +1,6 @@
 import { Period } from "../period";
 
-export function Navigation({ filterPeriod, setFilterPeriod, setShowSettings, isDemo }: { filterPeriod: Period, setFilterPeriod: (period: Period) => void, setShowSettings: any, isDemo: boolean }) {
+export function Navigation({ filterPeriod, setFilterPeriod, setShowSettings, isDemo }: { filterPeriod: Period | null, setFilterPeriod: (period: Period) => void, setShowSettings: any, isDemo: boolean }) {
     const showSettings = () => {
         setShowSettings(true);
     }
