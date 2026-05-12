@@ -507,6 +507,7 @@ ctx.onmessage = (e: MessageEvent<LogsMessage | FilterMessage | LocationMapMessag
                 accumulateIntoAggregates(row);
             }
         }
+        prefillActivityBuckets();
 
         ctx.postMessage({ ...aggregates(), filterVersion: msg.filterVersion });
 

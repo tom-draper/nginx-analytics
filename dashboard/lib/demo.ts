@@ -1090,11 +1090,18 @@ export function generateNginxLogs(options: LogGeneratorOptions): string[] {
         const dayStartMs = startMs + d * 86400000;
 
         for (let i = 0; i < n; i++) {
-            // Timestamp — attacks run 24/7; normal traffic peaks in business hours
-            const hour   = (mode === 'attack') ? Math.floor(Math.random() * 24) : pickItem(hours, hourWeights, hourTotal);
-            const minute = Math.floor(Math.random() * 60);
-            const second = Math.floor(Math.random() * 60);
-            const dt     = new Date(dayStartMs + hour * 3600000 + minute * 60000 + second * 1000);
+            // Timestamp — for sub-day ranges (e.g. demo polling) generate within the
+            // actual window; otherwise use the hour-of-day weighted distribution.
+            let dt: Date;
+            const rangeMs = endDate.getTime() - startMs;
+            if (rangeMs < 86400000) {
+                dt = new Date(startMs + Math.random() * rangeMs);
+            } else {
+                const hour   = (mode === 'attack') ? Math.floor(Math.random() * 24) : pickItem(hours, hourWeights, hourTotal);
+                const minute = Math.floor(Math.random() * 60);
+                const second = Math.floor(Math.random() * 60);
+                dt = new Date(dayStartMs + hour * 3600000 + minute * 60000 + second * 1000);
+            }
             const timestamp = `[${PAD2[dt.getDate()]}/${MONTH_NAMES[dt.getMonth()]}/${dt.getFullYear()}:${PAD2[dt.getHours()]}:${PAD2[dt.getMinutes()]}:${PAD2[dt.getSeconds()]} ${tzStr}]`;
 
             const httpVersion = Math.random() < 0.65 ? 'HTTP/2.0' : (Math.random() < 0.9 ? 'HTTP/1.1' : 'HTTP/1.0');
