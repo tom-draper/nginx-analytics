@@ -1,7 +1,7 @@
 "use client";
 
 import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend, ChartData } from "chart.js";
-import { useEffect, useMemo, useState, useRef, memo } from "react";
+import { useMemo, useRef, memo } from "react";
 import { Bar } from "react-chartjs-2";
 import 'chartjs-adapter-date-fns';
 import { Period, periodStart } from "@/lib/period";
@@ -21,18 +21,6 @@ const getSuccessRateLevel = (successRate: number | null) => {
     return Math.ceil(successRate * 10);
 };
 
-function calculateDisplayRates(rates: { timestamp: number; value: number | null; title: string }[], width: number) {
-    if (width === 0 || rates.length === 0) return rates;
-    const maxDivs = Math.floor(width / 3);
-    if (rates.length <= maxDivs) return rates;
-    const sampleStep = Math.ceil(rates.length / maxDivs);
-    const sampled = [];
-    for (let i = 0; i < rates.length; i += sampleStep) sampled.push(rates[i]);
-    if (sampled.length > 0 && sampled[sampled.length - 1] !== rates[rates.length - 1]) {
-        sampled.push(rates[rates.length - 1]);
-    }
-    return sampled;
-}
 
 function Activity({
     activityBuckets,
@@ -51,22 +39,19 @@ function Activity({
     period:              Period;
     dataReady:           boolean;
 }) {
-    const [containerWidth, setContainerWidth] = useState<number>(0);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const stripRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const updateWidth = () => {
-            if (containerRef.current) setContainerWidth(containerRef.current.offsetWidth - 66);
-        };
-        updateWidth();
-        const ro = new ResizeObserver(() => window.requestAnimationFrame(updateWidth));
-        if (containerRef.current) ro.observe(containerRef.current);
-        window.addEventListener('resize', updateWidth);
-        return () => {
-            if (containerRef.current) ro.unobserve(containerRef.current);
-            window.removeEventListener('resize', updateWidth);
-        };
-    }, []);
+    // After each Chart.js layout pass, mirror chartArea.left / right as padding on
+    // the strip so the rate divs always align with the bars regardless of how much
+    // internal space Chart.js reserves (offset:true half-bar insets, axis labels, etc.)
+    const syncPlugin = useMemo(() => ({
+        id: 'syncStripPadding',
+        afterLayout(chart: ChartJS) {
+            if (!stripRef.current) return;
+            stripRef.current.style.paddingLeft  = `${chart.chartArea.left}px`;
+            stripRef.current.style.paddingRight = `${chart.width - chart.chartArea.right}px`;
+        },
+    }), []);
 
     const { plotData, plotOptions, successRates } = useMemo(() => {
         if (activityBuckets.length === 0) {
@@ -148,10 +133,6 @@ function Activity({
         return { plotData, plotOptions, successRates };
     }, [activityBuckets, activityRateBuckets, step, period]);
 
-    const displayRates = useMemo(
-        () => calculateDisplayRates(successRates, containerWidth),
-        [successRates, containerWidth],
-    );
 
     return (
         <div className="card flex-1 px-4 py-3 m-3">
@@ -159,7 +140,7 @@ function Activity({
 
             <div className="relative w-full h-[200px] pt-2">
                 {plotData && plotOptions ? (
-                    <Bar data={plotData} options={plotOptions} />
+                    <Bar data={plotData} options={plotOptions} plugins={[syncPlugin]} />
                 ) : dataReady ? (
                     <div className="flex items-center justify-center w-full h-full text-sm text-[var(--text-muted3)]">
                         No data
@@ -167,9 +148,9 @@ function Activity({
                 ) : null}
             </div>
 
-            <div className="pb-0 pt-2" ref={containerRef}>
-                <div className="flex h-12 ml-[0] mt-2 mb-2 overflow-hidden">
-                    {displayRates?.map((sr, index) => (
+            <div className="pb-0 pt-2">
+                <div ref={stripRef} className="flex h-12 ml-[0] mt-2 mb-2 overflow-hidden">
+                    {successRates?.map((sr, index) => (
                         <div
                             key={index}
                             className={`flex-1 h-12 mx-[0.5px] rounded-[2px] ${sr.value === null ? 'level-none' : 'level-' + getSuccessRateLevel(sr.value)}`}
