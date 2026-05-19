@@ -60,11 +60,11 @@ export const Version = memo(function Version({
                 <div className="card flex-1 px-4 py-3 m-3">
                     <h2 className="font-semibold">Version</h2>
 
-                    <div className="relative w-full h-40 mt-2 flex items-center justify-center gap-3" >
+                    <div className="relative w-full h-40 mt-2 flex items-center justify-center">
                         <div className="h-full flex-1 min-w-0">
                             <Doughnut data={plotData} options={options} />
                         </div>
-                        <div className="h-full w-28 shrink-0 overflow-hidden text-xs text-[var(--text-muted3)]">
+                        <div className="h-full shrink-0 pr-6 text-left overflow-hidden text-xs text-[var(--text-muted3)]">
                             {legendItems.slice(0, 10).map(({ label, color }) => (
                                 <button
                                     key={label}
