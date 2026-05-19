@@ -888,6 +888,10 @@ func calculateInitialPeriod(periods []period.Period, logs []nginx.NGINXLog) int 
 	selectedPeriod := 3 // Default to 30 days
 
 	for i, p := range periods {
+		if p == period.Period1Hour {
+			continue
+		}
+
 		if p == period.PeriodAllTime || logStart.After(p.Start()) {
 			selectedPeriod = i
 			break
