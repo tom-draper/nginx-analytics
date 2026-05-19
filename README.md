@@ -1,5 +1,11 @@
 # NGINX Analytics
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/tom-draper/nginx-analytics)](https://github.com/tom-draper/nginx-analytics/stargazers)
+[![Next.js](https://img.shields.io/badge/Next.js-dashboard-black?logo=next.js)](dashboard)
+[![Go](https://img.shields.io/badge/Go-agent%20%26%20TUI-00ADD8?logo=go)](agent)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-available-brightgreen)](https://nginx.apianalytics.dev/dashboard/demo)
+
 Transform your existing NGINX logs into an interactive real-time analytics dashboard.
 
 ![NGINX Analytics](https://github.com/user-attachments/assets/b0fc1334-22e0-4d2c-9219-29d69a86a679)
