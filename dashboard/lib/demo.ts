@@ -286,6 +286,9 @@ export function updateSystemUsage(currentInfo: SystemInfo): SystemInfo {
     newCpuUsage = Math.max(0.1, Math.min(99.9, newCpuUsage));
     updatedInfo.cpu.usage = parseFloat(newCpuUsage.toFixed(1));
 
+    // Regenerate per-core usage to reflect the new overall usage
+    updatedInfo.cpu.coreUsage = generateCoreUsage(newCpuUsage, updatedInfo.cpu.cores);
+
     // Memory usage - correlate somewhat with CPU but with slower changes
     const memoryTotal = updatedInfo.memory.total;
     const currentMemoryUsedPercentage = (updatedInfo.memory.used / memoryTotal) * 100;

@@ -34,21 +34,26 @@ export function SystemResources({ demo }: { demo: boolean }) {
 
     useEffect(() => {
         if (demo) {
-            const data: SystemInfo = generateSystemProfile();
-            setResources(data);
+            const initial: SystemInfo = generateSystemProfile();
+            setResources(initial);
+            setHistoryData(prev => appendHistory(
+                prev,
+                initial.cpu.usage ?? 0,
+                (initial.memory.used / initial.memory.total) * 100
+            ));
 
-            const updateUsage = () => {
-                const updatedData = updateSystemUsage(data);
-                setResources(updatedData);
-                setHistoryData(prev => appendHistory(
-                    prev,
-                    updatedData.cpu.usage ?? 0,
-                    (updatedData.memory.used / updatedData.memory.total) * 100
-                ));
-            }
-
-            updateUsage();
-            const interval = setInterval(updateUsage, 2000);
+            const interval = setInterval(() => {
+                setResources(prev => {
+                    if (!prev) return prev;
+                    const updated = updateSystemUsage(prev);
+                    setHistoryData(h => appendHistory(
+                        h,
+                        updated.cpu.usage ?? 0,
+                        (updated.memory.used / updated.memory.total) * 100
+                    ));
+                    return updated;
+                });
+            }, 2000);
             return () => clearInterval(interval);
         }
 
