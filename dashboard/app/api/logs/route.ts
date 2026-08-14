@@ -7,6 +7,7 @@ import {
 } from "@/lib/environment";
 import { defaultNginxAccessPath, defaultNginxErrorPath } from "@/lib/consts";
 import { isDir, parsePositionsFromRequest, serveDirectoryLogs, serveLog, serveRemoteLogs } from "@/lib/logs";
+import { requireDashboardAuth } from "@/lib/auth";
 
 const isAccessDir = isDir(nginxAccessPath);
 const isErrorDir = isDir(nginxErrorPath);
@@ -15,6 +16,8 @@ const isErrorDir = isDir(nginxErrorPath);
  * Handler for GET requests to serve Nginx logs
  */
 export async function GET(request: NextRequest) {
+    const unauthorized = requireDashboardAuth(request);
+    if (unauthorized) return unauthorized;
     const { searchParams } = new URL(request.url);
     const logType = searchParams.get("type");
     const includeCompressed = searchParams.get('includeCompressed') === 'true';

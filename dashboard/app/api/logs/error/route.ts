@@ -14,11 +14,14 @@ import {
     isErrorDir,
     isAccessDir
 } from "@/lib/logs";
+import { requireDashboardAuth } from "@/lib/auth";
 
 /**
  * Handler for GET requests to serve Nginx error logs
  */
 export async function GET(request: NextRequest) {
+    const unauthorized = requireDashboardAuth(request);
+    if (unauthorized) return unauthorized;
     const { searchParams } = new URL(request.url);
     const includeCompressed = searchParams.get('includeCompressed') === 'true';
     const positions = parsePositionsFromRequest(searchParams);

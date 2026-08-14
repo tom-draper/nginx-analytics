@@ -1,14 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import si from 'systeminformation';
 import { SystemInfo } from '@/lib/types';
 import { serverUrl, authToken, systemMonitoringEnabled } from '@/lib/environment';
+import { requireDashboardAuth } from '@/lib/auth';
 
 const execAsync = promisify(exec);
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const unauthorized = requireDashboardAuth(request);
+    if (unauthorized) return unauthorized;
     if (serverUrl) {
         const headers: HeadersInit = {};
         if (authToken) {

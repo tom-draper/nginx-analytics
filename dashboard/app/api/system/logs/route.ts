@@ -3,11 +3,14 @@ import { getLogFileSizes, getLogSizeSummary } from '@/lib/file-utils'; // Adjust
 import path from 'path';
 import fs from 'fs';
 import { LogSizes } from '@/lib/types';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireDashboardAuth } from '@/lib/auth';
 
 let logPath: string | null = null;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const unauthorized = requireDashboardAuth(request);
+    if (unauthorized) return unauthorized;
     if (serverUrl) {
         const headers: HeadersInit = {};
         if (authToken) {
@@ -101,4 +104,3 @@ const tryGetLogPath = async (nginxPath: string | undefined) => {
         return null;
     }
 }
-

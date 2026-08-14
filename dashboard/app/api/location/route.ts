@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLocations } from '@/lib/location';
 import { serverUrl, authToken } from '@/lib/environment';
+import { requireDashboardAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
+    const unauthorized = requireDashboardAuth(request);
+    if (unauthorized) return unauthorized;
     const ipAddresses = await request.json();
 
     if (!ipAddresses) {
@@ -36,4 +39,3 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(locations, { status: 200 });
     }
 }
-

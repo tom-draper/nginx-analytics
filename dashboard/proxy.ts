@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { password, usingFileUpload } from "./lib/environment";
+import { AUTH_COOKIE, isDashboardAuthEnabled, verifySessionToken } from "./lib/auth";
+import { password } from "./lib/environment";
 
 export function proxy(request: NextRequest) {
-	const authToken = request.cookies.get("auth_token");
+	if (request.nextUrl.pathname === '/api/auth') return NextResponse.next();
 
-	if (password && !usingFileUpload && !authToken) {
+	if (isDashboardAuthEnabled() && !verifySessionToken(request.cookies.get(AUTH_COOKIE)?.value, password!)) {
 		return NextResponse.redirect(new URL("/", request.url));
 	}
 
@@ -12,5 +13,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-	matcher: "/dashboard",
+	matcher: ["/dashboard/:path*", "/api/:path*"],
 };
