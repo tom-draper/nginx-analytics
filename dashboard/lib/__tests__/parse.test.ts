@@ -177,7 +177,7 @@ const ERROR_INFO = '2024/06/01 09:00:00 [info] 100#200: worker process 100 start
 describe('parseNginxErrors', () => {
     it('parses timestamp correctly', () => {
         const [err] = parseNginxErrors([ERROR_FULL])
-        expect(err.timestamp).toBeInstanceOf(Number)
+        expect(typeof err.timestamp).toBe('number')
         expect(new Date(err.timestamp).getFullYear()).toBe(2024)
         expect(new Date(err.timestamp).getMonth()).toBe(0) // January
         expect(new Date(err.timestamp).getDate()).toBe(10)

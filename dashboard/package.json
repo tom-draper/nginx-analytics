@@ -7,7 +7,7 @@
     "prebuild": "rm -rf .next/cache",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
@@ -38,7 +38,7 @@
     "@types/react-dom": "19.2.3",
     "@types/three": "^0.183.1",
     "@vitest/coverage-v8": "^4.1.6",
-    "eslint": "^10.4.0",
+    "eslint": "^9.39.5",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
