@@ -38,7 +38,7 @@ Follow the <a href="./tui/README.md">TUI dashboard deployment guide</a>.
 
 If you don’t want to run the dashboard on the same server as NGINX, <a href="./agent/README.md">deploy the agent</a> to stream logs securely.
 
-For the file-rotation and offset behavior shared by local and remote readers, see the [log reader contract](./LOG_READER_CONTRACT.md).
+Local and remote readers handle active logs, numeric rotations, gzip archives, truncation, and incomplete trailing lines consistently.
 
 ### Configuration
 
