@@ -20,6 +20,8 @@ var (
 	}
 )
 
+const maxCachedLocations = 10_000
+
 type Location struct {
 	Location string
 	Count    int
@@ -136,6 +138,12 @@ func (l *Locations) updateCache(locations []loc.Location, ipAddresses []string) 
 	for i, location := range locations {
 		ip := ipAddresses[i]
 		if _, exists := l.cache[ip]; !exists {
+			if len(l.cache) >= maxCachedLocations {
+				for oldestIP := range l.cache {
+					delete(l.cache, oldestIP)
+					break
+				}
+			}
 			l.cache[ip] = location
 		}
 	}
