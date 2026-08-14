@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -56,7 +57,7 @@ func TestGetDirectoryLogs_RotatedFiles(t *testing.T) {
 		includeCompressed bool
 		wantLogs          []string
 		wantPositions     []string
-		}{
+	}{
 		{
 			name:              "Access logs - no compressed",
 			isErrorLog:        false,
@@ -151,5 +152,21 @@ func TestReadLogFileRestartsAfterTruncation(t *testing.T) {
 	}
 	if result.Positions[0].Position != int64(len("new entry\n")) {
 		t.Fatalf("unexpected position: got %d", result.Positions[0].Position)
+	}
+}
+
+func TestReadLogFileSupportsLongLines(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "access.log")
+	longLine := strings.Repeat("x", 128*1024)
+	if err := os.WriteFile(filePath, []byte(longLine+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := readLogFile(filePath, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(result.Logs, []string{longLine}) {
+		t.Fatalf("unexpected logs: got %d lines", len(result.Logs))
 	}
 }

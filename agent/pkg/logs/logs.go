@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
+
+const maxLogLineSize = 10 * 1024 * 1024
 
 type Position struct {
 	Position int64  `json:"position"`
@@ -122,7 +125,7 @@ func readLogFile(filePath string, position int64) (LogResult, error) {
 	}
 
 	var logs []string
-	scanner := bufio.NewScanner(file)
+	scanner := newLogScanner(file)
 	for scanner.Scan() {
 		if line := scanner.Text(); line != "" {
 			logs = append(logs, line)
@@ -154,7 +157,7 @@ func readCompressedLogFile(filePath string) (LogResult, error) {
 	defer gzReader.Close()
 
 	var logs []string
-	scanner := bufio.NewScanner(gzReader)
+	scanner := newLogScanner(gzReader)
 	for scanner.Scan() {
 		if line := scanner.Text(); line != "" {
 			logs = append(logs, line)
@@ -168,6 +171,12 @@ func readCompressedLogFile(filePath string) (LogResult, error) {
 		Logs:      logs,
 		Positions: []Position{{Position: 0}}, // Always return 0 as position for gzipped files
 	}, nil
+}
+
+func newLogScanner(reader io.Reader) *bufio.Scanner {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 64*1024), maxLogLineSize)
+	return scanner
 }
 
 func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, includeCompressed bool) (LogResult, error) {
