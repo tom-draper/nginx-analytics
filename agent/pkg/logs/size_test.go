@@ -28,6 +28,12 @@ func TestGetLogSizes_RotatedFiles(t *testing.T) {
 			t.Fatalf("Failed to create test file %s: %v", name, err)
 		}
 	}
+	if err := os.Mkdir(filepath.Join(dirPath, "archive"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dirPath, "archive", "old.log"), make([]byte, 500), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	result, err := GetLogSizes(dirPath)
 	if err != nil {
@@ -56,7 +62,7 @@ func TestGetLogSize_RotatedFile(t *testing.T) {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 	defer os.Remove(logFile.Name())
-	
+
 	logFile.Write(make([]byte, 150))
 	logFile.Close()
 

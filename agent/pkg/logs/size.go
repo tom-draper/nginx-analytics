@@ -34,40 +34,42 @@ func GetLogSizes(dirPath string) (LogSizes, error) {
 	var files []LogFileSize
 	var summary LogFilesSummary
 
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() {
-			fileName := filepath.Base(path)
-			extension := strings.ToLower(filepath.Ext(path))
-			fileSize := info.Size()
-
-			// Add to files list
-			files = append(files, LogFileSize{
-				Name:      fileName,
-				Size:      fileSize,
-				Extension: extension,
-			})
-
-			// Update summary information
-			summary.TotalSize += fileSize
-			summary.TotalFiles++
-
-				if extension == ".log" || isRotatedLogFile(fileName) {
-					summary.LogFilesSize += fileSize
-					summary.LogFilesCount++
-				} else if extension == ".gz" || extension == ".zip" || extension == ".tar" {
-				summary.CompressedFilesSize += fileSize
-				summary.CompressedFilesCount++
-			}
-		}
-		return nil
-	})
-
+	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		return LogSizes{}, fmt.Errorf("error walking directory: %w", err)
+		return LogSizes{}, fmt.Errorf("error reading directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return LogSizes{}, fmt.Errorf("error reading log file info: %w", err)
+		}
+
+		fileName := entry.Name()
+		extension := strings.ToLower(filepath.Ext(fileName))
+		fileSize := info.Size()
+
+		// Add to files list
+		files = append(files, LogFileSize{
+			Name:      fileName,
+			Size:      fileSize,
+			Extension: extension,
+		})
+
+		// Update summary information
+		summary.TotalSize += fileSize
+		summary.TotalFiles++
+
+		if extension == ".log" || isRotatedLogFile(fileName) {
+			summary.LogFilesSize += fileSize
+			summary.LogFilesCount++
+		} else if extension == ".gz" || extension == ".zip" || extension == ".tar" {
+			summary.CompressedFilesSize += fileSize
+			summary.CompressedFilesCount++
+		}
 	}
 
 	return LogSizes{
