@@ -122,15 +122,15 @@ func (d *FastVersionDetector) GetVersion(path string) string {
 func (d *FastVersionDetector) extractVersionFast(path string) string {
 	// Fast path for most common patterns
 	if idx := strings.Index(path, "/api/v"); idx != -1 {
-		return d.extractVersionFromIndex(path, idx+5) // Skip "/api/v"
+		return d.extractVersionFromIndex(path, idx+6) // Skip "/api/v"
+	}
+
+	if idx := strings.Index(path, "/version/"); idx != -1 {
+		return d.extractVersionFromIndex(path, idx+9) // Skip "/version/"
 	}
 	
 	if idx := strings.Index(path, "/v"); idx != -1 {
 		return d.extractVersionFromIndex(path, idx+2) // Skip "/v"
-	}
-	
-	if idx := strings.Index(path, "/version/"); idx != -1 {
-		return d.extractVersionFromIndex(path, idx+9) // Skip "/version/"
 	}
 	
 	return ""
@@ -249,7 +249,7 @@ func (d *InlineVersionDetector) GetVersion(path string) string {
 func (d *InlineVersionDetector) extractAdvancedVersion(path string) string {
 	// Dynamic extraction handles all version patterns (including decimals)
 	if idx := strings.Index(path, "/api/v"); idx != -1 {
-		return d.extractVersionFromPos(path, idx+5)
+		return d.extractVersionFromPos(path, idx+6)
 	}
 	if idx := strings.Index(path, "/v"); idx != -1 {
 		return d.extractVersionFromPos(path, idx+2)
