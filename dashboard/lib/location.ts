@@ -11,6 +11,7 @@ export type Location = {
 let cityLookup: Reader<CityResponse> | undefined;
 let countryLookup: Reader<CountryResponse> | undefined;
 let initializationPromise: Promise<void> | null = null;
+const LOOKUP_CONCURRENCY = 25;
 
 // Modified to return a promise that resolves when initialization is complete
 function initializeLookups(): Promise<void> {
@@ -45,8 +46,8 @@ export async function locationLookup(ipAddress: string) {
         const response = cityLookup.get(ipAddress);
         return {
             ipAddress,
-            country: response?.country?.iso_code || null,
-            city: response?.city?.names?.en || null,
+            country: response?.country?.iso_code || '',
+            city: response?.city?.names?.en || '',
             lat: response?.location?.latitude ?? null,
             lon: response?.location?.longitude ?? null,
         };
@@ -54,16 +55,16 @@ export async function locationLookup(ipAddress: string) {
         const response = countryLookup.get(ipAddress);
         return {
             ipAddress,
-            country: response?.country?.iso_code || null,
-            city: null,
+            country: response?.country?.iso_code || '',
+            city: '',
             lat: null,
             lon: null,
         };
     } else {
         return {
             ipAddress,
-            country: null,
-            city: null,
+            country: '',
+            city: '',
             lat: null,
             lon: null,
         };
@@ -71,5 +72,14 @@ export async function locationLookup(ipAddress: string) {
 }
 
 export async function getLocations(ipAddresses: string[]) {
-    return await Promise.all(ipAddresses.map(locationLookup));
+    const locations: Location[] = new Array(ipAddresses.length);
+    let nextIndex = 0;
+    const worker = async () => {
+        while (nextIndex < ipAddresses.length) {
+            const index = nextIndex++;
+            locations[index] = await locationLookup(ipAddresses[index]);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(LOOKUP_CONCURRENCY, ipAddresses.length) }, worker));
+    return locations;
 }
