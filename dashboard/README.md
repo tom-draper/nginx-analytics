@@ -120,7 +120,7 @@ const nextConfig = {
 
 ### Access Logs
 
-By default, when `NGINX_ANALYTICS_ACCESS_PATH` is set to a directory, all compressed (.gz) and uncompressed (.log) log files within the directory will be served to the dashboard. If you only intend to target a single `access.log` file, use a full filepath instead.
+By default, when `NGINX_ANALYTICS_ACCESS_PATH` is a directory, the dashboard reads active `.log` files, numeric rotations such as `access.log.1`, and gzip archives during the initial load. Subsequent polls read only new uncompressed entries. If you only intend to target a single `access.log` file, use a full filepath instead.
 
 ```env
 NGINX_ANALYTICS_ACCESS_PATH=/path/to/nginx/access/logs
@@ -150,10 +150,10 @@ By default, system monitoring is disabled. To enable it, set the `NGINX_ANALYTIC
 NGINX_ANALYTICS_SYSTEM_MONITORING=true
 ```
 
-You can control how often resource usage is polled by adjusting `NGINX_ANALYTICS_MONITOR_INTERVAL`.
+You can control how often resource usage is polled by adjusting `NGINX_ANALYTICS_SYSTEM_MONITORING_INTERVAL`.
 
 ```env
-NGINX_ANALYTICS_SYSTEM_MONITORING=2000  # 2s interval (default)
+NGINX_ANALYTICS_SYSTEM_MONITORING_INTERVAL=2000  # 2s interval (default)
 ```
 
 ### Password Protection
@@ -164,3 +164,4 @@ To enable password protection for dashboard access, set a password against the `
 NGINX_ANALYTICS_PASSWORD=mypassword
 ```
 
+Password protection covers dashboard pages and dashboard API routes. Successful sign-in issues an HTTP-only, same-site, signed session cookie that expires after one hour. Serve the dashboard over HTTPS in production.

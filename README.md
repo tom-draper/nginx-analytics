@@ -56,7 +56,7 @@ The agent will verify that the auth token sent by the client matches the locally
 
 #### Password Protection
 
-If your dashboard is publically accessible, set up password protection by assigning a value to the `NGINX_ANALYTICS_PASSWORD` environment variable for the dashboard deployment.
+If your dashboard is publicly accessible, set `NGINX_ANALYTICS_PASSWORD` for the dashboard deployment. This protects dashboard pages and API routes with signed, one-hour HTTP-only sessions; deploy it over HTTPS in production.
 
 #### HTTPS
 
