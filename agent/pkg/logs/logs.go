@@ -98,8 +98,14 @@ func readLogFile(filePath string, position int64) (LogResult, error) {
 
 	fileSize := fileInfo.Size()
 
-	// If position is past the file size, no new logs
-	if position >= fileSize {
+	// A rotated log may be truncated or replaced. Start from the beginning
+	// rather than retaining an offset that can no longer be reached.
+	if position > fileSize {
+		position = 0
+	}
+
+	// If position is at the file size, there are no new logs.
+	if position == fileSize {
 		return LogResult{Logs: []string{}, Positions: []Position{{Position: position}}}, nil
 	}
 

@@ -133,3 +133,23 @@ func TestIsNumericExtension(t *testing.T) {
 		}
 	}
 }
+
+func TestReadLogFileRestartsAfterTruncation(t *testing.T) {
+	dirPath := t.TempDir()
+	filePath := filepath.Join(dirPath, "access.log")
+	if err := os.WriteFile(filePath, []byte("new entry\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := readLogFile(filePath, int64(len("previous entry that was longer\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !slices.Equal(result.Logs, []string{"new entry"}) {
+		t.Fatalf("unexpected logs: got %v", result.Logs)
+	}
+	if result.Positions[0].Position != int64(len("new entry\n")) {
+		t.Fatalf("unexpected position: got %d", result.Positions[0].Position)
+	}
+}

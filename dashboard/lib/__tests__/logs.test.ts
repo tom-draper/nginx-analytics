@@ -1,9 +1,13 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { describe, it, expect } from 'vitest'
 import {
     filterLogFiles,
     initializeFilePositions,
     combineLogResults,
     parsePositionsFromRequest,
+    readLogFile,
     type FilePosition,
     type LogResult,
 } from '../logs'
@@ -190,5 +194,21 @@ describe('parsePositionsFromRequest', () => {
             positions: encodeURIComponent(JSON.stringify([]))
         })
         expect(parsePositionsFromRequest(params)).toEqual([])
+    })
+})
+
+describe('readLogFile', () => {
+    it('restarts at the beginning when a log was truncated', async () => {
+        const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'nginx-analytics-'))
+        const filePath = path.join(dir, 'access.log')
+        await fs.promises.writeFile(filePath, 'new entry\n')
+
+        try {
+            const result = await readLogFile(filePath, 'previous entry that was longer\n'.length)
+            expect(result.logs).toEqual(['new entry'])
+            expect(result.positions).toEqual([{ position: 'new entry\n'.length }])
+        } finally {
+            await fs.promises.rm(dir, { recursive: true, force: true })
+        }
     })
 })

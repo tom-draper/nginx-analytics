@@ -219,8 +219,14 @@ export async function readLogFile(filePath: string, position: number): Promise<L
             return await readErrorLogDirectly(filePath, position);
         }
 
-        // If position is at or past file size, no new logs
-        if (position >= fileSize) {
+        // A rotated log may be truncated or replaced. Restart from the
+        // beginning instead of retaining an unreachable offset.
+        if (position > fileSize) {
+            position = 0;
+        }
+
+        // If position is at the file size, there are no new logs.
+        if (position === fileSize) {
             return { logs: [], positions: [{ position }] };
         }
 
