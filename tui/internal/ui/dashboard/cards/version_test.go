@@ -1,6 +1,7 @@
 package cards
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 
 // TestVersionCard_SelectMode tests entering and exiting select mode
 func TestVersionCard_SelectMode(t *testing.T) {
-	card := NewVersionCard(nil, period.Period{})
+    card := NewVersionCard(nil, period.Period(""))
 
 	// Initially not in select mode
 	if card.IsInSelectMode() {
@@ -46,7 +47,7 @@ func TestVersionCard_Navigation(t *testing.T) {
 		{Path: "/api/v3/products", Timestamp: &now},
 	}
 
-	card := NewVersionCard(logs, period.Period{})
+    card := NewVersionCard(logs, period.Period(""))
 	card.EnterSelectMode()
 
 	// Initial position should be 0
@@ -108,7 +109,7 @@ func TestVersionCard_LeftRightNavigation(t *testing.T) {
 		{Path: "/api/v2/posts", Timestamp: &now},
 	}
 
-	card := NewVersionCard(logs, period.Period{})
+    card := NewVersionCard(logs, period.Period(""))
 	card.EnterSelectMode()
 
 	initialIndex := card.selectedIndex
@@ -133,7 +134,7 @@ func TestVersionCard_HasSelection(t *testing.T) {
 		{Path: "/api/v2/posts", Timestamp: &now},
 	}
 
-	card := NewVersionCard(logs, period.Period{})
+    card := NewVersionCard(logs, period.Period(""))
 
 	// No selection when not in select mode
 	if card.HasSelection() {
@@ -164,7 +165,7 @@ func TestVersionCard_GetSelectedVersion(t *testing.T) {
 		{Path: "/api/v3/orders", Timestamp: &now},
 	}
 
-	card := NewVersionCard(logs, period.Period{})
+    card := NewVersionCard(logs, period.Period(""))
 
 	// No selection when not in select mode
 	filter := card.GetSelectedVersion()
@@ -211,7 +212,7 @@ func TestVersionCard_ClearSelection(t *testing.T) {
 		{Path: "/api/v2/posts", Timestamp: &now},
 	}
 
-	card := NewVersionCard(logs, period.Period{})
+    card := NewVersionCard(logs, period.Period(""))
 	card.EnterSelectMode()
 	card.SelectDown()
 
@@ -234,7 +235,7 @@ func TestVersionCard_ClearSelection(t *testing.T) {
 
 // TestVersionCard_EmptyData tests behavior with no versions
 func TestVersionCard_EmptyData(t *testing.T) {
-	card := NewVersionCard(nil, period.Period{})
+    card := NewVersionCard(nil, period.Period(""))
 
 	// Should not crash with empty data
 	card.EnterSelectMode()
@@ -267,7 +268,7 @@ func TestVersionCard_GetVersions(t *testing.T) {
 		{Path: "/users", Timestamp: &now}, // No version
 	}
 
-	card := NewVersionCard(logs, period.Period{})
+    card := NewVersionCard(logs, period.Period(""))
 
 	// Should have counted versions correctly
 	if len(card.versions) != 2 {
@@ -304,11 +305,11 @@ func TestVersionCard_GetRequiredHeight(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var logs []nginx.NGINXLog
 			for i := 0; i < tt.versionCount; i++ {
-				path := "/api/v" + string(rune('0'+i%10)) + "/users"
+				path := fmt.Sprintf("/api/v%d/users", i)
 				logs = append(logs, nginx.NGINXLog{Path: path, Timestamp: &now})
 			}
 
-			card := NewVersionCard(logs, period.Period{})
+            card := NewVersionCard(logs, period.Period(""))
 			height := card.GetRequiredHeight(100)
 
 			if height < tt.expectedMin || height > tt.expectedMax {
@@ -325,7 +326,7 @@ func TestVersionCard_UpdateCalculated(t *testing.T) {
 		{Path: "/api/v1/users", Timestamp: &now},
 	}
 
-	card := NewVersionCard(initialLogs, period.Period{})
+    card := NewVersionCard(initialLogs, period.Period(""))
 
 	// Initial state
 	if len(card.versions) != 1 {
@@ -339,7 +340,7 @@ func TestVersionCard_UpdateCalculated(t *testing.T) {
 		{Path: "/api/v3/items", Timestamp: &now},
 	}
 
-	card.UpdateCalculated(newLogs, period.Period{})
+    card.UpdateCalculated(newLogs, period.Period(""))
 
 	// Should have new version counts
 	if len(card.versions) != 3 {
@@ -367,7 +368,7 @@ func TestVersionCard_RenderContent(t *testing.T) {
 		{Path: "/api/v2/posts", Timestamp: &now},
 	}
 
-	card := NewVersionCard(logs, period.Period{})
+    card := NewVersionCard(logs, period.Period(""))
 
 	// Should not crash when rendering
 	content := card.RenderContent(50, 10)
