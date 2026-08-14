@@ -108,6 +108,16 @@ describe('exportCSV', () => {
         expect(csvRows()).toHaveLength(4) // header + 3 data rows
     })
 
+    it('escapes commas, quotes, and newlines in values', () => {
+        exportCSV([makeLog({ userAgent: 'Client, "quoted"\nnext line' })])
+        expect(capturedBlobContent).toContain('"Client, ""quoted""\nnext line"')
+    })
+
+    it('neutralizes spreadsheet formulas in untrusted values', () => {
+        exportCSV([makeLog({ path: '=IMPORTXML("https://example.com")' })])
+        expect(csvRows()[1]).toContain('"\'=IMPORTXML(""https://example.com"")"')
+    })
+
     it('triggers a download by clicking the anchor element', () => {
         exportCSV([])
         expect(mockAnchor.click).toHaveBeenCalledOnce()
