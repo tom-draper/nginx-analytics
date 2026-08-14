@@ -33,7 +33,7 @@ type Locations struct {
 }
 
 func (l *Locations) UpdateLocations(logs []nginx.NGINXLog, serverURL string, authToken string) {
-	if !loc.LocationsEnabled() {
+	if serverURL == "" && !loc.LocationsEnabled() {
 		return
 	}
 
