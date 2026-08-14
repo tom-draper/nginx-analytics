@@ -137,7 +137,9 @@ export async function serveDirectoryLogs(
 export function filterLogFiles(files: string[], isErrorLog: boolean, includeGzip: boolean): string[] {
     return files.filter(file => {
         // Filter by file extension
-        const isValidExtension = file.endsWith('.log') || (includeGzip && file.endsWith('.gz'));
+        const isRotatedLog = /\.log\.\d+$/.test(file);
+        const isGzippedLog = file.endsWith('.gz');
+        const isValidExtension = file.endsWith('.log') || isRotatedLog || (includeGzip && isGzippedLog);
 
         // Filter by log type
         const isValidLogType = isErrorLog
@@ -153,8 +155,8 @@ export function filterLogFiles(files: string[], isErrorLog: boolean, includeGzip
  */
 export function initializeFilePositions(logFiles: string[], positions: FilePosition[]): FilePosition[] {
     return logFiles.map(filename => {
-        if (filename.endsWith('.log')) {
-            // For .log files, use existing position or start at 0
+        if (!filename.endsWith('.gz')) {
+            // For uncompressed log files, use an existing position or start at 0.
             const existingPosition = positions.find(p => p.filename === filename);
             return {
                 filename,
@@ -187,8 +189,8 @@ export function combineLogResults(
             allLogs.push(...result.logs);
         }
 
-        // Only track positions for .log files
-        if (filePositions[index].filename?.endsWith('.log')) {
+        // Only track positions for uncompressed log files.
+        if (!filePositions[index].filename?.endsWith('.gz')) {
             newPositions.push({
                 filename: filePositions[index].filename,
                 position: result.positions[0]?.position ?? filePositions[index].position

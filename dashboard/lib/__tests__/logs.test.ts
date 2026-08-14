@@ -26,9 +26,9 @@ describe('filterLogFiles', () => {
         'other.txt',
     ]
 
-    it('returns access .log files when isErrorLog=false, includeGzip=false', () => {
+    it('returns access and rotated .log files when isErrorLog=false, includeGzip=false', () => {
         const result = filterLogFiles(files, false, false)
-        expect(result).toEqual(['access.log'])
+        expect(result).toEqual(['access.log', 'access.log.1'])
     })
 
     it('returns error .log files when isErrorLog=true, includeGzip=false', () => {
@@ -82,6 +82,12 @@ describe('initializeFilePositions', () => {
         expect(result).toEqual([{ filename: 'access.log', position: 0 }])
     })
 
+    it('uses an existing position for a rotated uncompressed log file', () => {
+        const positions: FilePosition[] = [{ filename: 'access.log.1', position: 1024 }]
+        const result = initializeFilePositions(['access.log.1'], positions)
+        expect(result).toEqual([{ filename: 'access.log.1', position: 1024 }])
+    })
+
     it('always uses position 0 for .gz files regardless of existing positions', () => {
         const positions: FilePosition[] = [{ filename: 'access.log.gz', position: 999 }]
         const result = initializeFilePositions(['access.log.gz'], positions)
@@ -131,6 +137,13 @@ describe('combineLogResults', () => {
         expect(newPositions).toHaveLength(1)
         expect(newPositions[0].filename).toBe('access.log')
         expect(newPositions[0].position).toBe(200)
+    })
+
+    it('tracks positions for rotated uncompressed log files', () => {
+        const filePositions: FilePosition[] = [{ filename: 'access.log.1', position: 0 }]
+        const logsResult: LogResult[] = [{ logs: ['a'], positions: [{ position: 200 }] }]
+        const { newPositions } = combineLogResults(logsResult, filePositions)
+        expect(newPositions).toEqual([{ filename: 'access.log.1', position: 200 }])
     })
 
     it('falls back to filePositions position when result has no position', () => {
