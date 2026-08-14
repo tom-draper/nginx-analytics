@@ -6,12 +6,13 @@ import (
 )
 
 type Arguments struct {
-	Port             string
-	AccessPath       string
-	ErrorPath        string
-	SystemMonitoring bool
-	AuthToken        string
-	LogFormat        string
+	Port                string
+	AccessPath          string
+	ErrorPath           string
+	SystemMonitoring    bool
+	SystemMonitoringSet bool
+	AuthToken           string
+	LogFormat           string
 }
 
 func Parse(defaults Arguments) Arguments {
@@ -23,13 +24,20 @@ func Parse(defaults Arguments) Arguments {
 	cmdSystemMonitoring := flag.Bool("system-monitoring", defaults.SystemMonitoring, fmt.Sprintf("System resource monitoring toggle (default %t)", defaults.SystemMonitoring))
 	cmdLogFormat := flag.String("log-format", "", fmt.Sprintf("Log format used by NGINX (default %s)", defaults.LogFormat))
 	flag.Parse()
+	systemMonitoringSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "system-monitoring" {
+			systemMonitoringSet = true
+		}
+	})
 
 	return Arguments{
-		Port:             *cmdPort,
-		AuthToken:        *cmdAuthToken,
-		AccessPath:       *cmdAccessPath,
-		ErrorPath:        *cmdErrorPath,
-		SystemMonitoring: *cmdSystemMonitoring,
-		LogFormat:        *cmdLogFormat,
+		Port:                *cmdPort,
+		AuthToken:           *cmdAuthToken,
+		AccessPath:          *cmdAccessPath,
+		ErrorPath:           *cmdErrorPath,
+		SystemMonitoring:    *cmdSystemMonitoring,
+		SystemMonitoringSet: systemMonitoringSet,
+		LogFormat:           *cmdLogFormat,
 	}
 }

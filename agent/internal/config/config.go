@@ -25,7 +25,14 @@ var DefaultConfig = Config{
 
 func LoadConfig() Config {
 	env := env.LoadEnv()
-	args := args.Parse(args.Arguments(DefaultConfig))
+	args := args.Parse(args.Arguments{
+		Port:             DefaultConfig.Port,
+		AccessPath:       DefaultConfig.AccessPath,
+		ErrorPath:        DefaultConfig.ErrorPath,
+		SystemMonitoring: DefaultConfig.SystemMonitoring,
+		AuthToken:        DefaultConfig.AuthToken,
+		LogFormat:        DefaultConfig.LogFormat,
+	})
 
 	accessPath := resolveValue(args.AccessPath, env.AccessPath, DefaultConfig.AccessPath)
 	// If an access path provided, use as default error path
@@ -38,7 +45,7 @@ func LoadConfig() Config {
 		Port:             resolveValue(args.Port, env.Port, DefaultConfig.Port),
 		AccessPath:       accessPath,
 		ErrorPath:        resolveValue(args.ErrorPath, env.ErrorPath, defaultErrorPath),
-		SystemMonitoring: resolveBool(args.SystemMonitoring, env.SystemMonitoring, DefaultConfig.SystemMonitoring),
+		SystemMonitoring: resolveBool(args.SystemMonitoring, args.SystemMonitoringSet, env.SystemMonitoring, DefaultConfig.SystemMonitoring),
 		AuthToken:        resolveValue(args.AuthToken, env.AuthToken, ""),
 		LogFormat:        resolveValue(args.LogFormat, env.LogFormat, DefaultConfig.LogFormat),
 	}
@@ -54,9 +61,9 @@ func resolveValue(argVal, envVal, defaultVal string) string {
 	return defaultVal
 }
 
-func resolveBool(argVal, envVal, defaultVal bool) bool {
-	if argVal {
-		return true
+func resolveBool(argVal, argSet, envVal, defaultVal bool) bool {
+	if argSet {
+		return argVal
 	}
 	if envVal {
 		return true
