@@ -224,4 +224,18 @@ describe('readLogFile', () => {
             await fs.promises.rm(dir, { recursive: true, force: true })
         }
     })
+
+    it('defers an incomplete trailing line until it is terminated', async () => {
+        const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'nginx-analytics-'))
+        const filePath = path.join(dir, 'access.log')
+        await fs.promises.writeFile(filePath, 'complete\npartial')
+
+        try {
+            const result = await readLogFile(filePath, 0)
+            expect(result.logs).toEqual(['complete'])
+            expect(result.positions).toEqual([{ position: 'complete\n'.length }])
+        } finally {
+            await fs.promises.rm(dir, { recursive: true, force: true })
+        }
+    })
 })
