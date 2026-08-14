@@ -22,7 +22,7 @@ var (
 	levelPattern     = regexp.MustCompile(`\[(debug|info|notice|warn|error|crit|alert|emerg)\]`)
 	pidPattern       = regexp.MustCompile(`(\d+)#(\d+)`)
 	cidPattern       = regexp.MustCompile(`\*(\d+)`)
-	clientPattern    = regexp.MustCompile(`client: (\d+\.\d+\.\d+\.\d+)`)
+	clientPattern    = regexp.MustCompile(`client: ([^,\s]+)`)
 	serverPattern    = regexp.MustCompile(`server: (\S+)`)
 	requestPattern   = regexp.MustCompile(`request: "([^"]+)"`)
 	referrerPattern  = regexp.MustCompile(`referrer: "([^"]+)"`)
@@ -77,19 +77,19 @@ const (
 )
 
 var capturedVars = map[string]varInfo{
-	"remote_addr":      {`(\S+)`, []int{fIPAddress}},
-	"time_local":       {`([^\]]+)`, []int{fTimestamp}},
-	"time_iso8601":     {`(\S+)`, []int{fTimestamp}},
-	"request":          {`(\S+) (\S+) (\S+)`, []int{fMethod, fPath, fHTTPVersion}},
-	"request_method":   {`(\S+)`, []int{fMethod}},
-	"request_uri":      {`(\S+)`, []int{fPath}},
-	"uri":              {`(\S+)`, []int{fPath}},
-	"server_protocol":  {`(\S+)`, []int{fHTTPVersion}},
-	"status":           {`(\d{3})`, []int{fStatus}},
-	"body_bytes_sent":  {`(\d+)`, []int{fResponseSize}},
-	"bytes_sent":       {`(\d+)`, []int{fResponseSize}},
-	"http_referer":     {`([^"]*)`, []int{fReferrer}},
-	"http_user_agent":  {`([^"]*)`, []int{fUserAgent}},
+	"remote_addr":     {`(\S+)`, []int{fIPAddress}},
+	"time_local":      {`([^\]]+)`, []int{fTimestamp}},
+	"time_iso8601":    {`(\S+)`, []int{fTimestamp}},
+	"request":         {`(\S+) (\S+) (\S+)`, []int{fMethod, fPath, fHTTPVersion}},
+	"request_method":  {`(\S+)`, []int{fMethod}},
+	"request_uri":     {`(\S+)`, []int{fPath}},
+	"uri":             {`(\S+)`, []int{fPath}},
+	"server_protocol": {`(\S+)`, []int{fHTTPVersion}},
+	"status":          {`(\d{3})`, []int{fStatus}},
+	"body_bytes_sent": {`(\d+)`, []int{fResponseSize}},
+	"bytes_sent":      {`(\d+)`, []int{fResponseSize}},
+	"http_referer":    {`([^"]*)`, []int{fReferrer}},
+	"http_user_agent": {`([^"]*)`, []int{fUserAgent}},
 }
 
 var uncapturedVars = map[string]string{

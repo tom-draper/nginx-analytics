@@ -372,6 +372,15 @@ func TestParseNginxErrors(t *testing.T) {
 	}
 }
 
+func TestParseNginxErrorsExtractsIPv6Client(t *testing.T) {
+	errors := ParseNginxErrors([]string{
+		`2024/01/15 10:30:45 [error] 12345#0: *1 failed, client: 2001:db8::1, server: example.com`,
+	})
+	if len(errors) != 1 || errors[0].ClientAddress == nil || *errors[0].ClientAddress != "2001:db8::1" {
+		t.Fatalf("unexpected client address: %#v", errors)
+	}
+}
+
 // Helper
 func intPtr(i int) *int { return &i }
 

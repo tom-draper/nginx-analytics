@@ -204,6 +204,11 @@ describe('parseNginxErrors', () => {
         expect(err.clientAddress).toBe('10.0.0.1')
     })
 
+    it('extracts an IPv6 client address', () => {
+        const [err] = parseNginxErrors(['2024/01/10 08:30:00 [error] 1234#5678: *99 failed, client: 2001:db8::1, server: example.com'])
+        expect(err.clientAddress).toBe('2001:db8::1')
+    })
+
     it('extracts optional server', () => {
         const [err] = parseNginxErrors([ERROR_FULL])
         expect(err.serverAddress).toBe('example.com,')
