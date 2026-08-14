@@ -51,7 +51,7 @@ export function parsePositionsFromRequest(searchParams: URLSearchParams): FilePo
  * Serve logs from a single file
  */
 export async function serveLog(filePath: string, position: number) {
-    const resolvedPath = path.resolve(process.cwd(), filePath);
+    const resolvedPath = path.resolve(filePath);
 
     try {
         await stat(resolvedPath);
@@ -78,7 +78,7 @@ export async function serveDirectoryLogs(
     isErrorLog: boolean,
     includeGzip: boolean
 ) {
-    const resolvedPath = path.resolve(process.cwd(), dirPath);
+    const resolvedPath = path.resolve(dirPath);
 
     try {
         await stat(resolvedPath);
