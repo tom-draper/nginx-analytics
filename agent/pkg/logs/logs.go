@@ -135,9 +135,23 @@ func readLogFile(filePath string, position int64) (LogResult, error) {
 		return LogResult{}, err
 	}
 
+	newPosition := fileSize
+	lastByte := []byte{0}
+	if _, err := file.ReadAt(lastByte, fileSize-1); err != nil {
+		return LogResult{}, err
+	}
+	if lastByte[0] != '\n' {
+		if len(logs) > 0 {
+			newPosition -= int64(len(logs[len(logs)-1]))
+			logs = logs[:len(logs)-1]
+		} else {
+			newPosition = position
+		}
+	}
+
 	return LogResult{
 		Logs:      logs,
-		Positions: []Position{{Position: fileSize}},
+		Positions: []Position{{Position: newPosition}},
 	}, nil
 }
 

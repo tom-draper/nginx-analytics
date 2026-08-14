@@ -170,3 +170,21 @@ func TestReadLogFileSupportsLongLines(t *testing.T) {
 		t.Fatalf("unexpected logs: got %d lines", len(result.Logs))
 	}
 }
+
+func TestReadLogFileDefersIncompleteLine(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "access.log")
+	if err := os.WriteFile(filePath, []byte("complete\npartial"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := readLogFile(filePath, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(result.Logs, []string{"complete"}) {
+		t.Fatalf("unexpected logs: %v", result.Logs)
+	}
+	if result.Positions[0].Position != int64(len("complete\n")) {
+		t.Fatalf("unexpected position: %d", result.Positions[0].Position)
+	}
+}
