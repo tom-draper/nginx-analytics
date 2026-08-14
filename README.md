@@ -16,14 +16,6 @@ Transform your existing NGINX logs into an interactive real-time analytics dashb
 
 ## Getting Started
 
-### Choose your setup
-
-| If you want to… | Start here |
-| --- | --- |
-| Run the web dashboard on the same machine as NGINX | [Dashboard deployment guide](./dashboard/README.md) |
-| Explore analytics from a terminal or SSH session | [TUI deployment guide](./tui/README.md) |
-| Run the dashboard separately from the NGINX server | [Agent deployment guide](./agent/README.md) |
-
 ### Dashboard
 
 Deploy a single Next.js dashboard to the same server as NGINX.
