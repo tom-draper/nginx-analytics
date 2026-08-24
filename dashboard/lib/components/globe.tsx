@@ -29,6 +29,7 @@ export default function Globe() {
     const globeRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
+        const container = globeRef.current;
         const scene = new Scene();
         const camera = new PerspectiveCamera(50, document.documentElement.clientWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = 300;
@@ -38,9 +39,9 @@ export default function Globe() {
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x000000, 0);
 
-        if (globeRef.current) {
-            globeRef.current.innerHTML = '';
-            globeRef.current.appendChild(renderer.domElement);
+        if (container) {
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
         }
 
         const globeRadius = 115;
@@ -288,7 +289,7 @@ export default function Globe() {
             sharedDotGeo.dispose();
             renderer.dispose();
             scene.clear();
-            if (globeRef.current) globeRef.current.innerHTML = '';
+            if (container) container.innerHTML = '';
         };
     }, []);
 

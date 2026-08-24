@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import type { LiveEvent } from './live-globe';
 import type { NginxLog } from '../types';
@@ -33,7 +33,7 @@ export default function LiveGlobeCard({ logs, locationMap }: Props) {
     const eventIdRef = useRef(0);
 
     // Push an event directly onto the queue (no delay).
-    const enqueue = (log: NginxLog, loc: Location) => {
+    const enqueue = useCallback((log: NginxLog, loc: Location) => {
         if (loc.lat == null || loc.lon == null) return;
         eventQueueRef.current.push({
             id: String(++eventIdRef.current),
@@ -41,12 +41,12 @@ export default function LiveGlobeCard({ logs, locationMap }: Props) {
             lon: loc.lon,
             status: log.status,
         });
-    };
+    }, []);
 
     // Schedule an event using the log's timestamp to replay it at the same
     // position within a REPLAY_WINDOW_MS span, so a batch of recent logs
     // trickles in over 30 s instead of all firing at once.
-    const scheduleEnqueue = (log: NginxLog, loc: Location) => {
+    const scheduleEnqueue = useCallback((log: NginxLog, loc: Location) => {
         if (loc.lat == null || loc.lon == null) return;
         const delay = log.timestamp != null
             ? Math.max(0, log.timestamp - (Date.now() - REPLAY_WINDOW_MS))
@@ -56,7 +56,7 @@ export default function LiveGlobeCard({ logs, locationMap }: Props) {
         } else {
             setTimeout(() => enqueue(log, loc), delay);
         }
-    };
+    }, [enqueue]);
 
     // When new logs arrive, resolve what we can, defer the rest to pendingRef
     useEffect(() => {
@@ -79,7 +79,7 @@ export default function LiveGlobeCard({ logs, locationMap }: Props) {
         }
 
         pendingRef.current.push(...stillPending);
-    }, [logs]);
+    }, [logs, locationMap, scheduleEnqueue]);
 
     // When locationMap grows, retry any pending logs (enqueue immediately —
     // the replay window has already passed by the time the location resolves).
@@ -96,7 +96,7 @@ export default function LiveGlobeCard({ logs, locationMap }: Props) {
             }
         }
         pendingRef.current = stillPending;
-    }, [locationMap]);
+    }, [locationMap, enqueue]);
 
     // Drain the queue at a steady rate so beacons appear spread out
     useEffect(() => {

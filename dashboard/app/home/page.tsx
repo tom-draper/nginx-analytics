@@ -16,7 +16,6 @@ export default function TiltedGlobeSingleTarget() {
 		const handleScroll = () => {
 			// Calculate visibility based on viewport position
 			if (globeRef.current && contentStartRef.current) {
-				const globeRect = globeRef.current.getBoundingClientRect();
 				const contentStartPosition = contentStartRef.current.getBoundingClientRect().top;
 				const viewportHeight = window.innerHeight;
 

@@ -153,7 +153,7 @@ async function getDiskUsage() {
     }
 }
 
-async function getDiskUsageFallback() {
+async function _getDiskUsageFallback() {
     try {
         if (os.platform() === 'win32') {
             const { stdout } = await execAsync('wmic logicaldisk get size,freespace,caption');
