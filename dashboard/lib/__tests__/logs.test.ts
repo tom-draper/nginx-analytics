@@ -1,6 +1,7 @@
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import zlib from 'zlib'
 import { describe, it, expect } from 'vitest'
 import {
     filterLogFiles,
@@ -8,9 +9,17 @@ import {
     combineLogResults,
     parsePositionsFromRequest,
     readLogFile,
+    serveDirectoryLogs,
     type FilePosition,
     type LogResult,
 } from '../logs'
+
+function logData(result: Awaited<ReturnType<typeof serveDirectoryLogs>>): { logs: string[]; positions: FilePosition[] } {
+    if (result.status !== 200 || !result.data || !('logs' in result.data) || !('positions' in result.data)) {
+        throw new Error('Expected a successful directory log response')
+    }
+    return result.data as { logs: string[]; positions: FilePosition[] }
+}
 
 // ---------------------------------------------------------------------------
 // filterLogFiles
@@ -255,6 +264,55 @@ describe('readLogFile', () => {
             await fs.promises.appendFile(filePath, '\n')
             const secondRead = await readLogFile(filePath, position)
             expect(secondRead.logs).toEqual([partialLine])
+        } finally {
+            await fs.promises.rm(dir, { recursive: true, force: true })
+        }
+    })
+})
+
+describe('directory log ingestion lifecycle', () => {
+    it('reads archives, polls additions, recovers from truncation, and preserves UTF-8 positions', async () => {
+        const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'nginx-analytics-'))
+        const activeLog = path.join(dir, 'access.log')
+        await fs.promises.writeFile(activeLog, 'active entry\n')
+        await fs.promises.writeFile(path.join(dir, 'access.log.1'), 'rotated entry\n')
+        await fs.promises.writeFile(
+            path.join(dir, 'access.log.2.gz'),
+            zlib.gzipSync('archived entry\n')
+        )
+
+        try {
+            const initial = await serveDirectoryLogs(dir, [], false, true)
+            expect(initial.status).toBe(200)
+            const initialData = logData(initial)
+            expect(initialData.logs).toEqual(['active entry', 'rotated entry', 'archived entry'])
+            expect(initialData.positions).toEqual([
+                { filename: 'access.log', position: Buffer.byteLength('active entry\n') },
+                { filename: 'access.log.1', position: Buffer.byteLength('rotated entry\n') },
+            ])
+
+            await fs.promises.appendFile(activeLog, 'next entry\n')
+            const incremental = await serveDirectoryLogs(dir, initialData.positions, false, false)
+            expect(incremental.status).toBe(200)
+            const incrementalData = logData(incremental)
+            expect(incrementalData.logs).toEqual(['next entry'])
+
+            await fs.promises.writeFile(activeLog, 'fresh entry\n')
+            const afterTruncation = await serveDirectoryLogs(dir, incrementalData.positions, false, false)
+            expect(afterTruncation.status).toBe(200)
+            const afterTruncationData = logData(afterTruncation)
+            expect(afterTruncationData.logs).toEqual(['fresh entry'])
+
+            await fs.promises.appendFile(activeLog, 'café')
+            const partial = await serveDirectoryLogs(dir, afterTruncationData.positions, false, false)
+            expect(partial.status).toBe(200)
+            const partialData = logData(partial)
+            expect(partialData.logs).toEqual([])
+
+            await fs.promises.appendFile(activeLog, '\n')
+            const completed = await serveDirectoryLogs(dir, partialData.positions, false, false)
+            expect(completed.status).toBe(200)
+            expect(logData(completed).logs).toEqual(['café'])
         } finally {
             await fs.promises.rm(dir, { recursive: true, force: true })
         }
