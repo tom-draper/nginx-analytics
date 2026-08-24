@@ -250,7 +250,11 @@ export async function readLogFile(filePath: string, position: number): Promise<L
             });
 
             stream.on('end', () => {
-                const newPosition = data.length === 0 ? fileSize : fileSize - data.length;
+                // File positions are byte offsets. `data.length` counts UTF-16 code
+                // units, which would leave the position incorrect for an incomplete
+                // line containing non-ASCII characters.
+                const trailingBytes = Buffer.byteLength(data, 'utf8');
+                const newPosition = trailingBytes === 0 ? fileSize : fileSize - trailingBytes;
                 resolve({ logs: newLogs, positions: [{ position: newPosition }] });
             });
 

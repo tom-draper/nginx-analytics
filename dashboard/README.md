@@ -69,7 +69,7 @@ docker run -d \
   -v /var/log/nginx:/var/log/nginx:ro \
   -v /path/to/GeoLite2-City.mmdb:/app/GeoLite2-City.mmdb \
   -e NGINX_ANALYTICS_ACCESS_PATH=/var/log/nginx \
-  ghcr.io/tom-draper/nginx-analytics-agent:latest
+  ghcr.io/tom-draper/nginx-analytics-dashboard:latest
 ```
 
 Or build locally:

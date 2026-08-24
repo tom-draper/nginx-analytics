@@ -238,4 +238,25 @@ describe('readLogFile', () => {
             await fs.promises.rm(dir, { recursive: true, force: true })
         }
     })
+
+    it('keeps byte-accurate positions for incomplete UTF-8 lines', async () => {
+        const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'nginx-analytics-'))
+        const filePath = path.join(dir, 'access.log')
+        const completeLine = 'complete\n'
+        const partialLine = 'café'
+        await fs.promises.writeFile(filePath, `${completeLine}${partialLine}`)
+
+        try {
+            const firstRead = await readLogFile(filePath, 0)
+            const position = Buffer.byteLength(completeLine, 'utf8')
+            expect(firstRead.logs).toEqual(['complete'])
+            expect(firstRead.positions).toEqual([{ position }])
+
+            await fs.promises.appendFile(filePath, '\n')
+            const secondRead = await readLogFile(filePath, position)
+            expect(secondRead.logs).toEqual([partialLine])
+        } finally {
+            await fs.promises.rm(dir, { recursive: true, force: true })
+        }
+    })
 })
