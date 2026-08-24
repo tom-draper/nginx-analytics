@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/tom-draper/nginx-analytics/agent/pkg/logger"
 )
@@ -20,6 +21,7 @@ const maxLogLineSize = 10 * 1024 * 1024
 type Position struct {
 	Position int64  `json:"position"`
 	Filename string `json:"filename,omitempty"`
+	FileID   string `json:"fileId,omitempty"`
 }
 
 type LogResult struct {
@@ -227,7 +229,10 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 	}
 
 	// Initialize file positions
-	filePositions := initializeFilePositions(logFiles, positions)
+	filePositions, err := initializeFilePositions(dirPath, logFiles, positions)
+	if err != nil {
+		return LogResult{}, err
+	}
 
 	type fileResult struct {
 		logs     []string
@@ -269,7 +274,7 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 				if len(result.Positions) > 0 {
 					pos = result.Positions[0].Position
 				}
-				r.position = Position{Filename: fp.Filename, Position: pos}
+				r.position = Position{Filename: fp.Filename, Position: pos, FileID: fp.FileID}
 				r.hasPos = true
 			}
 			results[idx] = r
@@ -295,20 +300,49 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 }
 
 // initializeFilePositions initializes positions for each log file
-func initializeFilePositions(logFiles []string, positions []Position) []Position {
-	posMap := make(map[string]int64, len(positions))
+func initializeFilePositions(dirPath string, logFiles []string, positions []Position) ([]Position, error) {
+	positionsByID := make(map[string]int64, len(positions))
+	positionsByFilename := make(map[string]int64, len(positions))
 	for _, pos := range positions {
-		posMap[pos.Filename] = pos.Position
+		if pos.FileID != "" {
+			positionsByID[pos.FileID] = pos.Position
+		} else {
+			positionsByFilename[pos.Filename] = pos.Position
+		}
 	}
 
 	filePositions := make([]Position, len(logFiles))
 	for i, filename := range logFiles {
-		position := posMap[filename] // 0 if not found
+		position := int64(0)
+		fileID := ""
 		if strings.HasSuffix(filename, ".gz") {
 			position = 0
+		} else {
+			var err error
+			fileID, err = getFileID(filepath.Join(dirPath, filename))
+			if err != nil {
+				return nil, err
+			}
+			if existingPosition, ok := positionsByID[fileID]; ok {
+				position = existingPosition
+			} else if existingPosition, ok := positionsByFilename[filename]; ok {
+				position = existingPosition
+			}
 		}
-		filePositions[i] = Position{Filename: filename, Position: position}
+		filePositions[i] = Position{Filename: filename, Position: position, FileID: fileID}
 	}
 
-	return filePositions
+	return filePositions, nil
+}
+
+func getFileID(filePath string) (string, error) {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return "", err
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || stat.Ino == 0 {
+		return "", nil
+	}
+	return fmt.Sprintf("%d:%d", stat.Dev, stat.Ino), nil
 }

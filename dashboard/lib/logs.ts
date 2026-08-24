@@ -22,6 +22,7 @@ export const isErrorDir = isDir(nginxErrorPath);
 export interface FilePosition {
     filename?: string;
     position: number;
+    fileId?: string;
 }
 
 export interface LogResult {
@@ -97,7 +98,8 @@ export async function serveDirectoryLogs(
         }
 
         // Initialize positions for each file
-        const filePositions = initializeFilePositions(logFiles, positions);
+        const fileIds = await getFileIds(resolvedPath, logFiles);
+        const filePositions = initializeFilePositions(logFiles, positions, fileIds);
 
         // Read logs from all files
         const logsResult = await Promise.all(
@@ -153,14 +155,25 @@ export function filterLogFiles(files: string[], isErrorLog: boolean, includeGzip
 /**
  * Initialize positions for each log file
  */
-export function initializeFilePositions(logFiles: string[], positions: FilePosition[]): FilePosition[] {
+export function initializeFilePositions(
+    logFiles: string[],
+    positions: FilePosition[],
+    fileIds = new Map<string, string>()
+): FilePosition[] {
     return logFiles.map(filename => {
         if (!filename.endsWith('.gz')) {
-            // For uncompressed log files, use an existing position or start at 0.
-            const existingPosition = positions.find(p => p.filename === filename);
+            const fileId = fileIds.get(filename);
+            // A rotated file keeps its identity but gains a new filename. Prefer
+            // that identity to avoid rereading entries already seen under its old
+            // name. Fall back to filenames for clients using the older protocol.
+            const existingPosition = fileId
+                ? positions.find(p => p.fileId === fileId)
+                    ?? positions.find(p => p.fileId === undefined && p.filename === filename)
+                : positions.find(p => p.filename === filename);
             return {
                 filename,
-                position: existingPosition ? existingPosition.position : 0
+                position: existingPosition ? existingPosition.position : 0,
+                fileId,
             };
         } else {
             // For .gz files, always start at position 0
@@ -193,12 +206,23 @@ export function combineLogResults(
         if (!filePositions[index].filename?.endsWith('.gz')) {
             newPositions.push({
                 filename: filePositions[index].filename,
-                position: result.positions[0]?.position ?? filePositions[index].position
+                position: result.positions[0]?.position ?? filePositions[index].position,
+                fileId: filePositions[index].fileId,
             });
         }
     });
 
     return { allLogs, newPositions };
+}
+
+async function getFileIds(dirPath: string, filenames: string[]): Promise<Map<string, string>> {
+    const identities = await Promise.all(filenames.map(async filename => {
+        if (filename.endsWith('.gz')) return [filename, undefined] as const;
+        const details = await stat(path.join(dirPath, filename));
+        const fileId = details.ino === 0 ? undefined : `${details.dev}:${details.ino}`;
+        return [filename, fileId] as const;
+    }));
+    return new Map(identities.filter((entry): entry is [string, string] => entry[1] !== undefined));
 }
 
 /**

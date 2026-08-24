@@ -271,6 +271,27 @@ describe('readLogFile', () => {
 })
 
 describe('directory log ingestion lifecycle', () => {
+    it('does not reread entries after the active log is renamed during rotation', async () => {
+        const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'nginx-analytics-'))
+        const activeLog = path.join(dir, 'access.log')
+        await fs.promises.writeFile(activeLog, 'already read\n')
+
+        try {
+            const initial = logData(await serveDirectoryLogs(dir, [], false, false))
+            expect(initial.logs).toEqual(['already read'])
+            expect(initial.positions[0].fileId).toBeTruthy()
+
+            await fs.promises.rename(activeLog, path.join(dir, 'access.log.1'))
+            await fs.promises.writeFile(activeLog, 'new entry\n')
+
+            const afterRotation = logData(await serveDirectoryLogs(dir, initial.positions, false, false))
+            expect(afterRotation.logs).toEqual(['new entry'])
+            expect(afterRotation.positions.map(position => position.filename)).toEqual(['access.log', 'access.log.1'])
+        } finally {
+            await fs.promises.rm(dir, { recursive: true, force: true })
+        }
+    })
+
     it('reads archives, polls additions, recovers from truncation, and preserves UTF-8 positions', async () => {
         const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'nginx-analytics-'))
         const activeLog = path.join(dir, 'access.log')
@@ -286,7 +307,7 @@ describe('directory log ingestion lifecycle', () => {
             expect(initial.status).toBe(200)
             const initialData = logData(initial)
             expect(initialData.logs).toEqual(['active entry', 'rotated entry', 'archived entry'])
-            expect(initialData.positions).toEqual([
+            expect(initialData.positions).toMatchObject([
                 { filename: 'access.log', position: Buffer.byteLength('active entry\n') },
                 { filename: 'access.log.1', position: Buffer.byteLength('rotated entry\n') },
             ])

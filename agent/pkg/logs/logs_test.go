@@ -155,6 +155,37 @@ func TestReadLogFileRestartsAfterTruncation(t *testing.T) {
 	}
 }
 
+func TestGetDirectoryLogsDoesNotDuplicateAfterRotation(t *testing.T) {
+	dirPath := t.TempDir()
+	activeLog := filepath.Join(dirPath, "access.log")
+	if err := os.WriteFile(activeLog, []byte("already read\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	initial, err := GetDirectoryLogs(dirPath, nil, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(initial.Logs, []string{"already read"}) || initial.Positions[0].FileID == "" {
+		t.Fatalf("unexpected initial result: %+v", initial)
+	}
+
+	if err := os.Rename(activeLog, filepath.Join(dirPath, "access.log.1")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(activeLog, []byte("new entry\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	afterRotation, err := GetDirectoryLogs(dirPath, initial.Positions, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(afterRotation.Logs, []string{"new entry"}) {
+		t.Fatalf("unexpected logs after rotation: %v", afterRotation.Logs)
+	}
+}
+
 func TestReadLogFileSupportsLongLines(t *testing.T) {
 	filePath := filepath.Join(t.TempDir(), "access.log")
 	longLine := strings.Repeat("x", 128*1024)
