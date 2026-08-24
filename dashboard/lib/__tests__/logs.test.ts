@@ -289,6 +289,24 @@ describe('readLogFile', () => {
     })
 })
 
+describe('readErrorLogDirectly', () => {
+    it('uses byte offsets for UTF-8 error log entries', async () => {
+        const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'nginx-analytics-'))
+        const filePath = path.join(dir, 'error.log')
+        const firstLine = 'complete\n'
+        await fs.promises.writeFile(filePath, `${firstLine}café\n`)
+
+        try {
+            const { readErrorLogDirectly } = await import('../logs')
+            const result = await readErrorLogDirectly(filePath, Buffer.byteLength(firstLine, 'utf8'))
+            expect(result.logs).toEqual(['café'])
+            expect(result.positions).toEqual([{ position: Buffer.byteLength(`${firstLine}café\n`, 'utf8') }])
+        } finally {
+            await fs.promises.rm(dir, { recursive: true, force: true })
+        }
+    })
+})
+
 describe('directory log ingestion lifecycle', () => {
     it('does not reread entries after the active log is renamed during rotation', async () => {
         const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'nginx-analytics-'))

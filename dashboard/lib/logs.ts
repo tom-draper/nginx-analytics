@@ -347,21 +347,23 @@ export async function readErrorLogDirectly(filePath: string, position: number): 
     try {
         // Read file directly as utf8 text
         const content = await fs.promises.readFile(filePath, { encoding: 'utf8' });
+        const contentBytes = Buffer.byteLength(content, 'utf8');
 
         // If position is beyond content length, nothing new to read
-        if (position >= content.length) {
+        if (position >= contentBytes) {
             return { logs: [], positions: [{ position }] };
         }
 
-        // Get new content from position
-        const newContent = content.substring(position);
+        // Positions are byte offsets, so slice the UTF-8 buffer rather than the
+        // JavaScript string (whose indexes are UTF-16 code units).
+        const newContent = Buffer.from(content, 'utf8').subarray(position).toString('utf8');
 
         // Split into lines and filter out empty lines
         const lines = newContent.split('\n').filter(line => line.trim() !== '');
 
         return {
             logs: lines,
-            positions: [{ position: content.length }]
+            positions: [{ position: contentBytes }]
         };
     } catch (error) {
         console.error(`Error reading error log directly: ${filePath}`, error);
