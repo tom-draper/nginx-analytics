@@ -217,6 +217,25 @@ describe('parsePositionsFromRequest', () => {
         })
         expect(parsePositionsFromRequest(params)).toEqual([])
     })
+
+    it('returns an empty array when JSON is not an array', () => {
+        const params = new URLSearchParams({ positions: JSON.stringify({ position: 10 }) })
+        expect(parsePositionsFromRequest(params)).toEqual([])
+    })
+
+    it('filters invalid positions while preserving valid entries', () => {
+        const valid: FilePosition = { filename: 'access.log', position: 10, fileId: '1:2' }
+        const params = new URLSearchParams({
+            positions: JSON.stringify([
+                valid,
+                { filename: 'access.log', position: -1 },
+                { filename: 'access.log', position: 1.5 },
+                { filename: 123, position: 10 },
+                null,
+            ])
+        })
+        expect(parsePositionsFromRequest(params)).toEqual([valid])
+    })
 })
 
 describe('readLogFile', () => {

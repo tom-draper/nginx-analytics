@@ -41,11 +41,33 @@ export function parsePositionsFromRequest(searchParams: URLSearchParams): FilePo
     }
 
     try {
-        return JSON.parse(decodeURIComponent(positionParam));
+        return parseFilePositions(positionParam);
     } catch (error) {
-        console.error("Failed to parse positions:", error);
-        return [];
+        // URLSearchParams normally decodes the value already. Retain support for
+        // callers that encoded the JSON before adding it to URLSearchParams.
+        try {
+            return parseFilePositions(decodeURIComponent(positionParam));
+        } catch {
+            console.error("Failed to parse positions:", error);
+            return [];
+        }
     }
+}
+
+function parseFilePositions(value: string): FilePosition[] {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isFilePosition);
+}
+
+function isFilePosition(value: unknown): value is FilePosition {
+    if (typeof value !== 'object' || value === null) return false;
+    const { filename, position, fileId } = value as Record<string, unknown>;
+    return typeof position === 'number'
+        && Number.isSafeInteger(position)
+        && position >= 0
+        && (filename === undefined || (typeof filename === 'string' && filename.length > 0))
+        && (fileId === undefined || typeof fileId === 'string');
 }
 
 /**
