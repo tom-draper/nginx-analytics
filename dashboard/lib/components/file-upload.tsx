@@ -2,6 +2,7 @@
 
 import { useState, useRef, Dispatch, SetStateAction } from "react";
 import * as pako from "pako";
+import Image from 'next/image';
 
 export default function FileUpload({
 	setAccessLogs,
@@ -188,7 +189,7 @@ export default function FileUpload({
 				<div className="p-8 pointer-events-auto">
 					<div className="flex flex-col items-center mb-8">
 						<div className="p-3 mb-4">
-							<img src="/logo.svg" alt="" className="h-14" />
+                            <Image src="/logo.svg" alt="" width={56} height={56} className="h-14 w-auto" />
 						</div>
 						<h1 className="text-xl font-bold text-gray-800 dark:text-white">
 							NGINX Analytics

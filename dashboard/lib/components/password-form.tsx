@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function PasswordForm() {
 	const [password, setPassword] = useState('');
@@ -44,7 +45,7 @@ export default function PasswordForm() {
 				<div className="p-8 pointer-events-auto">
 					<div className="flex flex-col items-center mb-8">
 						<div className="p-3 mb-4">
-							<img src="logo.svg" alt="Nginx Analytics Logo" className="h-14" />
+                            <Image src="/logo.svg" alt="NGINX Analytics logo" width={56} height={56} className="h-14 w-auto" />
 						</div>
 						<h1 className="text-xl font-bold text-gray-800 dark:text-white">NGINX Analytics</h1>
 						{/* <p className="mt-2 text-gray-500 dark:text-gray-400 text-center">Please enter your password to access the dashboard</p> */}

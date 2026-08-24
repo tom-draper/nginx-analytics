@@ -2,12 +2,12 @@
 
 import { useRef, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { Shield, Zap, Globe as GlobeIcon, SlidersHorizontal, Server, FileText } from 'lucide-react';
 
 const Globe = dynamic(() => import('@/lib/components/globe'), { ssr: false });
 
 export default function TiltedGlobeSingleTarget() {
-	const [isGlobeVisible, setIsGlobeVisible] = useState(true);
 	const [scrollProgress, setScrollProgress] = useState(0);
 	const globeRef = useRef<HTMLDivElement>(null);
 	const contentStartRef = useRef<HTMLDivElement>(null);
@@ -21,7 +21,6 @@ export default function TiltedGlobeSingleTarget() {
 				const viewportHeight = window.innerHeight;
 
 				// Check if globe section is still visible
-				setIsGlobeVisible(globeRect.bottom > 0);
 
 				// Calculate scroll progress for parallax effect (0 to 1)
 				const progress = Math.max(0, Math.min(1, 1 - (contentStartPosition / viewportHeight)));
@@ -42,7 +41,7 @@ export default function TiltedGlobeSingleTarget() {
 			{/* Fixed navbar */}
 			<nav className="fixed top-0 left-0 right-0 z-50 py-6 px-6 flex text-center font-semibold text-[#3f3f3f] bg-[var(--background)] bg-opacity-80 backdrop-blur-sm">
 				<div>
-					<img src="/logo.svg" alt="Logo" className="h-8" />
+					<Image src="/logo.svg" alt="Logo" width={32} height={32} className="h-8 w-auto" />
 				</div>
 				<div className="mx-4 mr-8 my-auto text-[16px]">NGINX Analytics</div>
 				<div className="my-auto ml-auto">
@@ -110,9 +109,11 @@ export default function TiltedGlobeSingleTarget() {
 				<div className="w-full flex flex-col items-center justify-start">
 
 					{/* Dashboard screenshot */}
-					<img
+					<Image
 						src="/dashboard.png"
 						alt="NGINX Analytics dashboard showing request traffic, geographic distribution, and endpoint performance"
+						width={1280}
+						height={720}
 						className="w-4/5 max-w-6xl rounded border-[var(--border-color)] border"
 						style={{
 							transform: 'perspective(1000px) rotateX(1deg) scale(0.98)',
