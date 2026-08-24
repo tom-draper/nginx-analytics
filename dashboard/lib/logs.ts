@@ -12,7 +12,11 @@ export const readdir = promisify(fs.readdir);
 export const stat = promisify(fs.stat);
 export const gunzip = promisify(zlib.gunzip);
 
-// Cache for decompressed gz files, keyed by file path
+const LOG_READ_CONCURRENCY = 8;
+const MAX_GZ_CACHE_ENTRIES = 8;
+const MAX_GZ_CACHE_BYTES = 5 * 1024 * 1024;
+
+// Small LRU cache for decompressed archives, keyed by file path.
 const gzCache = new Map<string, { mtime: number; result: LogResult }>();
 
 export const isAccessDir = isDir(nginxAccessPath);
@@ -124,8 +128,10 @@ export async function serveDirectoryLogs(
         const filePositions = initializeFilePositions(logFiles, positions, fileIds);
 
         // Read logs from all files
-        const logsResult = await Promise.all(
-            filePositions.map(filePos => {
+        const logsResult = await mapWithConcurrency(
+            filePositions,
+            LOG_READ_CONCURRENCY,
+            filePos => {
                 if (!filePos.filename) {
                     return { logs: [], positions: [] };
                 }
@@ -139,7 +145,7 @@ export async function serveDirectoryLogs(
 
                 const fullPath = path.join(resolvedPath, filePos.filename);
                 return readLogFile(fullPath, filePos.position);
-            })
+            }
         );
 
         // Combine results
@@ -238,13 +244,32 @@ export function combineLogResults(
 }
 
 async function getFileIds(dirPath: string, filenames: string[]): Promise<Map<string, string>> {
-    const identities = await Promise.all(filenames.map(async filename => {
+    const identities = await mapWithConcurrency(filenames, LOG_READ_CONCURRENCY, async filename => {
         if (filename.endsWith('.gz')) return [filename, undefined] as const;
         const details = await stat(path.join(dirPath, filename));
         const fileId = details.ino === 0 ? undefined : `${details.dev}:${details.ino}`;
         return [filename, fileId] as const;
-    }));
+    });
     return new Map(identities.filter((entry): entry is [string, string] => entry[1] !== undefined));
+}
+
+async function mapWithConcurrency<T, R>(
+    items: T[],
+    concurrency: number,
+    callback: (item: T) => Promise<R> | R
+): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    let nextIndex = 0;
+
+    const worker = async () => {
+        while (nextIndex < items.length) {
+            const index = nextIndex++;
+            results[index] = await callback(items[index]);
+        }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+    return results;
 }
 
 /**
@@ -354,8 +379,12 @@ export async function readGzippedLogFile(filePath: string): Promise<LogResult> {
 
         const cached = gzCache.get(filePath);
         if (cached && cached.mtime === mtime) {
+            // Refresh the entry's recency in the LRU cache.
+            gzCache.delete(filePath);
+            gzCache.set(filePath, cached);
             return cached.result;
         }
+        gzCache.delete(filePath);
 
         // Read and decompress the entire file
         const fileBuffer = await fs.promises.readFile(filePath);
@@ -370,7 +399,13 @@ export async function readGzippedLogFile(filePath: string): Promise<LogResult> {
             positions: [{ position: 0 }]
         };
 
-        gzCache.set(filePath, { mtime, result });
+        if (decompressed.byteLength <= MAX_GZ_CACHE_BYTES) {
+            if (gzCache.size >= MAX_GZ_CACHE_ENTRIES) {
+                const oldestPath = gzCache.keys().next().value;
+                if (oldestPath) gzCache.delete(oldestPath);
+            }
+            gzCache.set(filePath, { mtime, result });
+        }
         return result;
     } catch (error) {
         console.error(`Error reading gzipped file ${filePath}:`, error);

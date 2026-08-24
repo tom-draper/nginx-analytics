@@ -17,6 +17,7 @@ import (
 )
 
 const maxLogLineSize = 10 * 1024 * 1024
+const maxConcurrentFileReads = 8
 
 type Position struct {
 	Position int64  `json:"position"`
@@ -244,42 +245,51 @@ func GetDirectoryLogs(dirPath string, positions []Position, isErrorLog bool, inc
 	results := make([]fileResult, len(filePositions))
 	var wg sync.WaitGroup
 
-	for i, filePos := range filePositions {
-		isGzFile := strings.HasSuffix(filePos.Filename, ".gz")
-		if isGzFile && !includeCompressed {
-			continue
-		}
-
+	workers := min(maxConcurrentFileReads, len(filePositions))
+	jobs := make(chan int)
+	for worker := 0; worker < workers; worker++ {
 		wg.Add(1)
-		go func(idx int, fp Position) {
+		go func() {
 			defer wg.Done()
-			fullPath := filepath.Join(dirPath, fp.Filename)
-			isGz := strings.HasSuffix(fp.Filename, ".gz")
-
-			var result LogResult
-			var err error
-			if isGz {
-				result, err = readCompressedLogFile(fullPath)
-			} else {
-				result, err = readLogFile(fullPath, fp.Position)
-			}
-			if err != nil {
-				logger.Log.Printf("Error reading file %s: %v", fullPath, err)
-				return
-			}
-
-			r := fileResult{logs: result.Logs}
-			if !strings.HasSuffix(fp.Filename, ".gz") {
-				var pos int64
-				if len(result.Positions) > 0 {
-					pos = result.Positions[0].Position
+			for i := range jobs {
+				filePos := filePositions[i]
+				isGzFile := strings.HasSuffix(filePos.Filename, ".gz")
+				if isGzFile && !includeCompressed {
+					continue
 				}
-				r.position = Position{Filename: fp.Filename, Position: pos, FileID: fp.FileID}
-				r.hasPos = true
+
+				fullPath := filepath.Join(dirPath, filePos.Filename)
+				isGz := strings.HasSuffix(filePos.Filename, ".gz")
+
+				var result LogResult
+				var err error
+				if isGz {
+					result, err = readCompressedLogFile(fullPath)
+				} else {
+					result, err = readLogFile(fullPath, filePos.Position)
+				}
+				if err != nil {
+					logger.Log.Printf("Error reading file %s: %v", fullPath, err)
+					continue
+				}
+
+				r := fileResult{logs: result.Logs}
+				if !strings.HasSuffix(filePos.Filename, ".gz") {
+					var pos int64
+					if len(result.Positions) > 0 {
+						pos = result.Positions[0].Position
+					}
+					r.position = Position{Filename: filePos.Filename, Position: pos, FileID: filePos.FileID}
+					r.hasPos = true
+				}
+				results[i] = r
 			}
-			results[idx] = r
-		}(i, filePos)
+		}()
 	}
+	for i := range filePositions {
+		jobs <- i
+	}
+	close(jobs)
 
 	wg.Wait()
 
