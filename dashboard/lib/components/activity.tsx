@@ -4,7 +4,7 @@ import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, To
 import { useEffect, useMemo, useRef, useState, memo } from "react";
 import { Bar } from "react-chartjs-2";
 import 'chartjs-adapter-date-fns';
-import { Period, periodStart } from "@/lib/period";
+import { Period } from "@/lib/period";
 
 ChartJS.register(
     BarElement,
@@ -25,7 +25,7 @@ const getSuccessRateLevel = (successRate: number | null) => {
 function Activity({
     activityBuckets,
     activityRateBuckets,
-    timeUnit,
+    timeUnit: _timeUnit,
     step,
     periodLabels,
     period,

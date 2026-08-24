@@ -22,7 +22,6 @@ import { SystemResources } from "@/lib/components/system/system-resources";
 import { generateNginxLogs } from "@/lib/demo";
 import { NginxLog } from "@/lib/types";
 import Errors from "@/lib/components/errors";
-import LiveGlobeCard from "@/lib/components/live-globe-card";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
@@ -209,7 +208,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         };
 
         return () => worker.terminate();
-    }, []);
+    }, [setPeriod]);
 
     useEffect(() => {
         const worker = new Worker(new URL('../workers/aggregate.worker.ts', import.meta.url));
@@ -282,7 +281,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
         batchIdRef.current++;
         workerRef.current.postMessage({ logs: newRawLogs, logFormat, batchId: batchIdRef.current, isFirstBatch });
-    }, [accessLogs]);
+    }, [accessLogs, logFormat]);
 
     // Keep a pre-serialized locationMap so we only pay the serialization cost when
     // locationMap actually changes — not on every filter/settings change.

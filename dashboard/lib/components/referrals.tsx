@@ -2,11 +2,6 @@
 
 import { useMemo, memo } from "react";
 
-type Referral = {
-    referrer: string
-    count: number
-}
-
 export const Referrals = memo(function Referrals({ referrerCounts, filterReferrer, setFilterReferrer }: { referrerCounts: Map<string, number>, filterReferrer: string | null, setFilterReferrer: (referrer: string | null) => void }) {
     const referrals = useMemo(() => {
         return Array.from(referrerCounts.entries())

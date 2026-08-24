@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { periodStart, getPeriodRange, hoursInRange, getDateRange, type Period } from '../period'
+import { periodStart, getPeriodRange, hoursInRange, getDateRange } from '../period'
 import type { NginxLog } from '../types'
 
 // ---------------------------------------------------------------------------

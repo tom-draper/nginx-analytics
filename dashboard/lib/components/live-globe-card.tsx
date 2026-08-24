@@ -79,7 +79,6 @@ export default function LiveGlobeCard({ logs, locationMap }: Props) {
         }
 
         pendingRef.current.push(...stillPending);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [logs]);
 
     // When locationMap grows, retry any pending logs (enqueue immediately —
@@ -97,7 +96,6 @@ export default function LiveGlobeCard({ logs, locationMap }: Props) {
             }
         }
         pendingRef.current = stillPending;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [locationMap]);
 
     // Drain the queue at a steady rate so beacons appear spread out

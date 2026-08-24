@@ -8,7 +8,7 @@ const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 export const Location = memo(function Location({
     unknownIPs,
     locationCounts,
-    locationMap,
+    locationMap: _locationMap,
     setLocationMap,
     filterLocation,
     setFilterLocation,
@@ -108,7 +108,7 @@ export const Location = memo(function Location({
         };
 
         fetchData();
-    }, [unknownIPs, noFetch, demo, endpointDisabled]);
+    }, [unknownIPs, noFetch, demo, endpointDisabled, setLocationMap]);
 
     const locations = useMemo(() => {
         return Object.entries(locationCounts).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count, city: '' }));
