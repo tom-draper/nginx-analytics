@@ -1,7 +1,7 @@
 "use client";
 
 import { Chart as ChartJS, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend, ChartData } from "chart.js";
-import { useMemo, useRef, memo } from "react";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
 import { Bar } from "react-chartjs-2";
 import 'chartjs-adapter-date-fns';
 import { Period, periodStart } from "@/lib/period";
@@ -40,6 +40,17 @@ function Activity({
     dataReady:           boolean;
 }) {
     const stripRef = useRef<HTMLDivElement>(null);
+    const [now, setNow] = useState<number | null>(null);
+
+    useEffect(() => {
+        const updateNow = () => setNow(Date.now());
+        const initialUpdate = setTimeout(updateNow, 0);
+        const interval = setInterval(updateNow, Math.min(step, 60_000));
+        return () => {
+            clearTimeout(initialUpdate);
+            clearInterval(interval);
+        };
+    }, [step]);
 
     // After each Chart.js layout pass, mirror chartArea.left / right as padding on
     // the strip so the rate divs always align with the bars regardless of how much
@@ -91,7 +102,7 @@ function Activity({
             : undefined;
         const xMax = period === 'all time'
             ? (activityBuckets.length > 0 ? activityBuckets[activityBuckets.length - 1].ts : undefined)
-            : Math.floor(Date.now() / step) * step;
+            : (now === null ? undefined : Math.floor(now / step) * step);
 
         const plotOptions: object = {
             scales: {
@@ -131,7 +142,7 @@ function Activity({
         });
 
         return { plotData, plotOptions, successRates };
-    }, [activityBuckets, activityRateBuckets, step, period]);
+    }, [activityBuckets, activityRateBuckets, step, period, now]);
 
 
     return (

@@ -76,11 +76,9 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     // UsageDay/UsageTime layout and counts always update in the same render.
     const [displayDayOfWeek, setDisplayDayOfWeek] = useState<number | null>(null);
     const dayOfWeekRef = useRef<number | null>(null);
-    dayOfWeekRef.current = filter.dayOfWeek;
 
     const [displayHour, setDisplayHour] = useState<number | null>(null);
     const hourRef = useRef<number | null>(null);
-    hourRef.current = filter.hour;
 
     const [dataReady, setDataReady] = useState(false);
     const dataReadyRef = useRef(false);
@@ -169,6 +167,11 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const workerRef = useRef<Worker | null>(null);
     const filterVersionRef = useRef(0);
     const aggregateWorkerRef = useRef<Worker | null>(null);
+
+    useEffect(() => {
+        dayOfWeekRef.current = filter.dayOfWeek;
+        hourRef.current = filter.hour;
+    }, [filter.dayOfWeek, filter.hour]);
 
     useEffect(() => {
         const worker = new Worker(new URL('../workers/parse.worker.ts', import.meta.url));
@@ -326,7 +329,8 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             const endDate = new Date();
             const startDate = new Date(endDate);
             startDate.setFullYear(startDate.getFullYear() - 1);
-            setAccessLogs(generateNginxLogs({ format: 'extended', count: 120000, startDate, endDate }));
+            const initialLogs = generateNginxLogs({ format: 'extended', count: 120000, startDate, endDate });
+            const initialLoad = setTimeout(() => setAccessLogs(initialLogs), 0);
 
             // Simulate real-time polling: append a small batch of fresh logs every 30s,
             // matching the same interval used by the live dashboard.
@@ -338,7 +342,10 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 setAccessLogs(prev => [...prev, ...newLogs]);
             }, 30000);
 
-            return () => clearInterval(interval);
+            return () => {
+                clearTimeout(initialLoad);
+                clearInterval(interval);
+            };
         }
 
         // Store positions in a closure variable within the effect

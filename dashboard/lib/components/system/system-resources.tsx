@@ -35,7 +35,6 @@ export function SystemResources({ demo }: { demo: boolean }) {
     useEffect(() => {
         if (demo) {
             const data: SystemInfo = generateSystemProfile();
-            setResources(data);
 
             const updateUsage = () => {
                 const updatedData = updateSystemUsage(data);
@@ -47,9 +46,12 @@ export function SystemResources({ demo }: { demo: boolean }) {
                 ));
             }
 
-            updateUsage();
+            const initialUpdate = setTimeout(updateUsage, 0);
             const interval = setInterval(updateUsage, 2000);
-            return () => clearInterval(interval);
+            return () => {
+                clearTimeout(initialUpdate);
+                clearInterval(interval);
+            };
         }
 
         const fetchData = async () => {
@@ -84,9 +86,8 @@ export function SystemResources({ demo }: { demo: boolean }) {
 
     useEffect(() => {
         if (demo) {
-            const logSizes = generateRandomLogSizes();
-            setLogSizes(logSizes);
-            return;
+            const initialLoad = setTimeout(() => setLogSizes(generateRandomLogSizes()), 0);
+            return () => clearTimeout(initialLoad);
         }
 
         const fetchData = async () => {

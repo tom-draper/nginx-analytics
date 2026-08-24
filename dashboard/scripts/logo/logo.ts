@@ -1,5 +1,5 @@
-const fs = require('fs');
-const xmlbuilder = require('xmlbuilder');
+import fs from 'node:fs';
+import xmlbuilder from 'xmlbuilder';
 
 const highlight = 'rgb(26, 240, 115)';
 const background = 'currentColor'

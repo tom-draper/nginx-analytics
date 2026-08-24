@@ -60,6 +60,14 @@ const dateFormatter = new Intl.DateTimeFormat('default', {
     second: '2-digit'
 });
 
+function getUrl(positions: { filename: string; position: number }[] | null, includeCompressed: boolean) {
+    let url = `/api/logs/error?includeCompressed=${includeCompressed}`;
+    if (positions) {
+        url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
+    }
+    return url;
+}
+
 // Error row component
 const ErrorRow = ({
     error,
@@ -242,17 +250,6 @@ export default function Errors({
         const interval = setInterval(fetchErrors, 30000);
         return () => { clearInterval(interval) };
     }, [setErrorLogs, noFetch, demo]);
-
-    const getUrl = (positions: {
-        filename: string;
-        position: number;
-    }[] | null, includeCompressed: boolean) => {
-        let url = `/api/logs/error?includeCompressed=${includeCompressed}`;
-        if (positions) {
-            url += `&positions=${encodeURIComponent(JSON.stringify(positions))}`;
-        }
-        return url;
-    }
 
     // Get unique severity levels for filter buttons
     const severityLevels = useMemo(() => {

@@ -24,6 +24,7 @@ export default function LivePage() {
     const [events, setEvents] = useState<LiveEvent[]>([]);
     const [reqCount, setReqCount] = useState(0);
     const [status, setStatus] = useState<'connecting' | 'live' | 'error'>('connecting');
+    const [queueDepth, setQueueDepth] = useState(0);
 
     const positionsRef = useRef<Array<{ filename: string; position: number }> | null>(null);
     const includeCompressedRef = useRef(true);
@@ -35,6 +36,7 @@ export default function LivePage() {
         const interval = setInterval(() => {
             if (eventQueueRef.current.length > 0) {
                 const event = eventQueueRef.current.shift()!;
+                setQueueDepth(eventQueueRef.current.length);
                 setEvents(prev => {
                     // Keep state bounded — the globe only needs recent unprocessed events
                     const trimmed = prev.length > 2000 ? prev.slice(-1000) : prev;
@@ -111,15 +113,21 @@ export default function LivePage() {
             }
 
             eventQueueRef.current.push(...newEvents);
+            setQueueDepth(eventQueueRef.current.length);
         } catch {
             setStatus('error');
         }
     }, []);
 
     useEffect(() => {
-        fetchAndEnqueue();
+        // Schedule the initial request after the effect has committed. This avoids
+        // an unnecessary synchronous state update during the effect itself.
+        const initialFetch = setTimeout(() => void fetchAndEnqueue(), 0);
         const interval = setInterval(fetchAndEnqueue, POLL_INTERVAL);
-        return () => clearInterval(interval);
+        return () => {
+            clearTimeout(initialFetch);
+            clearInterval(interval);
+        };
     }, [fetchAndEnqueue]);
 
     return (
@@ -175,9 +183,9 @@ export default function LivePage() {
             </div>
 
             {/* Queue depth indicator (only visible when there's a backlog) */}
-            {eventQueueRef.current.length > 10 && (
+            {queueDepth > 10 && (
                 <div className="absolute bottom-6 right-6 text-[#99a1af] text-xs z-10">
-                    {eventQueueRef.current.length} queued
+                    {queueDepth} queued
                 </div>
             )}
         </div>
