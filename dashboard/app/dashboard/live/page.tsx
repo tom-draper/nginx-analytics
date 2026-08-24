@@ -30,6 +30,7 @@ export default function LivePage() {
     const includeCompressedRef = useRef(true);
     const eventQueueRef = useRef<LiveEvent[]>([]);
     const eventIdRef = useRef(0);
+    const requestInFlightRef = useRef(false);
 
     // Drain the queue at a fixed rate so beacons appear spread out over the interval
     useEffect(() => {
@@ -48,6 +49,8 @@ export default function LivePage() {
     }, []);
 
     const fetchAndEnqueue = useCallback(async () => {
+        if (requestInFlightRef.current) return;
+        requestInFlightRef.current = true;
         try {
             let url = `/api/logs/access?includeCompressed=${includeCompressedRef.current}`;
             if (positionsRef.current) {
@@ -116,6 +119,8 @@ export default function LivePage() {
             setQueueDepth(eventQueueRef.current.length);
         } catch {
             setStatus('error');
+        } finally {
+            requestInFlightRef.current = false;
         }
     }, []);
 

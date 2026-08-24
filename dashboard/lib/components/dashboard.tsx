@@ -350,8 +350,11 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
         // Store positions in a closure variable within the effect
         let positions: Array<{ filename: string, position: number }> | null = null;
         let includeCompressed = true
+        let requestInFlight = false;
 
         const fetchLogs = async () => {
+            if (requestInFlight) return;
+            requestInFlight = true;
             try {
                 const url = getUrl(positions, includeCompressed);
                 const response = await fetch(url);
@@ -379,6 +382,8 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                 }
             } catch (error) {
                 console.error("Error fetching logs:", error);
+            } finally {
+                requestInFlight = false;
             }
         };
 

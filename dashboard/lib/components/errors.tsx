@@ -206,8 +206,11 @@ export default function Errors({
 
         let positions: Array<{ filename: string, position: number }> | null = null;
         let includeCompressed = true;
+        let requestInFlight = false;
 
         const fetchErrors = async () => {
+            if (requestInFlight) return;
+            requestInFlight = true;
             setIsLoading(true);
             setFetchError(null);
 
@@ -241,9 +244,10 @@ export default function Errors({
             } catch (error) {
                 console.error("Error fetching error logs:", error);
                 setFetchError("Network error occurred while fetching logs");
+            } finally {
+                requestInFlight = false;
+                setIsLoading(false);
             }
-
-            setIsLoading(false);
         };
 
         fetchErrors();

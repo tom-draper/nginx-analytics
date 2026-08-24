@@ -55,6 +55,8 @@ export function SystemResources({ demo }: { demo: boolean }) {
         }
 
         const fetchData = async () => {
+            if (requestInFlight) return;
+            requestInFlight = true;
             setLoadingResources(true);
             try {
                 const response = await fetch(`/api/system`);
@@ -75,10 +77,13 @@ export function SystemResources({ demo }: { demo: boolean }) {
                 ));
             } catch (error) {
                 console.error("Error fetching system resources:", error);
+            } finally {
+                requestInFlight = false;
+                setLoadingResources(false);
             }
-            setLoadingResources(false);
         };
 
+        let requestInFlight = false;
         fetchData();
         const interval = setInterval(fetchData, systemMonitoringInterval);
         return () => clearInterval(interval);
@@ -91,6 +96,8 @@ export function SystemResources({ demo }: { demo: boolean }) {
         }
 
         const fetchData = async () => {
+            if (requestInFlight) return;
+            requestInFlight = true;
             setLoadingLogSizes(true);
             try {
                 const response = await fetch(`/api/system/logs`);
@@ -108,10 +115,13 @@ export function SystemResources({ demo }: { demo: boolean }) {
                 setLogSizes(data);
             } catch (error) {
                 console.error("Error fetching log sizes:", error);
+            } finally {
+                requestInFlight = false;
+                setLoadingLogSizes(false);
             }
-            setLoadingLogSizes(false);
         };
 
+        let requestInFlight = false;
         fetchData();
         const interval = setInterval(fetchData, 600_000); // 10 minute interval
         return () => clearInterval(interval);
