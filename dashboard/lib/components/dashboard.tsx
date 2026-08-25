@@ -20,6 +20,7 @@ import { Referrals } from "@/lib/components/referrals";
 import { ResponseSize } from "@/lib/components/response-size";
 import { SystemResources } from "@/lib/components/system/system-resources";
 import { generateNginxLogs } from "@/lib/demo";
+import { parseNginxLogs } from "@/lib/parse";
 import { NginxLog } from "@/lib/types";
 import Errors from "@/lib/components/errors";
 import LiveGlobeCard from "@/lib/components/live-globe-card";
@@ -43,6 +44,18 @@ function mergeSorted(a: NginxLog[], b: NginxLog[]): NginxLog[] {
     while (i < a.length) result[k++] = a[i++];
     while (j < b.length) result[k++] = b[j++];
     return result;
+}
+
+// Approximates a Poisson draw for small rates — consumes the rate in up-to-1
+// chunks so e.g. rate=2.5 reliably yields 2 or 3, rate=0.08 yields 1 about 8% of the time.
+function samplePollCount(rate: number): number {
+    let count = 0;
+    let remaining = rate;
+    while (remaining > 0) {
+        if (Math.random() < Math.min(remaining, 1)) count++;
+        remaining -= 1;
+    }
+    return count;
 }
 
 function getUrl(positions: { filename: string; position: number }[] | null, includeCompressed: boolean) {
@@ -338,12 +351,22 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
             const initialLogs = generateNginxLogs({ format: 'extended', count: 120000, startDate, endDate });
             const initialLoad = setTimeout(() => setAccessLogs(initialLogs), 0);
 
+            // Derive the live-poll rate from the tail of the generated history (the last
+            // hour's actual pace) so simulated live requests continue the same curve
+            // instead of jumping to an unrelated fixed volume once polling starts.
+            const recentCutoff = endDate.getTime() - 3600_000;
+            const recentCount = parseNginxLogs(initialLogs.slice(-3000)).filter(
+                log => log.timestamp !== null && log.timestamp >= recentCutoff
+            ).length;
+            const pollRate = recentCount / 120; // expected requests per 30s poll
+
             // Simulate real-time polling: append a small batch of fresh logs every 30s,
-            // matching the same interval used by the live dashboard.
+            // matching the same interval used by the live dashboard and the historical pace.
             const interval = setInterval(() => {
                 const pollEnd = new Date();
                 const pollStart = new Date(pollEnd.getTime() - 30000);
-                const count = Math.floor(Math.random() * 16) + 5; // 5–20 requests per poll
+                const count = samplePollCount(pollRate);
+                if (count === 0) return;
                 const newLogs = generateNginxLogs({ format: 'extended', count, startDate: pollStart, endDate: pollEnd });
                 setAccessLogs(prev => [...prev, ...newLogs]);
             }, 30000);
