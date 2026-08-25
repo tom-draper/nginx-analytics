@@ -165,3 +165,5 @@ NGINX_ANALYTICS_PASSWORD=mypassword
 ```
 
 Password protection covers dashboard pages and dashboard API routes. Successful sign-in issues an HTTP-only, same-site, signed session cookie that expires after one hour. Serve the dashboard over HTTPS in production.
+
+Password protection has no effect when the dashboard is run in drag-and-drop file upload mode, since no server URL or log paths are configured for it to protect.
