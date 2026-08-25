@@ -19,14 +19,18 @@ const DISPATCH_INTERVAL_MS = 200; // 5/second
 // the same cadence they originally occurred rather than all at once.
 const REPLAY_WINDOW_MS = 30_000; // matches poll interval
 
+// Cap events per batch — keeps the globe readable if a single poll ever
+// returns an unusually large burst.
+const MAX_EVENTS_PER_BATCH = 120;
+
 interface Props {
+    // The latest parsed batch only, not the cumulative log history.
     logs: NginxLog[];
     locationMap: Map<string, Location>;
 }
 
 export default function LiveGlobeCard({ logs, locationMap }: Props) {
     const [events, setEvents] = useState<LiveEvent[]>([]);
-    const processedRef = useRef(0);
     // Logs whose IP wasn't in locationMap yet — retried on each locationMap update
     const pendingRef = useRef<NginxLog[]>([]);
     const eventQueueRef = useRef<LiveEvent[]>([]);
@@ -58,15 +62,21 @@ export default function LiveGlobeCard({ logs, locationMap }: Props) {
         }
     }, [enqueue]);
 
-    // When new logs arrive, resolve what we can, defer the rest to pendingRef
+    // When a new batch arrives, resolve what we can, defer the rest to pendingRef
     useEffect(() => {
-        const newLogs = logs.slice(processedRef.current);
-        processedRef.current = logs.length;
+        if (logs.length === 0) return;
 
         const cutoff = Date.now() - RECENT_WINDOW_MS;
         const stillPending: NginxLog[] = [];
 
-        for (const log of newLogs) {
+        // Sample down if the batch is unusually large — keeps the globe readable
+        let batch = logs;
+        if (batch.length > MAX_EVENTS_PER_BATCH) {
+            const step = batch.length / MAX_EVENTS_PER_BATCH;
+            batch = batch.filter((_, i) => Math.round(i % step) === 0).slice(0, MAX_EVENTS_PER_BATCH);
+        }
+
+        for (const log of batch) {
             // Skip historical data — only show recent requests
             if (!log.timestamp || log.timestamp < cutoff) continue;
 

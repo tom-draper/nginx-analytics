@@ -22,6 +22,7 @@ import { SystemResources } from "@/lib/components/system/system-resources";
 import { generateNginxLogs } from "@/lib/demo";
 import { NginxLog } from "@/lib/types";
 import Errors from "@/lib/components/errors";
+import LiveGlobeCard from "@/lib/components/live-globe-card";
 import { Settings } from "@/lib/components/settings";
 import { type Settings as SettingsType, newSettings } from "@/lib/settings";
 import { exportCSV } from "@/lib/export";
@@ -83,6 +84,9 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
     const dataReadyRef = useRef(false);
 
     const logsRef = useRef<NginxLog[]>([]);
+    // Latest parsed batch only (not the cumulative log history) — feeds LiveGlobeCard
+    // without holding the full log set in reactive state.
+    const [liveBatch, setLiveBatch] = useState<NginxLog[]>([]);
 
     const [aggregates, setAggregates] = useState({
         endpointCounts:   new Map<string, number>(),
@@ -198,6 +202,9 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
 
             // Merge sorted batch into logsRef synchronously (O(n) merge).
             logsRef.current = mergeSorted(logsRef.current, parsed);
+            // Skip the initial historical dump — LiveGlobeCard should only animate
+            // genuinely new requests that arrive after mount, not the full backlog.
+            if (!isFirstBatch) setLiveBatch(parsed);
 
             // Forward parsed batch to aggregate worker for incremental filter+aggregate
             aggregateWorkerRef.current?.postMessage({
@@ -542,7 +549,7 @@ export default function Dashboard({ fileUpload, demo, logFormat }: { fileUpload:
                                 <UsageTime hourCounts={hourCounts} filterHour={displayHour} setFilterHour={setHour} />
                                 <UsageDay dayCounts={dayCounts} filterDayOfWeek={displayDayOfWeek} setFilterDayOfWeek={setDayOfWeek} />
                                 <Errors errorLogs={errorLogs} setErrorLogs={setErrorLogs} period={filter.period} noFetch={fileUpload} demo={demo} />
-                                {/* <LiveGlobeCard logs={logs} locationMap={locationMap} /> */}
+                                <LiveGlobeCard logs={liveBatch} locationMap={locationMap} />
                             </div>
                             <div className="self-start order-first min-[1500px]:order-last max-[1500px]:w-full">
                                 <Referrals referrerCounts={referrerCounts} filterReferrer={filter.referrer} setFilterReferrer={setReferrer} />
