@@ -205,11 +205,14 @@ export default function LiveGlobe({ events }: Props) {
             camera.updateProjectionMatrix();
             renderer.setSize(container.clientWidth, container.clientHeight);
         };
-        window.addEventListener('resize', onResize);
+        // Container size can change from a sibling layout shift (e.g. the
+        // Referrals card populating) without a window resize event firing.
+        const resizeObserver = new ResizeObserver(onResize);
+        resizeObserver.observe(container);
 
         return () => {
             cancelAnimationFrame(animId);
-            window.removeEventListener('resize', onResize);
+            resizeObserver.disconnect();
             beaconsRef.current.forEach(b => {
                 b.core.geometry.dispose();
                 (b.core.material as MeshBasicMaterial).dispose();
