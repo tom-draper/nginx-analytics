@@ -98,6 +98,7 @@ type BucketFn = (ts: number) => number;
 const getDayId    = (ts: number) => Math.floor(ts / 86400000) * 86400000;
 const getHourId   = (ts: number) => Math.floor(ts / 3600000)  * 3600000;
 const get6HourId  = (ts: number) => Math.floor(ts / 21600000) * 21600000;
+const get15MinId  = (ts: number) => Math.floor(ts / 900000)   * 900000;
 const get5MinId   = (ts: number) => Math.floor(ts / 300000)   * 300000;
 const getMinuteId = (ts: number) => Math.floor(ts / 60000)    * 60000;
 
@@ -224,7 +225,7 @@ function updateBucketConfig(period: Period, rangeMs?: number) {
             currentTrendBucketFn    = getHourId;
             break;
         case '24 hours':
-            currentActivityBucketFn = get5MinId;  currentActivityStep = 300000;   currentTimeUnit = 'minute';
+            currentActivityBucketFn = get15MinId; currentActivityStep = 900000;   currentTimeUnit = 'minute';
             currentTrendBucketFn    = getHourId;
             break;
         case 'week':
